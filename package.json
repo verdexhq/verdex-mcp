@@ -1,17 +1,21 @@
 {
   "name": "browser-bridge",
   "version": "1.0.0",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/mcp-server.js",
   "scripts": {
     "demo": "tsx src/demo.ts",
     "build": "tsc",
-    "start": "npm run build && node dist/demo.js"
+    "start": "npm run build && node dist/demo.js",
+    "mcp-server": "tsx src/mcp-server.ts",
+    "mcp-server:build": "npm run build && node dist/mcp-server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.16.0",
     "puppeteer": "^24.14.0"
   },
   "devDependencies": {

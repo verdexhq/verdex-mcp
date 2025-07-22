@@ -38,14 +38,31 @@ export class BrowserBridge {
   private page: Page | null = null;
 
   async initialize() {
-    this.browser = await puppeteer.launch({
-      headless: false,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    this.page = await this.browser.newPage();
+    // Only create browser if it doesn't exist
+    if (!this.browser) {
+      this.browser = await puppeteer.launch({
+        headless: false,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--start-maximized"],
+        defaultViewport: null, // This makes the page use full window size
+      });
+    }
+
+    // Ensure we have a page
+    if (!this.page) {
+      const pages = await this.browser.pages();
+      this.page = pages[0] || (await this.browser.newPage());
+    }
 
     // Inject our helper code that runs on every page
     await this.page.evaluateOnNewDocument(() => {
+      (window as any).__bridge = {
+        elements: new Map(),
+        counter: 0,
+      };
+    });
+
+    // Also inject on the current page immediately
+    await this.page.evaluate(() => {
       (window as any).__bridge = {
         elements: new Map(),
         counter: 0,
@@ -66,6 +83,13 @@ export class BrowserBridge {
     // Use Function constructor to avoid compilation issues
     const snapshotCode = `
       (() => {
+        // Ensure bridge exists
+        if (!window.__bridge) {
+          window.__bridge = {
+            elements: new Map(),
+            counter: 0,
+          };
+        }
         const bridge = window.__bridge;
         bridge.elements.clear();
         bridge.counter = 0;
@@ -216,8 +240,6 @@ export class BrowserBridge {
 
           let line = indent + "- " + role;
           if (name) line += ' "' + name + '"';
-
-          if (selector) line += " [" + selector + "]";
 
           const isInteractive =
             ["link", "button", "textbox", "checkbox", "radio", "select"].includes(
