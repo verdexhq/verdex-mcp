@@ -133,6 +133,20 @@ class BrowserMCPServer {
               properties: {},
             },
           },
+          {
+            name: "explore_element",
+            description: "Explore an element to generate stable selectors",
+            inputSchema: {
+              type: "object",
+              properties: {
+                ref: {
+                  type: "string",
+                  description: "Element reference ID (e.g., 'e1')",
+                },
+              },
+              required: ["ref"],
+            },
+          },
         ],
       };
     });
@@ -256,6 +270,29 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 {
                   type: "text",
                   text: "Browser closed successfully",
+                },
+              ],
+            };
+          }
+
+          case "explore_element": {
+            const { ref } = args as { ref: string };
+            const result = await this.bridge.explore(ref);
+            if (!result) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `Element ${ref} not found`,
+                  },
+                ],
+              };
+            }
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(result, null, 2),
                 },
               ],
             };

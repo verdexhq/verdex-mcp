@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+import { createSnapshot } from "./scripts/browser-scripts.js";
 export class BrowserBridge {
     browser = null;
     page = null;
@@ -40,208 +41,8 @@ export class BrowserBridge {
     async snapshot() {
         if (!this.page)
             throw new Error("Not initialized");
-        // Use Function constructor to avoid compilation issues
-        const snapshotCode = `
-      (() => {
-        // Ensure bridge exists
-        if (!window.__bridge) {
-          window.__bridge = {
-            elements: new Map(),
-            counter: 0,
-          };
-        }
-        const bridge = window.__bridge;
-        bridge.elements.clear();
-        bridge.counter = 0;
-
-        const lines = [];
-
-        // Helper functions
-        function getRole(el) {
-          const tagName = el.tagName.toLowerCase();
-          const type = el.getAttribute("type");
-
-          if (el.hasAttribute("role")) return el.getAttribute("role");
-
-          const roleMap = {
-            a: "link",
-            button: "button",
-            input: type === "submit" || type === "button" ? "button" : "textbox",
-            img: "image",
-            nav: "navigation",
-            main: "main",
-            header: "banner",
-            footer: "contentinfo",
-            aside: "complementary",
-            h1: "heading",
-            h2: "heading",
-            h3: "heading",
-            h4: "heading",
-            h5: "heading",
-            h6: "heading",
-            ul: "list",
-            ol: "list",
-            li: "listitem",
-            table: "table",
-            form: "form",
-            article: "article",
-            section: "section",
-          };
-
-          return roleMap[tagName] || "generic";
-        }
-
-        function getName(el) {
-          if (el.getAttribute("aria-label"))
-            return el.getAttribute("aria-label");
-          if (el.getAttribute("alt")) return el.getAttribute("alt");
-          if (el.getAttribute("title")) return el.getAttribute("title");
-
-          if (el.tagName === "INPUT") {
-            const placeholder = el.getAttribute("placeholder");
-            if (placeholder) return placeholder;
-
-            const id = el.id;
-            if (id) {
-              const label = document.querySelector('label[for="' + id + '"]');
-              if (label) return label.textContent ? label.textContent.trim() : "";
-            }
-          }
-
-          if (["A", "BUTTON"].includes(el.tagName)) {
-            return el.textContent ? el.textContent.trim() : "";
-          }
-
-          if (/^H[1-6]$/.test(el.tagName)) {
-            return el.textContent ? el.textContent.trim() : "";
-          }
-
-          return "";
-        }
-
-        function getBestSelector(el) {
-          const testId = el.getAttribute("data-testid");
-          if (testId) return "data-testid='" + testId + "'";
-
-          if (el.id && !/^[0-9]/.test(el.id) && el.id.length < 50) {
-            return "id='" + el.id + "'";
-          }
-
-          const ariaLabel = el.getAttribute("aria-label");
-          if (ariaLabel) return "aria-label='" + ariaLabel + "'";
-
-          if (el.tagName === "A" && el.getAttribute("href")) {
-            const href = el.getAttribute("href");
-            if (href && !href.startsWith("javascript:")) {
-              return "href='" + href + "'";
-            }
-          }
-
-          const role = getRole(el);
-          const name = getName(el);
-          if (role !== "generic" && name) {
-            return role + ' "' + name + '"';
-          }
-
-          return el.tagName.toLowerCase();
-        }
-
-        function shouldInclude(el) {
-          const style = window.getComputedStyle(el);
-          if (style.display === "none" || style.visibility === "hidden")
-            return false;
-
-          if (["SCRIPT", "STYLE", "NOSCRIPT"].includes(el.tagName)) return false;
-
-          const role = getRole(el);
-
-          if (["link", "button", "textbox", "checkbox", "radio"].includes(role))
-            return true;
-
-          if (role === "heading") return true;
-
-          if (el.hasAttribute("role")) return true;
-
-          if (["INPUT", "SELECT", "TEXTAREA", "FORM"].includes(el.tagName))
-            return true;
-
-          if (
-            [
-              "navigation",
-              "main",
-              "banner",
-              "contentinfo",
-              "complementary",
-            ].includes(role)
-          )
-            return true;
-
-          if (role === "generic" && ["DIV", "SPAN"].includes(el.tagName)) {
-            return (
-              el.hasAttribute("data-testid") || el.hasAttribute("aria-label")
-            );
-          }
-
-          return false;
-        }
-
-        function processElement(el, indent) {
-          indent = indent || "";
-          if (!shouldInclude(el)) {
-            Array.from(el.children).forEach(function(child) {
-              processElement(child, indent);
-            });
-            return;
-          }
-
-          const role = getRole(el);
-          const name = getName(el);
-          const selector = getBestSelector(el);
-
-          let line = indent + "- " + role;
-          if (name) line += ' "' + name + '"';
-
-          const isInteractive =
-            ["link", "button", "textbox", "checkbox", "radio", "select"].includes(
-              role
-            ) ||
-            ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(el.tagName);
-
-          if (isInteractive) {
-            const ref = "e" + (++bridge.counter);
-            line += " [ref=" + ref + "]";
-
-            bridge.elements.set(ref, {
-              element: el,
-              selector: selector,
-              role: role,
-              name: name,
-              attributes: {
-                id: el.id,
-                class: el.className,
-                href: el.getAttribute("href") || "",
-                type: el.getAttribute("type") || "",
-                "data-testid": el.getAttribute("data-testid") || "",
-              },
-            });
-          }
-
-          lines.push(line);
-
-          Array.from(el.children).forEach(function(child) {
-            processElement(child, indent + "  ");
-          });
-        }
-
-        processElement(document.body);
-
-        return {
-          text: lines.join("\\n"),
-          elementCount: bridge.elements.size,
-        };
-      })()
-    `;
-        return (await this.page.evaluate(snapshotCode));
+        // Convert function to string and execute
+        return await this.page.evaluate(createSnapshot);
     }
     async click(ref) {
         if (!this.page)
@@ -292,10 +93,13 @@ export class BrowserBridge {
             // Return a copy of the ElementInfo (excluding the actual DOM element for serialization)
             return {
                 element: null, // Can't serialize actual DOM elements
-                selector: info.selector,
+                tagName: info.tagName,
                 role: info.role,
                 name: info.name,
+                selector: info.selector,
                 attributes: info.attributes,
+                siblingIndex: info.siblingIndex,
+                parentRef: info.parentRef,
             };
         }, ref);
     }
@@ -312,11 +116,13 @@ export class BrowserBridge {
             return {
                 ref: ref,
                 element: info.element,
-                selector: info.selector,
+                tagName: info.tagName,
                 role: info.role,
                 name: info.name,
+                selector: info.selector,
                 attributes: info.attributes,
-                tagName: el.tagName,
+                siblingIndex: info.siblingIndex,
+                parentRef: info.parentRef,
                 text: el.textContent?.trim(),
                 visible: rect.width > 0 && rect.height > 0,
                 bounds: {
@@ -324,6 +130,28 @@ export class BrowserBridge {
                     y: rect.y,
                     width: rect.width,
                     height: rect.height,
+                },
+            };
+        }, ref);
+    }
+    async explore(ref) {
+        if (!this.page)
+            throw new Error("Not initialized");
+        return await this.page.evaluate((ref) => {
+            const bridge = window.__bridge;
+            const info = bridge.elements.get(ref);
+            if (!info)
+                return null;
+            return {
+                target: {
+                    ref: ref,
+                    tagName: info.tagName,
+                    role: info.role,
+                    name: info.name,
+                    selector: info.selector,
+                    attributes: info.allAttributes,
+                    siblingIndex: info.siblingIndex,
+                    parentRef: info.parentRef,
                 },
             };
         }, ref);
