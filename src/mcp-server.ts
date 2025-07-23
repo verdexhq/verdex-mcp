@@ -6,6 +6,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import type { AncestorInfo } from "./types.js";
 import { BrowserBridge } from "./browser-bridge.js";
 
 class BrowserMCPServer {
@@ -142,6 +143,21 @@ class BrowserMCPServer {
                 ref: {
                   type: "string",
                   description: "Element reference ID (e.g., 'e1')",
+                },
+              },
+              required: ["ref"],
+            },
+          },
+          {
+            name: "explore_ancestors",
+            description:
+              "Explore the ancestry chain of an element to understand DOM hierarchy and ref containment",
+            inputSchema: {
+              type: "object",
+              properties: {
+                ref: {
+                  type: "string",
+                  description: "Element reference ID (e.g., 'e1', 'e2')",
                 },
               },
               required: ["ref"],
@@ -293,6 +309,70 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 {
                   type: "text",
                   text: JSON.stringify(result, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "explore_ancestors": {
+            const { ref } = args as { ref: string };
+            const result = await this.bridge.explore_ancestors(ref);
+            if (!result) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `Element ${ref} not found`,
+                  },
+                ],
+              };
+            }
+
+            // Format the result for better readability
+            let output = `Ancestry analysis for element ${ref}:\n\n`;
+
+            // Target element info
+            output += `🎯 Target Element:\n`;
+            output += `   Tag: ${result.target.tagName}\n`;
+            output += `   Text: "${result.target.text}"\n\n`;
+
+            // Ancestors info
+            if (result.ancestors.length === 0) {
+              output += `📍 No ancestors found (element is direct child of body)\n`;
+            } else {
+              output += `📋 Ancestors (${result.ancestors.length} levels up):\n\n`;
+
+              result.ancestors.forEach(
+                (ancestor: AncestorInfo, index: number) => {
+                  output += `Level ${ancestor.level} (${ancestor.tagName}):\n`;
+                  output += `   Children: ${ancestor.childElements}\n`;
+
+                  if (Object.keys(ancestor.attributes).length > 0) {
+                    output += `   Attributes: ${JSON.stringify(
+                      ancestor.attributes
+                    )}\n`;
+                  }
+
+                  if (ancestor.containsRefs.length > 0) {
+                    output += `   Contains refs: ${ancestor.containsRefs.join(
+                      ", "
+                    )}\n`;
+                  } else {
+                    output += `   Contains refs: none\n`;
+                  }
+
+                  if (index < result.ancestors.length - 1) {
+                    output += `\n`;
+                  }
+                }
+              );
+            }
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: output,
                 },
               ],
             };

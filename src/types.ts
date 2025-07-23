@@ -26,10 +26,106 @@ export interface BridgeData {
 declare global {
   interface Window {
     __bridge: BridgeData;
+    __explorationHelpers?: {
+      getRelevantAttributes: (element: Element) => Attributes;
+      findContainedRefs: (container: Element) => string[];
+      extractMeaningfulTexts: (element: Element) => string[];
+    };
   }
 }
 
 export interface Snapshot {
   text: string;
   elementCount: number;
+}
+
+// =============================================================================
+// EXPLORATION TYPES - For understanding DOM structure and relationships
+// =============================================================================
+
+/**
+ * Filtered attributes that are most relevant for element identification and selection.
+ * These are the attributes we extract from DOM elements during exploration.
+ */
+export interface Attributes {
+  class?: string;
+  id?: string;
+  "data-testid"?: string;
+  role?: string;
+  "aria-label"?: string;
+}
+
+/**
+ * Information about an ancestor element in the DOM hierarchy.
+ * Includes both interactive and non-interactive elements.
+ */
+export interface AncestorInfo {
+  level: number; // How many levels up from target (1 = direct parent)
+  tagName: string;
+  attributes: Attributes; // Only relevant attributes, not all
+  childElements: number; // Total child element count
+  containsRefs: string[]; // Interactive element refs (e1, e2, etc.) contained within
+}
+
+/**
+ * Result of exploring an element's ancestry chain.
+ */
+export interface ExploreAncestorsResult {
+  target: {
+    ref: string; // Interactive element ref (e.g., "e1", "e2")
+    tagName: string;
+    text: string;
+  };
+  ancestors: AncestorInfo[];
+}
+
+/**
+ * Information about a sibling element at a specific hierarchy level.
+ */
+export interface SiblingInfo {
+  index: number; // Position among siblings of same type
+  tagName: string;
+  attributes: Attributes;
+  containsRefs: string[]; // Interactive element refs within this sibling
+  containsText: string[]; // Meaningful text content (headings, buttons, links)
+}
+
+/**
+ * Result of analyzing siblings at a specific ancestor level.
+ */
+export interface GetSiblingsResult {
+  ancestorLevel: number; // Which ancestor level was analyzed
+  siblings: SiblingInfo[];
+}
+
+/**
+ * Content found within a descendant element.
+ */
+export interface DescendantContent {
+  ref?: string; // Interactive element ref, if this element has one
+  tagName: string;
+  text?: string; // For headings, buttons, links
+  role?: string; // ARIA role, if element has an interactive ref
+  childCount?: number; // For containers, number of child elements
+}
+
+/**
+ * Information about a child element within an ancestor.
+ */
+export interface DescendantInfo {
+  tagName: string;
+  attributes: Attributes;
+  contains: DescendantContent[]; // What's inside this descendant (2 levels deep max)
+}
+
+/**
+ * Result of analyzing descendants within a specific ancestor.
+ */
+export interface GetDescendantsResult {
+  ancestorAt: {
+    level: number; // Which ancestor level was analyzed
+    tagName: string;
+    attributes: Attributes;
+  };
+  descendants: DescendantInfo[];
 }

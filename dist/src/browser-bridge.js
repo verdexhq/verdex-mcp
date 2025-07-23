@@ -247,6 +247,193 @@ function createSnapshot() {
 // Call and return the result of createSnapshot
 createSnapshot();
 `;
+// =============================================================================
+// EXPLORATION HELPER FUNCTIONS
+// =============================================================================
+/**
+ * Helper function to extract only relevant attributes from a DOM element.
+ * Returns an Attributes object with only the most useful attributes for identification.
+ */
+const getRelevantAttributesScript = `
+function getRelevantAttributes(element) {
+  const relevant = ['class', 'id', 'data-testid', 'role', 'aria-label'];
+  const attrs = {};
+  
+  relevant.forEach(attrName => {
+    const value = element.getAttribute(attrName);
+    if (value) {
+      attrs[attrName] = value;
+    }
+  });
+  
+  return attrs;
+}
+`;
+/**
+ * Helper function to find all interactive element refs contained within a container element.
+ * Uses the bridge's elements map to determine which refs are contained within the given container.
+ */
+const findContainedRefsScript = `
+function findContainedRefs(container) {
+  const bridge = window.__bridge;
+  const refs = [];
+  
+  bridge.elements.forEach((info, refId) => {
+    if (container.contains(info.element) && info.element !== container) {
+      refs.push(refId);
+    }
+  });
+  
+  return refs;
+}
+`;
+/**
+ * Helper function to extract meaningful text content from an element.
+ * Focuses on headings, buttons, links, and other semantically important text.
+ * Returns an array of unique text strings found within the element.
+ */
+const extractMeaningfulTextsScript = `
+function extractMeaningfulTexts(element) {
+  const texts = [];
+  
+  // Create a tree walker to find meaningful text content
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent && node.textContent.trim();
+          if (text && text.length > 0) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node;
+          // Include text from semantically meaningful elements
+          if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BUTTON', 'A', 'LABEL'].includes(el.tagName)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+        return NodeFilter.FILTER_SKIP;
+      }
+    }
+  );
+  
+  let node;
+  while (node = walker.nextNode()) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent && node.textContent.trim();
+      if (text && text.length > 0) {
+        texts.push(text);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const text = node.textContent && node.textContent.trim();
+      if (text && text.length > 0) {
+        texts.push(text);
+      }
+    }
+  }
+  
+  // Deduplicate while preserving order and filter out very short/common words
+  const uniqueTexts = [...new Set(texts)].filter(text => 
+    text.length > 1 && // Longer than 1 character
+    !/^\\s*$/.test(text) // Not just whitespace
+  );
+  
+  return uniqueTexts;
+}
+`;
+/**
+ * Combined helper scripts that can be injected into page context.
+ * This includes all the helper functions needed for exploration methods.
+ * Functions are attached to window.__explorationHelpers for easy access.
+ */
+const explorationHelpersScript = `
+  // Initialize helpers namespace
+  if (!window.__explorationHelpers) {
+    window.__explorationHelpers = {};
+  }
+  
+  // getRelevantAttributes function
+  window.__explorationHelpers.getRelevantAttributes = function(element) {
+    const relevant = ['class', 'id', 'data-testid', 'role', 'aria-label'];
+    const attrs = {};
+    
+    relevant.forEach(attrName => {
+      const value = element.getAttribute(attrName);
+      if (value) {
+        attrs[attrName] = value;
+      }
+    });
+    
+    return attrs;
+  };
+  
+  // findContainedRefs function
+  window.__explorationHelpers.findContainedRefs = function(container) {
+    const bridge = window.__bridge;
+    const refs = [];
+    
+    bridge.elements.forEach((info, refId) => {
+      if (container.contains(info.element) && info.element !== container) {
+        refs.push(refId);
+      }
+    });
+    
+    return refs;
+  };
+  
+  // extractMeaningfulTexts function
+  window.__explorationHelpers.extractMeaningfulTexts = function(element) {
+    const texts = [];
+    
+    // Create a tree walker to find meaningful text content
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode: (node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent && node.textContent.trim();
+            if (text && text.length > 0) {
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node;
+            // Include text from semantically meaningful elements
+            if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BUTTON', 'A', 'LABEL'].includes(el.tagName)) {
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          }
+          return NodeFilter.FILTER_SKIP;
+        }
+      }
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent && node.textContent.trim();
+        if (text && text.length > 0) {
+          texts.push(text);
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const text = node.textContent && node.textContent.trim();
+        if (text && text.length > 0) {
+          texts.push(text);
+        }
+      }
+    }
+    
+    // Deduplicate while preserving order and filter out very short/common words
+    const uniqueTexts = [...new Set(texts)].filter(text => 
+      text.length > 1 && // Longer than 1 character
+      text.trim().length > 0 // Not just whitespace
+    );
+    
+    return uniqueTexts;
+  };
+`;
 export class BrowserBridge {
     browser = null;
     page = null;
@@ -403,9 +590,126 @@ export class BrowserBridge {
             };
         }, ref);
     }
+    /**
+     * Explore the ancestry chain of an element to understand DOM hierarchy.
+     * Walks up the DOM tree from the target element, collecting information about
+     * each ancestor level including which interactive refs they contain.
+     */
+    async explore_ancestors(ref) {
+        if (!this.page)
+            throw new Error("Not initialized");
+        return await this.page.evaluate((ref, helpersScript) => {
+            // Ensure helpers are available
+            if (!window.__explorationHelpers) {
+                eval(helpersScript);
+            }
+            const bridge = window.__bridge;
+            const targetInfo = bridge.elements.get(ref);
+            if (!targetInfo)
+                return null;
+            const helpers = window.__explorationHelpers;
+            if (!helpers) {
+                throw new Error("Exploration helpers not available");
+            }
+            // Walk up the ancestor chain
+            const ancestors = [];
+            let current = targetInfo.element.parentElement;
+            let level = 1;
+            while (current && current !== document.body) {
+                const ancestorInfo = {
+                    level: level,
+                    tagName: current.tagName.toLowerCase(),
+                    attributes: helpers.getRelevantAttributes(current),
+                    childElements: current.children.length,
+                    containsRefs: helpers.findContainedRefs(current),
+                };
+                ancestors.push(ancestorInfo);
+                current = current.parentElement;
+                level++;
+            }
+            return {
+                target: {
+                    ref: ref,
+                    tagName: targetInfo.tagName.toLowerCase(),
+                    text: targetInfo.element.textContent
+                        ? targetInfo.element.textContent.trim()
+                        : "",
+                },
+                ancestors: ancestors,
+            };
+        }, ref, explorationHelpersScript);
+    }
+    /**
+     * Helper method to find an element ref by attribute value.
+     * Useful for testing and automation scenarios.
+     */
+    async findRefByAttribute(attributeName, attributeValue) {
+        if (!this.page)
+            throw new Error("Not initialized");
+        return await this.page.evaluate((attrName, attrValue) => {
+            const bridge = window.__bridge;
+            for (const [ref, info] of bridge.elements) {
+                if (info.element.getAttribute &&
+                    info.element.getAttribute(attrName) === attrValue) {
+                    return ref;
+                }
+            }
+            return null;
+        }, attributeName, attributeValue);
+    }
     async close() {
         if (this.browser) {
             await this.browser.close();
         }
+    }
+    /**
+     * Test method for Phase 1 - validates that our helper functions work correctly.
+     * This creates a simple test page and tests each helper function.
+     */
+    async testHelperFunctions() {
+        if (!this.page)
+            throw new Error("Not initialized");
+        // Create a simple test HTML structure
+        await this.page.setContent(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Test Page</title></head>
+      <body>
+        <div class="container" id="main-container" data-testid="test-container">
+          <h1>Test Heading</h1>
+          <div class="card" role="article">
+            <h2>Card Title</h2>
+            <p>Some description text</p>
+            <button class="btn primary" data-testid="action-btn">Click Me</button>
+            <a href="/test" aria-label="Test Link">Learn More</a>
+          </div>
+          <div class="card">
+            <h3>Another Card</h3>
+            <button>Another Button</button>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+        // First, run snapshot to populate the bridge with refs
+        await this.snapshot();
+        // Now test our helper functions
+        const result = await this.page.evaluate((helpersScript) => {
+            // Inject helper functions
+            eval(helpersScript);
+            // Test getRelevantAttributes
+            const container = document.getElementById("main-container");
+            const attributesTest = window.__explorationHelpers.getRelevantAttributes(container);
+            // Test findContainedRefs
+            const refsTest = window.__explorationHelpers.findContainedRefs(container);
+            // Test extractMeaningfulTexts
+            const textsTest = window.__explorationHelpers.extractMeaningfulTexts(container);
+            return {
+                getRelevantAttributes: attributesTest,
+                findContainedRefs: refsTest,
+                extractMeaningfulTexts: textsTest,
+            };
+        }, explorationHelpersScript);
+        return result;
     }
 }

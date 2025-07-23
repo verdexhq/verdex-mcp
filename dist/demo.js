@@ -1,4 +1,4 @@
-import { BrowserBridge } from "./browser-bridge";
+import { BrowserBridge } from "./browser-bridge.js";
 async function demo() {
     const bridge = new BrowserBridge();
     try {
