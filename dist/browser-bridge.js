@@ -640,6 +640,55 @@ export class BrowserBridge {
         }, ref, explorationHelpersScript);
     }
     /**
+     * Analyze siblings at a specific ancestor level to understand patterns and repeated elements.
+     * Given a ref and an ancestor level, finds all sibling elements at that level.
+     */
+    async get_siblings(ref, ancestorLevel) {
+        if (!this.page)
+            throw new Error("Not initialized");
+        return await this.page.evaluate((ref, ancestorLevel, helpersScript) => {
+            // Ensure helpers are available
+            if (!window.__explorationHelpers) {
+                eval(helpersScript);
+            }
+            const bridge = window.__bridge;
+            const targetInfo = bridge.elements.get(ref);
+            if (!targetInfo)
+                return null;
+            const helpers = window.__explorationHelpers;
+            if (!helpers) {
+                throw new Error("Exploration helpers not available");
+            }
+            // Walk up to find the ancestor at the specified level
+            let ancestor = targetInfo.element;
+            for (let i = 0; i < ancestorLevel; i++) {
+                if (!ancestor.parentElement ||
+                    ancestor.parentElement === document.body) {
+                    return null; // Ancestor level too high
+                }
+                ancestor = ancestor.parentElement;
+            }
+            // Get the parent of our target ancestor to find siblings
+            const parent = ancestor.parentElement;
+            if (!parent)
+                return null;
+            // Find all siblings of the same tag type as our target ancestor
+            const siblings = Array.from(parent.children)
+                .filter((child) => child.tagName === ancestor.tagName)
+                .map((sibling, index) => ({
+                index: index,
+                tagName: sibling.tagName.toLowerCase(),
+                attributes: helpers.getRelevantAttributes(sibling),
+                containsRefs: helpers.findContainedRefs(sibling),
+                containsText: helpers.extractMeaningfulTexts(sibling),
+            }));
+            return {
+                ancestorLevel: ancestorLevel,
+                siblings: siblings,
+            };
+        }, ref, ancestorLevel, explorationHelpersScript);
+    }
+    /**
      * Helper method to find an element ref by attribute value.
      * Useful for testing and automation scenarios.
      */

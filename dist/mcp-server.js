@@ -148,6 +148,24 @@ class BrowserMCPServer {
                             required: ["ref"],
                         },
                     },
+                    {
+                        name: "get_siblings",
+                        description: "Analyze siblings at a specific ancestor level to understand patterns and repeated elements",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                ref: {
+                                    type: "string",
+                                    description: "Element reference ID (e.g., 'e1', 'e2')",
+                                },
+                                ancestorLevel: {
+                                    type: "number",
+                                    description: "Which ancestor level to analyze siblings at (1 = direct parent, 2 = grandparent, etc.)",
+                                },
+                            },
+                            required: ["ref", "ancestorLevel"],
+                        },
+                    },
                 ],
             };
         });
@@ -326,6 +344,56 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                                     output += `   Contains refs: none\n`;
                                 }
                                 if (index < result.ancestors.length - 1) {
+                                    output += `\n`;
+                                }
+                            });
+                        }
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: output,
+                                },
+                            ],
+                        };
+                    }
+                    case "get_siblings": {
+                        const { ref, ancestorLevel } = args;
+                        const result = await this.bridge.get_siblings(ref, ancestorLevel);
+                        if (!result) {
+                            return {
+                                content: [
+                                    {
+                                        type: "text",
+                                        text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high`,
+                                    },
+                                ],
+                            };
+                        }
+                        // Format the result for better readability
+                        let output = `Sibling analysis for element ${ref} at ancestor level ${ancestorLevel}:\n\n`;
+                        if (result.siblings.length === 0) {
+                            output += `📍 No siblings found at level ${ancestorLevel}\n`;
+                        }
+                        else {
+                            output += `👥 Found ${result.siblings.length} siblings at ancestor level ${ancestorLevel}:\n\n`;
+                            result.siblings.forEach((sibling, index) => {
+                                output += `Sibling ${sibling.index + 1} (${sibling.tagName}):\n`;
+                                if (Object.keys(sibling.attributes).length > 0) {
+                                    output += `   Attributes: ${JSON.stringify(sibling.attributes)}\n`;
+                                }
+                                if (sibling.containsRefs.length > 0) {
+                                    output += `   Contains refs: ${sibling.containsRefs.join(", ")}\n`;
+                                }
+                                else {
+                                    output += `   Contains refs: none\n`;
+                                }
+                                if (sibling.containsText.length > 0) {
+                                    output += `   Contains text: ${sibling.containsText
+                                        .slice(0, 3)
+                                        .join(", ")}${sibling.containsText.length > 3 ? "..." : ""}\n`;
+                                }
+                                if (index < result.siblings.length - 1) {
                                     output += `\n`;
                                 }
                             });
