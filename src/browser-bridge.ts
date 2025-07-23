@@ -604,35 +604,12 @@ export class BrowserBridge {
     }, ref);
   }
 
-  async explore(ref: string): Promise<any> {
-    if (!this.page) throw new Error("Not initialized");
-
-    return await this.page.evaluate((ref) => {
-      const bridge = (window as any).__bridge;
-      const info = bridge.elements.get(ref);
-      if (!info) return null;
-
-      return {
-        target: {
-          ref: ref,
-          tagName: info.tagName,
-          role: info.role,
-          name: info.name,
-          selector: info.selector,
-          attributes: info.attributes,
-          siblingIndex: info.siblingIndex,
-          parentRef: info.parentRef,
-        },
-      };
-    }, ref);
-  }
-
   /**
-   * Explore the ancestry chain of an element to understand DOM hierarchy.
+   * Get the ancestry chain of an element to understand DOM hierarchy.
    * Walks up the DOM tree from the target element, collecting information about
    * each ancestor level including which interactive refs they contain.
    */
-  async explore_ancestors(ref: string): Promise<any> {
+  async get_ancestors(ref: string): Promise<any> {
     if (!this.page) throw new Error("Not initialized");
 
     return await this.page.evaluate(
@@ -739,6 +716,135 @@ export class BrowserBridge {
         return {
           ancestorLevel: ancestorLevel,
           siblings: siblings,
+        };
+      },
+      ref,
+      ancestorLevel,
+      explorationHelpersScript
+    );
+  }
+
+  /**
+   * Analyze descendants within a specific ancestor to understand component structure.
+   * Given a ref and an ancestor level, analyzes children within that ancestor (max 2 levels deep).
+   */
+  async get_descendants(ref: string, ancestorLevel: number): Promise<any> {
+    if (!this.page) throw new Error("Not initialized");
+
+    return await this.page.evaluate(
+      (ref, ancestorLevel, helpersScript) => {
+        // Ensure helpers are available
+        if (!window.__explorationHelpers) {
+          eval(helpersScript);
+        }
+
+        const bridge = window.__bridge;
+        const targetInfo = bridge.elements.get(ref);
+        if (!targetInfo) return null;
+
+        const helpers = window.__explorationHelpers;
+        if (!helpers) {
+          throw new Error("Exploration helpers not available");
+        }
+
+        // Walk up to find the ancestor at the specified level
+        let ancestor = targetInfo.element as Element;
+        for (let i = 0; i < ancestorLevel; i++) {
+          if (
+            !ancestor.parentElement ||
+            ancestor.parentElement === document.body
+          ) {
+            return null; // Ancestor level too high
+          }
+          ancestor = ancestor.parentElement;
+        }
+
+        // Analyze descendants within this ancestor (max 2 levels deep)
+        const descendants: any[] = [];
+
+        // Process immediate children (level 1)
+        Array.from(ancestor.children).forEach((child) => {
+          const descendantInfo: any = {
+            tagName: child.tagName.toLowerCase(),
+            attributes: helpers.getRelevantAttributes(child),
+            contains: [],
+          };
+
+          // Process grandchildren (level 2) - but limit to avoid overwhelming output
+          Array.from(child.children)
+            .slice(0, 10)
+            .forEach((grandchild) => {
+              const content: any = {
+                tagName: grandchild.tagName.toLowerCase(),
+              };
+
+              // Check if this grandchild has a ref
+              const refForGrandchild = Array.from(
+                bridge.elements.entries()
+              ).find(([_, info]) => info.element === grandchild)?.[0];
+
+              if (refForGrandchild) {
+                content.ref = refForGrandchild;
+                const refInfo = bridge.elements.get(refForGrandchild);
+                if (refInfo) {
+                  content.role = refInfo.role;
+                  const text = grandchild.textContent?.trim();
+                  if (text && text.length > 0) {
+                    content.text = text;
+                  }
+                }
+              } else {
+                // For non-interactive elements, extract meaningful text
+                const text = grandchild.textContent?.trim();
+                if (text && text.length > 0 && text.length < 100) {
+                  // Only include short, meaningful text
+                  if (
+                    [
+                      "H1",
+                      "H2",
+                      "H3",
+                      "H4",
+                      "H5",
+                      "H6",
+                      "P",
+                      "SPAN",
+                      "DIV",
+                    ].includes(grandchild.tagName)
+                  ) {
+                    content.text = text;
+                  }
+                }
+
+                // For containers, include child count
+                if (grandchild.children.length > 0) {
+                  content.childCount = grandchild.children.length;
+                }
+              }
+
+              descendantInfo.contains.push(content);
+            });
+
+          // If this child itself has meaningful content and no grandchildren were processed
+          if (descendantInfo.contains.length === 0) {
+            const childText = child.textContent?.trim();
+            if (childText && childText.length > 0 && childText.length < 100) {
+              descendantInfo.contains.push({
+                tagName: "text",
+                text: childText,
+              });
+            }
+          }
+
+          descendants.push(descendantInfo);
+        });
+
+        return {
+          ancestorAt: {
+            level: ancestorLevel,
+            tagName: ancestor.tagName.toLowerCase(),
+            attributes: helpers.getRelevantAttributes(ancestor),
+          },
+          descendants: descendants,
         };
       },
       ref,

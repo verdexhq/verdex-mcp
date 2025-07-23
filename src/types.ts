@@ -68,9 +68,9 @@ export interface AncestorInfo {
 }
 
 /**
- * Result of exploring an element's ancestry chain.
+ * Result of getting an element's ancestry chain.
  */
-export interface ExploreAncestorsResult {
+export interface GetAncestorsResult {
   target: {
     ref: string; // Interactive element ref (e.g., "e1", "e2")
     tagName: string;

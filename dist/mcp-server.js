@@ -86,7 +86,7 @@ class BrowserMCPServer {
                     },
                     {
                         name: "browser_inspect",
-                        description: "Get detailed information about an element",
+                        description: "Get complete element details including exact attributes, text content, and positioning. Use when you need to verify specific attributes for selector construction, confirm element visibility, or understand why elements behave differently. Most effective AFTER structural exploration to validate your selector strategy.",
                         inputSchema: {
                             type: "object",
                             properties: {
@@ -121,22 +121,8 @@ class BrowserMCPServer {
                         },
                     },
                     {
-                        name: "explore_element",
-                        description: "Explore an element to generate stable selectors",
-                        inputSchema: {
-                            type: "object",
-                            properties: {
-                                ref: {
-                                    type: "string",
-                                    description: "Element reference ID (e.g., 'e1')",
-                                },
-                            },
-                            required: ["ref"],
-                        },
-                    },
-                    {
-                        name: "explore_ancestors",
-                        description: "Explore the ancestry chain of an element to understand DOM hierarchy and ref containment",
+                        name: "get_ancestors",
+                        description: "STEP 1: Find the containment hierarchy for an element to identify stable scoping containers. Returns parent elements up to body, showing which have unique identifiers (data-testid, id) that can be used for scoped selectors. Essential first step for creating non-fragile selectors that don't rely on DOM position.",
                         inputSchema: {
                             type: "object",
                             properties: {
@@ -150,7 +136,7 @@ class BrowserMCPServer {
                     },
                     {
                         name: "get_siblings",
-                        description: "Analyze siblings at a specific ancestor level to understand patterns and repeated elements",
+                        description: "STEP 2: After get_ancestors, analyze sibling elements at a specific ancestor level to understand repeating patterns (like product cards, list items, table rows). Reveals if elements share structure but have distinguishing content. Use the ancestor level from get_ancestors output. Critical for understanding element uniqueness within its container.",
                         inputSchema: {
                             type: "object",
                             properties: {
@@ -160,7 +146,25 @@ class BrowserMCPServer {
                                 },
                                 ancestorLevel: {
                                     type: "number",
-                                    description: "Which ancestor level to analyze siblings at (1 = direct parent, 2 = grandparent, etc.)",
+                                    description: "Use level number from get_ancestors output (e.g., if get_ancestors shows 'Level 3' as your target container, use ancestorLevel: 3)",
+                                },
+                            },
+                            required: ["ref", "ancestorLevel"],
+                        },
+                    },
+                    {
+                        name: "get_descendants",
+                        description: "STEP 3: After identifying the right ancestor level from get_siblings, explore the internal structure within that container to find unique identifying elements (headings, labels, specific text). This discovers semantic identifiers that make selectors robust and human-readable. Use same ancestorLevel as get_siblings.",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                ref: {
+                                    type: "string",
+                                    description: "Element reference ID (e.g., 'e1', 'e2')",
+                                },
+                                ancestorLevel: {
+                                    type: "number",
+                                    description: "Use the same level number identified from get_siblings analysis (the ancestor level that contains your target scope)",
                                 },
                             },
                             required: ["ref", "ancestorLevel"],
@@ -284,31 +288,9 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                             ],
                         };
                     }
-                    case "explore_element": {
+                    case "get_ancestors": {
                         const { ref } = args;
-                        const result = await this.bridge.explore(ref);
-                        if (!result) {
-                            return {
-                                content: [
-                                    {
-                                        type: "text",
-                                        text: `Element ${ref} not found`,
-                                    },
-                                ],
-                            };
-                        }
-                        return {
-                            content: [
-                                {
-                                    type: "text",
-                                    text: JSON.stringify(result, null, 2),
-                                },
-                            ],
-                        };
-                    }
-                    case "explore_ancestors": {
-                        const { ref } = args;
-                        const result = await this.bridge.explore_ancestors(ref);
+                        const result = await this.bridge.get_ancestors(ref);
                         if (!result) {
                             return {
                                 content: [
@@ -394,6 +376,71 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                                         .join(", ")}${sibling.containsText.length > 3 ? "..." : ""}\n`;
                                 }
                                 if (index < result.siblings.length - 1) {
+                                    output += `\n`;
+                                }
+                            });
+                        }
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: output,
+                                },
+                            ],
+                        };
+                    }
+                    case "get_descendants": {
+                        const { ref, ancestorLevel } = args;
+                        const result = await this.bridge.get_descendants(ref, ancestorLevel);
+                        if (!result) {
+                            return {
+                                content: [
+                                    {
+                                        type: "text",
+                                        text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high`,
+                                    },
+                                ],
+                            };
+                        }
+                        // Format the result for better readability
+                        let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel}:\n\n`;
+                        output += `🏗️ Analyzing within ancestor: ${result.ancestorAt.tagName}`;
+                        if (Object.keys(result.ancestorAt.attributes).length > 0) {
+                            output += ` ${JSON.stringify(result.ancestorAt.attributes)}`;
+                        }
+                        output += `\n\n`;
+                        if (result.descendants.length === 0) {
+                            output += `📍 No descendants found within ancestor at level ${ancestorLevel}\n`;
+                        }
+                        else {
+                            output += `🔍 Found ${result.descendants.length} direct children within ancestor:\n\n`;
+                            result.descendants.forEach((descendant, index) => {
+                                output += `Child ${index + 1} (${descendant.tagName}):\n`;
+                                if (Object.keys(descendant.attributes).length > 0) {
+                                    output += `   Attributes: ${JSON.stringify(descendant.attributes)}\n`;
+                                }
+                                if (descendant.contains.length > 0) {
+                                    output += `   Contains:\n`;
+                                    descendant.contains.forEach((content) => {
+                                        output += `      - ${content.tagName}`;
+                                        if (content.ref) {
+                                            output += ` [ref=${content.ref}]`;
+                                            if (content.role)
+                                                output += ` (${content.role})`;
+                                        }
+                                        if (content.text) {
+                                            output += ` "${content.text.substring(0, 50)}${content.text.length > 50 ? "..." : ""}"`;
+                                        }
+                                        if (content.childCount) {
+                                            output += ` (${content.childCount} children)`;
+                                        }
+                                        output += `\n`;
+                                    });
+                                }
+                                else {
+                                    output += `   Contains: (empty)\n`;
+                                }
+                                if (index < result.descendants.length - 1) {
                                     output += `\n`;
                                 }
                             });

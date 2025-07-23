@@ -5,7 +5,7 @@
   "main": "dist/mcp-server.js",
   "scripts": {
     "demo": "tsx src/demo.ts",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "start": "npm run build && node dist/demo.js",
     "mcp-server": "tsx src/mcp-server.ts",
     "mcp-server:build": "npm run build && node dist/mcp-server.js"
@@ -16,10 +16,12 @@
   "description": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
-    "puppeteer": "^24.14.0"
+    "puppeteer": "^24.14.0",
+    "react": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.15",
+    "@types/react": "^19.1.8",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }
