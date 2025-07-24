@@ -8,7 +8,10 @@
     "build": "rm -rf dist && tsc",
     "start": "npm run build && node dist/demo.js",
     "mcp-server": "tsx src/mcp-server.ts",
-    "mcp-server:build": "npm run build && node dist/mcp-server.js"
+    "mcp-server:build": "npm run build && node dist/mcp-server.js",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +23,7 @@
     "react": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "@types/node": "^24.0.15",
     "@types/react": "^19.1.8",
     "tsx": "^4.20.3",

@@ -30,14 +30,14 @@
         </aside>
 
         <!-- Products Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="products-grid">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" >
             <!-- Product Card 1 -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow" data-testid="product-card">
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow" >
                 <div class="relative">
                     <img src="https://picsum.photos/seed/1/300/300" alt="Product 1 - Electronics" class="w-full h-64 object-cover rounded-t-lg">
                 </div>
                 <div class="p-4">
-                    <h3 class="text-lg font-semibold mb-2" data-testid="product-name">Product 1 - Electronics</h3>
+                    <h3 class="text-lg font-semibold mb-2" >Product 1 - Electronics</h3>
                     <div class="flex items-center mb-2">
                         <div class="flex items-center">
                             <span class="text-yellow-400">★★★★☆</span>
@@ -45,8 +45,8 @@
                         <span class="text-sm text-gray-600 ml-2">(42 reviews)</span>
                     </div>
                     <div class="flex items-center justify-between mt-4">
-                        <span class="text-2xl font-bold text-gray-900" data-testid="product-price">$299</span>
-                        <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2" data-testid="add-to-cart-btn">
+                        <span class="text-2xl font-bold text-gray-900" >$299</span>
+                        <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2" >
                             🛒 Add to Cart
                         </button>
                     </div>
@@ -54,12 +54,12 @@
             </div>
 
             <!-- Product Card 2 -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow" data-testid="product-card">
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow" >
                 <div class="relative">
                     <img src="https://picsum.photos/seed/2/300/300" alt="Product 2 - Clothing" class="w-full h-64 object-cover rounded-t-lg">
                 </div>
                 <div class="p-4">
-                    <h3 class="text-lg font-semibold mb-2" data-testid="product-name">Product 2 - Clothing</h3>
+                    <h3 class="text-lg font-semibold mb-2" >Product 2 - Clothing</h3>
                     <div class="flex items-center mb-2">
                         <div class="flex items-center">
                             <span class="text-yellow-400">★★★☆☆</span>
@@ -67,8 +67,8 @@
                         <span class="text-sm text-gray-600 ml-2">(18 reviews)</span>
                     </div>
                     <div class="flex items-center justify-between mt-4">
-                        <span class="text-2xl font-bold text-gray-900" data-testid="product-price">$79</span>
-                        <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2" data-testid="add-to-cart-btn">
+                        <span class="text-2xl font-bold text-gray-900" >$79</span>
+                        <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2" >
                             🛒 Add to Cart
                         </button>
                     </div>
@@ -76,7 +76,7 @@
             </div>
 
             <!-- Product Card 3 (Out of Stock) -->
-            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow" data-testid="product-card">
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow" >
                 <div class="relative">
                     <img src="https://picsum.photos/seed/3/300/300" alt="Product 3 - Books" class="w-full h-64 object-cover rounded-t-lg">
                     <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-t-lg">
@@ -84,7 +84,7 @@
                     </div>
                 </div>
                 <div class="p-4">
-                    <h3 class="text-lg font-semibold mb-2" data-testid="product-name">Product 3 - Books</h3>
+                    <h3 class="text-lg font-semibold mb-2" >Product 3 - Books</h3>
                     <div class="flex items-center mb-2">
                         <div class="flex items-center">
                             <span class="text-yellow-400">★★★★★</span>
@@ -92,8 +92,8 @@
                         <span class="text-sm text-gray-600 ml-2">(127 reviews)</span>
                     </div>
                     <div class="flex items-center justify-between mt-4">
-                        <span class="text-2xl font-bold text-gray-900" data-testid="product-price">$24</span>
-                        <button class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg flex items-center gap-2 cursor-not-allowed" disabled data-testid="add-to-cart-btn">
+                        <span class="text-2xl font-bold text-gray-900" >$24</span>
+                        <button class="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg flex items-center gap-2 cursor-not-allowed" disabled >
                             🛒 Add to Cart
                         </button>
                     </div>
@@ -123,7 +123,7 @@
 
     <script>
         // Add some interactivity
-        document.querySelectorAll('[data-testid="add-to-cart-btn"]:not([disabled])').forEach(button => {
+        document.querySelectorAll('button:not([disabled])').forEach(button => {
             button.addEventListener('click', function() {
                 const originalText = this.innerHTML;
                 this.innerHTML = '🛒 Adding...';

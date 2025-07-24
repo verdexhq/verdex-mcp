@@ -250,106 +250,6 @@ function createSnapshot() {
 createSnapshot();
 `;
 
-// =============================================================================
-// EXPLORATION HELPER FUNCTIONS
-// =============================================================================
-
-/**
- * Helper function to extract only relevant attributes from a DOM element.
- * Returns an Attributes object with only the most useful attributes for identification.
- */
-const getRelevantAttributesScript = `
-function getRelevantAttributes(element) {
-  const relevant = ['class', 'id', 'data-testid', 'role', 'aria-label'];
-  const attrs = {};
-  
-  relevant.forEach(attrName => {
-    const value = element.getAttribute(attrName);
-    if (value) {
-      attrs[attrName] = value;
-    }
-  });
-  
-  return attrs;
-}
-`;
-
-/**
- * Helper function to find all interactive element refs contained within a container element.
- * Uses the bridge's elements map to determine which refs are contained within the given container.
- */
-const findContainedRefsScript = `
-function findContainedRefs(container) {
-  const bridge = window.__bridge;
-  const refs = [];
-  
-  bridge.elements.forEach((info, refId) => {
-    if (container.contains(info.element) && info.element !== container) {
-      refs.push(refId);
-    }
-  });
-  
-  return refs;
-}
-`;
-
-/**
- * Helper function to extract meaningful text content from an element.
- * Focuses on headings, buttons, links, and other semantically important text.
- * Returns an array of unique text strings found within the element.
- */
-const extractMeaningfulTextsScript = `
-function extractMeaningfulTexts(element) {
-  const texts = [];
-  
-  // Create a tree walker to find meaningful text content
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
-    {
-      acceptNode: (node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent && node.textContent.trim();
-          if (text && text.length > 0) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node;
-          // Include text from semantically meaningful elements
-          if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BUTTON', 'A', 'LABEL'].includes(el.tagName)) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        }
-        return NodeFilter.FILTER_SKIP;
-      }
-    }
-  );
-  
-  let node;
-  while (node = walker.nextNode()) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent && node.textContent.trim();
-      if (text && text.length > 0) {
-        texts.push(text);
-      }
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const text = node.textContent && node.textContent.trim();
-      if (text && text.length > 0) {
-        texts.push(text);
-      }
-    }
-  }
-  
-  // Deduplicate while preserving order and filter out very short/common words
-  const uniqueTexts = [...new Set(texts)].filter(text => 
-    text.length > 1 && // Longer than 1 character
-    !/^\\s*$/.test(text) // Not just whitespace
-  );
-  
-  return uniqueTexts;
-}
-`;
-
 /**
  * Combined helper scripts that can be injected into page context.
  * This includes all the helper functions needed for exploration methods.
@@ -447,7 +347,19 @@ export class BrowserBridge {
   private page: Page | null = null;
 
   async initialize() {
-    // Only create browser if it doesn't exist
+    // Close any existing browser if it exists but might be in invalid state
+    if (this.browser) {
+      try {
+        // Check if browser is still connected
+        await this.browser.version();
+      } catch (error) {
+        // Browser is not valid, clean up references
+        this.browser = null;
+        this.page = null;
+      }
+    }
+
+    // Only create browser if it doesn't exist or was cleaned up
     if (!this.browser) {
       this.browser = await puppeteer.launch({
         headless: false,
@@ -884,6 +796,8 @@ export class BrowserBridge {
   async close() {
     if (this.browser) {
       await this.browser.close();
+      this.browser = null;
+      this.page = null;
     }
   }
 
