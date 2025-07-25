@@ -37,11 +37,12 @@ declare global {
 export interface Snapshot {
   text: string;
   elementCount: number;
+  isolatedWorldInfo?: {
+    sessionId?: string;
+    worldType?: string;
+    isolatedWorldId?: number;
+  };
 }
-
-// =============================================================================
-// EXPLORATION TYPES - For understanding DOM structure and relationships
-// =============================================================================
 
 /**
  * Filtered attributes that are most relevant for element identification and selection.
