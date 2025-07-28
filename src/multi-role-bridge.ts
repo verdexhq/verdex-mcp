@@ -235,12 +235,21 @@ export class BrowserBridge {
     const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
-    await context.cdpSession.send("Runtime.callFunctionOn", {
+    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
       functionDeclaration: "function(ref) { this.click(ref); }",
       objectId: context.bridgeObjectId!,
       arguments: [{ value: ref }],
       returnByValue: false,
     });
+
+    // Check for exceptions thrown by the bridge function
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          "Element not found"
+      );
+    }
 
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
@@ -249,12 +258,21 @@ export class BrowserBridge {
     const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
-    await context.cdpSession.send("Runtime.callFunctionOn", {
+    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
       functionDeclaration: "function(ref, text) { this.type(ref, text); }",
       objectId: context.bridgeObjectId!,
       arguments: [{ value: ref }, { value: text }],
       returnByValue: false,
     });
+
+    // Check for exceptions thrown by the bridge function
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          "Element not found"
+      );
+    }
   }
 
   async inspect(ref: string): Promise<ElementInfo | null> {
