@@ -71,7 +71,7 @@ export class BrowserBridge {
   /**
    * Get the current context (lazy creation)
    */
-  private async getCurrentContext(): Promise<RoleContext> {
+  private async ensureCurrentRoleContext(): Promise<RoleContext> {
     return this.getOrCreateRole(this.currentRole);
   }
 
@@ -206,7 +206,7 @@ export class BrowserBridge {
   // Public API methods (unified - no branching)
 
   async navigate(url: string): Promise<Snapshot> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
 
     await context.page.goto(url, { waitUntil: "networkidle0" });
 
@@ -219,7 +219,7 @@ export class BrowserBridge {
   }
 
   async snapshot(): Promise<Snapshot> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -232,7 +232,7 @@ export class BrowserBridge {
   }
 
   async click(ref: string): Promise<void> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -246,7 +246,7 @@ export class BrowserBridge {
   }
 
   async type(ref: string, text: string): Promise<void> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -258,7 +258,7 @@ export class BrowserBridge {
   }
 
   async inspect(ref: string): Promise<ElementInfo | null> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     const response = await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -281,7 +281,7 @@ export class BrowserBridge {
   }
 
   async get_ancestors(ref: string): Promise<any> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -295,7 +295,7 @@ export class BrowserBridge {
   }
 
   async get_siblings(ref: string, ancestorLevel: number): Promise<any> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -310,7 +310,7 @@ export class BrowserBridge {
   }
 
   async get_descendants(ref: string, ancestorLevel: number): Promise<any> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
     const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
@@ -343,7 +343,7 @@ export class BrowserBridge {
   /**
    * Switch to a different role
    */
-  async switchRole(role: string): Promise<void> {
+  async selectRole(role: string): Promise<void> {
     // Guard: Don't switch to same role
     if (role === this.currentRole) {
       return;
@@ -357,7 +357,7 @@ export class BrowserBridge {
       this.currentRole = role;
 
       // Trigger context creation to validate role works
-      await this.getCurrentContext();
+      await this.ensureCurrentRoleContext();
 
       console.log(`✅ Switched to role: ${role}`);
     } catch (error) {
@@ -378,12 +378,12 @@ export class BrowserBridge {
    * Perfect for integration with playwright.config.ts projects!
    */
   async saveStorageState(filePath?: string): Promise<string> {
-    const context = await this.getCurrentContext();
+    const context = await this.ensureCurrentRoleContext();
     const outputPath =
       filePath || `${this.persistenceDir}/${this.currentRole}.json`;
 
     // Use Puppeteer's built-in storage state extraction
-    const cookies = await context.page.cookies();
+    const cookies = await context.browserContext.cookies();
 
     // Get localStorage and sessionStorage for all origins
     const origins = await context.page.evaluate(() => {
@@ -472,7 +472,7 @@ export class BrowserBridge {
       const storageStateJson = await fs.readFile(filePath, "utf-8");
       const storageState: PlaywrightStorageState = JSON.parse(storageStateJson);
 
-      const context = await this.getCurrentContext();
+      const context = await this.ensureCurrentRoleContext();
 
       // Set cookies
       if (storageState.cookies && storageState.cookies.length > 0) {
@@ -522,7 +522,7 @@ export class BrowserBridge {
     storageStatePath: string
   ): Promise<void> {
     // Switch to the role (this will create the context)
-    await this.switchRole(role);
+    await this.selectRole(role);
 
     // Read the storage state to determine what origin we need to navigate to
     const storageStateJson = await fs.readFile(storageStatePath, "utf-8");
