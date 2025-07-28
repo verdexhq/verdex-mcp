@@ -7,7 +7,6 @@ import puppeteer, {
 import { Snapshot, ElementInfo } from "./types.js";
 import { generateBridgeCode } from "./bridge-generator.js";
 import * as fs from "fs/promises";
-import * as path from "path";
 
 // Multi-role interfaces
 interface RoleContext {
@@ -21,28 +20,26 @@ interface RoleContext {
   defaultUrl?: string;
   createdAt: number;
   lastUsed: number;
+  storageStatePath?: string; // NEW: Path to Playwright storage state file
 }
 
-interface AuthState {
+// NEW: Playwright-compatible storage state interface
+interface PlaywrightStorageState {
   cookies: Array<{
     name: string;
     value: string;
     domain: string;
     path: string;
     expires?: number;
-    httpOnly: boolean;
-    secure: boolean;
+    httpOnly?: boolean;
+    secure?: boolean;
     sameSite?: "Strict" | "Lax" | "None";
   }>;
-  localStorage: Array<{
+  origins: Array<{
     origin: string;
-    items: Array<{ key: string; value: string }>;
+    localStorage: Array<{ name: string; value: string }>;
+    sessionStorage?: Array<{ name: string; value: string }>; // Optional
   }>;
-  sessionStorage: Array<{
-    origin: string;
-    items: Array<{ key: string; value: string }>;
-  }>;
-  lastSaved: number;
 }
 
 export class BrowserBridge {
@@ -406,6 +403,178 @@ export class BrowserBridge {
         }`
       );
     }
+  }
+
+  // NEW: Playwright Storage State Integration
+
+  /**
+   * Save current role's auth state in Playwright-compatible format
+   * Perfect for integration with playwright.config.ts projects!
+   */
+  async saveStorageState(filePath?: string): Promise<string> {
+    const context = await this.getCurrentContext();
+    const outputPath =
+      filePath || `${this.persistenceDir}/${this.currentRole}.json`;
+
+    // Use Puppeteer's built-in storage state extraction
+    const cookies = await context.page.cookies();
+
+    // Get localStorage and sessionStorage for all origins
+    const origins = await context.page.evaluate(() => {
+      const originData: Array<{
+        origin: string;
+        localStorage: Array<{ name: string; value: string }>;
+        sessionStorage?: Array<{ name: string; value: string }>;
+      }> = [];
+
+      // Get current origin data
+      const currentOrigin = window.location.origin;
+      const localStorageItems: Array<{ name: string; value: string }> = [];
+      const sessionStorageItems: Array<{ name: string; value: string }> = [];
+
+      // Extract localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          localStorageItems.push({
+            name: key,
+            value: localStorage.getItem(key) || "",
+          });
+        }
+      }
+
+      // Extract sessionStorage
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          sessionStorageItems.push({
+            name: key,
+            value: sessionStorage.getItem(key) || "",
+          });
+        }
+      }
+
+      if (localStorageItems.length > 0 || sessionStorageItems.length > 0) {
+        const originEntry: any = {
+          origin: currentOrigin,
+          localStorage: localStorageItems,
+        };
+
+        if (sessionStorageItems.length > 0) {
+          originEntry.sessionStorage = sessionStorageItems;
+        }
+
+        originData.push(originEntry);
+      }
+
+      return originData;
+    });
+
+    const storageState: PlaywrightStorageState = {
+      cookies: cookies.map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        expires: cookie.expires ? cookie.expires : undefined,
+        httpOnly: cookie.httpOnly,
+        secure: cookie.secure,
+        sameSite: cookie.sameSite as "Strict" | "Lax" | "None" | undefined,
+      })),
+      origins,
+    };
+
+    // Ensure directory exists
+    await fs.mkdir(outputPath.substring(0, outputPath.lastIndexOf("/")), {
+      recursive: true,
+    });
+
+    // Write Playwright-compatible JSON
+    await fs.writeFile(outputPath, JSON.stringify(storageState, null, 2));
+
+    console.log(
+      `✅ Saved storage state for role '${this.currentRole}' to: ${outputPath}`
+    );
+    return outputPath;
+  }
+
+  /**
+   * Load storage state from Playwright-compatible file for current role
+   */
+  async loadStorageState(filePath: string): Promise<void> {
+    try {
+      const storageStateJson = await fs.readFile(filePath, "utf-8");
+      const storageState: PlaywrightStorageState = JSON.parse(storageStateJson);
+
+      const context = await this.getCurrentContext();
+
+      // Set cookies
+      if (storageState.cookies && storageState.cookies.length > 0) {
+        await context.page.setCookie(...storageState.cookies);
+      }
+
+      // Set localStorage and sessionStorage
+      if (storageState.origins && storageState.origins.length > 0) {
+        for (const origin of storageState.origins) {
+          await context.page.evaluate(
+            ({ origin: originData }) => {
+              // Set localStorage
+              if (originData.localStorage) {
+                for (const item of originData.localStorage) {
+                  localStorage.setItem(item.name, item.value);
+                }
+              }
+
+              // Set sessionStorage
+              if (originData.sessionStorage) {
+                for (const item of originData.sessionStorage) {
+                  sessionStorage.setItem(item.name, item.value);
+                }
+              }
+            },
+            { origin }
+          );
+        }
+      }
+
+      console.log(
+        `✅ Loaded storage state for role '${this.currentRole}' from: ${filePath}`
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to load storage state from ${filePath}: ${error}`
+      );
+    }
+  }
+
+  /**
+   * Create a role with pre-existing Playwright storage state
+   * Perfect for loading auth states created by Playwright setup scripts!
+   */
+  async createRoleFromStorageState(
+    role: string,
+    storageStatePath: string
+  ): Promise<void> {
+    // Switch to the role (this will create the context)
+    await this.switchRole(role);
+
+    // Read the storage state to determine what origin we need to navigate to
+    const storageStateJson = await fs.readFile(storageStatePath, "utf-8");
+    const storageState: PlaywrightStorageState = JSON.parse(storageStateJson);
+
+    // Navigate to the first origin in the storage state if available
+    if (storageState.origins && storageState.origins.length > 0) {
+      const firstOrigin = storageState.origins[0].origin;
+      console.log(`🔄 Navigating to origin: ${firstOrigin}`);
+      await this.navigate(firstOrigin);
+    }
+
+    // Load the storage state
+    await this.loadStorageState(storageStatePath);
+
+    console.log(
+      `✅ Created role '${role}' with storage state from: ${storageStatePath}`
+    );
   }
 
   async close() {

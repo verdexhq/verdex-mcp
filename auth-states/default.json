@@ -1,0 +1,24 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "https://httpbin.org",
+      "localStorage": [
+        {
+          "name": "test-key",
+          "value": "test-value"
+        },
+        {
+          "name": "user-preference",
+          "value": "dark-mode"
+        }
+      ],
+      "sessionStorage": [
+        {
+          "name": "session-data",
+          "value": "temporary-value"
+        }
+      ]
+    }
+  ]
+}
