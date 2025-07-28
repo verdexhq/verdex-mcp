@@ -1,18 +1,68 @@
 // browser-bridge.ts
-import puppeteer, { Browser, Page, CDPSession } from "puppeteer";
+import puppeteer, {
+  Browser,
+  Page,
+  CDPSession,
+  BrowserContext,
+} from "puppeteer";
 import { Snapshot, ElementInfo } from "./types.js";
 import {
   createSnapshotScript,
   createExplorationHelpersScript,
 } from "./inject.js";
+import * as fs from "fs/promises";
+import * as path from "path";
+
+// Multi-role interfaces
+interface RoleContext {
+  role: string;
+  browserContext: BrowserContext;
+  page: Page;
+  cdpSession: CDPSession;
+  isolatedWorldId: number | null;
+  bridgeObjectId: string | null;
+  mainFrameId: string;
+  defaultUrl?: string;
+  createdAt: number;
+  lastUsed: number;
+}
+
+interface AuthState {
+  cookies: Array<{
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    expires?: number;
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite?: "Strict" | "Lax" | "None";
+  }>;
+  localStorage: Array<{
+    origin: string;
+    items: Array<{ key: string; value: string }>;
+  }>;
+  sessionStorage: Array<{
+    origin: string;
+    items: Array<{ key: string; value: string }>;
+  }>;
+  lastSaved: number;
+}
 
 export class BrowserBridge {
+  // Existing single-context properties (keep for now)
   private browser: Browser | null = null;
   private page: Page | null = null;
   private cdp: CDPSession | null = null;
   private isolatedWorldId: number | null = null;
   private bridgeObjectId: string | null = null;
   private mainFrameId: string | null = null;
+
+  // New multi-role properties
+  private _roleContexts = new Map<string, Promise<RoleContext>>();
+  private currentRole: string = "default";
+  private persistenceDir: string = "./auth-states";
+  private _multiRoleMode: boolean = false;
 
   async initialize() {
     // Close any existing browser if it exists
@@ -39,7 +89,7 @@ export class BrowserBridge {
     }
 
     // Get CDP session
-    this.cdp = await this.page.target().createCDPSession();
+    this.cdp = await this.page.createCDPSession();
 
     // Get main frame ID
     const { frameTree } = await this.cdp.send("Page.getFrameTree");
@@ -243,7 +293,7 @@ export class BrowserBridge {
           // Inspect functionality
           inspect(ref) {
             const info = this.elements.get(ref);
-            if (!info) return null;
+            if (!info) throw new Error(\`Element \${ref} not found\`);
             const el = info.element;
             const rect = el.getBoundingClientRect();
             
@@ -467,6 +517,21 @@ export class BrowserBridge {
   }
 
   async navigate(url: string): Promise<Snapshot> {
+    // Multi-role mode: use role context
+    if (this._multiRoleMode) {
+      const context = await this.getCurrentContext();
+
+      await context.page.goto(url, { waitUntil: "networkidle0" });
+
+      // CRITICAL: Navigation destroys isolated worlds for this context
+      context.isolatedWorldId = null;
+      context.bridgeObjectId = null;
+
+      // Bridge will be recreated on next operation that needs it
+      return this.snapshot();
+    }
+
+    // Single-role mode: use existing logic
     if (!this.page) throw new Error("Not initialized");
 
     await this.page.goto(url, { waitUntil: "networkidle0" });
@@ -480,6 +545,24 @@ export class BrowserBridge {
   }
 
   async snapshot(): Promise<Snapshot> {
+    // Multi-role mode: use role context
+    if (this._multiRoleMode) {
+      const context = await this.getCurrentContext();
+      await this.ensureBridgeForContext(context);
+
+      const { result } = await context.cdpSession.send(
+        "Runtime.callFunctionOn",
+        {
+          functionDeclaration: "function() { return this.snapshot(); }",
+          objectId: context.bridgeObjectId!,
+          returnByValue: true,
+        }
+      );
+
+      return result.value;
+    }
+
+    // Single-role mode: use existing logic
     await this.ensureBridge();
 
     if (!this.cdp) throw new Error("CDP not initialized");
@@ -494,6 +577,23 @@ export class BrowserBridge {
   }
 
   async click(ref: string): Promise<void> {
+    // Multi-role mode: use role context
+    if (this._multiRoleMode) {
+      const context = await this.getCurrentContext();
+      await this.ensureBridgeForContext(context);
+
+      await context.cdpSession.send("Runtime.callFunctionOn", {
+        functionDeclaration: "function(ref) { this.click(ref); }",
+        objectId: context.bridgeObjectId!,
+        arguments: [{ value: ref }],
+        returnByValue: false,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return;
+    }
+
+    // Single-role mode: use existing logic
     await this.ensureBridge();
 
     if (!this.cdp) throw new Error("CDP not initialized");
@@ -509,6 +609,21 @@ export class BrowserBridge {
   }
 
   async type(ref: string, text: string): Promise<void> {
+    // Multi-role mode: use role context
+    if (this._multiRoleMode) {
+      const context = await this.getCurrentContext();
+      await this.ensureBridgeForContext(context);
+
+      await context.cdpSession.send("Runtime.callFunctionOn", {
+        functionDeclaration: "function(ref, text) { this.type(ref, text); }",
+        objectId: context.bridgeObjectId!,
+        arguments: [{ value: ref }, { value: text }],
+        returnByValue: false,
+      });
+      return;
+    }
+
+    // Single-role mode: use existing logic
     await this.ensureBridge();
 
     if (!this.cdp) throw new Error("CDP not initialized");
@@ -522,18 +637,52 @@ export class BrowserBridge {
   }
 
   async inspect(ref: string): Promise<ElementInfo | null> {
+    // Multi-role mode: use role context
+    if (this._multiRoleMode) {
+      const context = await this.getCurrentContext();
+      await this.ensureBridgeForContext(context);
+
+      const response = await context.cdpSession.send("Runtime.callFunctionOn", {
+        functionDeclaration: "function(ref) { return this.inspect(ref); }",
+        objectId: context.bridgeObjectId!,
+        arguments: [{ value: ref }],
+        returnByValue: true,
+      });
+
+      // Check for exceptions thrown by the bridge function
+      if (response.exceptionDetails) {
+        throw new Error(
+          response.exceptionDetails.exception?.description ||
+            response.exceptionDetails.text ||
+            "Element not found"
+        );
+      }
+
+      return response.result.value;
+    }
+
+    // Single-role mode: use existing logic
     await this.ensureBridge();
 
     if (!this.cdp) throw new Error("CDP not initialized");
 
-    const { result } = await this.cdp.send("Runtime.callFunctionOn", {
+    const response = await this.cdp.send("Runtime.callFunctionOn", {
       functionDeclaration: "function(ref) { return this.inspect(ref); }",
       objectId: this.bridgeObjectId!,
       arguments: [{ value: ref }],
       returnByValue: true,
     });
 
-    return result.value;
+    // Check for exceptions thrown by the bridge function
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          "Element not found"
+      );
+    }
+
+    return response.result.value;
   }
 
   async get_ancestors(ref: string): Promise<any> {
@@ -583,14 +732,682 @@ export class BrowserBridge {
     return result.value;
   }
 
+  // Multi-role core methods
+
+  /**
+   * Get or create a role context with error-safe promise caching
+   */
+  async getOrCreateRole(role: string): Promise<RoleContext> {
+    // Check if we already have a promise for this role
+    if (!this._roleContexts.has(role)) {
+      // Create and cache the promise (not the resolved value)
+      this._roleContexts.set(role, this._createRoleContext(role));
+    }
+
+    try {
+      const context = await this._roleContexts.get(role)!;
+
+      // Update last used timestamp for cleanup
+      context.lastUsed = Date.now();
+
+      return context;
+    } catch (error) {
+      // CRITICAL: Clear failed promise so retry works
+      this._roleContexts.delete(role);
+      throw new Error(
+        `Failed to create role '${role}': ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
+  /**
+   * THE PATTERN: Every method will start with this
+   */
+  private async getCurrentContext(): Promise<RoleContext> {
+    if (!this._multiRoleMode) {
+      throw new Error(
+        "Multi-role mode not enabled. Call enableMultiRoleMode() first."
+      );
+    }
+    return this.getOrCreateRole(this.currentRole);
+  }
+
+  /**
+   * Create a new role context with true isolation
+   */
+  private async _createRoleContext(role: string): Promise<RoleContext> {
+    if (!this.browser) {
+      throw new Error("Browser not initialized - call initialize() first");
+    }
+
+    console.log(`🔧 Creating isolated context for role: ${role}`);
+
+    // CRITICAL: Incognito context provides true isolation
+    const browserContext = await this.browser.createBrowserContext();
+
+    // Create page in the isolated context
+    const page = await browserContext.newPage();
+
+    // Get CDP session for this specific page
+    const cdpSession = await page.createCDPSession();
+
+    // Enable required CDP domains for this session
+    await cdpSession.send("Runtime.enable");
+    await cdpSession.send("Page.enable");
+    await cdpSession.send("Network.enable");
+
+    // Get main frame ID (needed for isolated world creation)
+    const { frameTree } = await cdpSession.send("Page.getFrameTree");
+    const mainFrameId = frameTree.frame.id;
+
+    // Create the context object
+    const context: RoleContext = {
+      role,
+      browserContext,
+      page,
+      cdpSession,
+      isolatedWorldId: null, // Will be set during bridge injection
+      bridgeObjectId: null, // Will be set during bridge injection
+      mainFrameId,
+      createdAt: Date.now(),
+      lastUsed: Date.now(),
+    };
+
+    // CRITICAL: Inject bridge into this specific context
+    await this._setupIsolatedWorldForContext(context);
+
+    console.log(`✅ Created isolated context for role: ${role}`);
+    return context;
+  }
+
+  /**
+   * Setup isolated world for a specific context
+   */
+  private async _setupIsolatedWorldForContext(
+    context: RoleContext
+  ): Promise<void> {
+    const { cdpSession, mainFrameId, role } = context;
+
+    // Create isolated world for this specific context
+    const { executionContextId } = await cdpSession.send(
+      "Page.createIsolatedWorld",
+      {
+        frameId: mainFrameId,
+        worldName: `bridge_world_${role}_${Date.now()}`, // Unique name per role
+        grantUniveralAccess: false,
+      }
+    );
+
+    context.isolatedWorldId = executionContextId;
+
+    // Create bridge code (reuse existing bridge creation logic)
+    const bridgeCode = this._createBridgeCodeForContext();
+
+    const { result } = await cdpSession.send("Runtime.evaluate", {
+      expression: bridgeCode,
+      contextId: executionContextId,
+      returnByValue: false,
+    });
+
+    context.bridgeObjectId = result.objectId || null;
+
+    // Set up navigation listener for this specific context
+    cdpSession.on("Page.frameNavigated", (event) => {
+      if (event.frame.id === mainFrameId && !event.frame.parentId) {
+        // Only invalidate for main frame navigation (not subframes/iframes)
+        context.isolatedWorldId = null;
+        context.bridgeObjectId = null;
+        console.log(
+          `🔄 Bridge invalidated for role ${role} due to main frame navigation`
+        );
+      }
+    });
+
+    console.log(`🔧 Bridge injected for role: ${role}`);
+  }
+
+  /**
+   * Create bridge code for context (reuse existing logic)
+   */
+  private _createBridgeCodeForContext(): string {
+    // For now, reuse the existing bridge code from your setupIsolatedWorld method
+    // This is the same bridge code you already have
+    return `
+      (() => {
+        // Element storage system
+        const bridge = {
+          elements: new Map(),
+          counter: 0,
+          
+          // Your snapshot function
+          snapshot() {
+            console.log("Starting snapshot...");
+            try {
+              // Clear previous state
+              this.elements.clear();
+              this.counter = 0;
+              
+              const lines = [];
+
+              // Helper functions
+              function getRole(el) {
+                const tagName = el.tagName.toLowerCase();
+                const type = el.getAttribute("type");
+
+                if (el.hasAttribute("role")) return el.getAttribute("role");
+
+                const roleMap = {
+                  a: "link",
+                  button: "button",
+                  input: type === "submit" || type === "button" ? "button" : "textbox",
+                  img: "image",
+                  nav: "navigation",
+                  main: "main",
+                  header: "banner",
+                  footer: "contentinfo",
+                  aside: "complementary",
+                  h1: "heading",
+                  h2: "heading",
+                  h3: "heading",
+                  h4: "heading",
+                  h5: "heading",
+                  h6: "heading",
+                  ul: "list",
+                  ol: "list",
+                  li: "listitem",
+                  table: "table",
+                  form: "form",
+                  article: "article",
+                  section: "section",
+                };
+
+                return roleMap[tagName] || "generic";
+              }
+
+              function getName(el) {
+                if (el.getAttribute("aria-label")) return el.getAttribute("aria-label");
+                if (el.getAttribute("alt")) return el.getAttribute("alt");
+                if (el.getAttribute("title")) return el.getAttribute("title");
+                
+                if (el.tagName === "INPUT") {
+                  const placeholder = el.getAttribute("placeholder");
+                  if (placeholder) return placeholder;
+                  const id = el.id;
+                  if (id) {
+                    const label = document.querySelector('label[for="' + id + '"]');
+                    if (label) return label.textContent ? label.textContent.trim() : "";
+                  }
+                }
+                
+                if (["A", "BUTTON"].includes(el.tagName)) {
+                  return el.textContent ? el.textContent.trim() : "";
+                }
+                
+                if (/^H[1-6]$/.test(el.tagName)) {
+                  return el.textContent ? el.textContent.trim() : "";
+                }
+                
+                return "";
+              }
+
+              function shouldInclude(el) {
+                const style = window.getComputedStyle(el);
+                if (style.display === "none" || style.visibility === "hidden") return false;
+                if (["SCRIPT", "STYLE", "NOSCRIPT"].includes(el.tagName)) return false;
+
+                const role = getRole(el);
+                if (["link", "button", "textbox", "checkbox", "radio"].includes(role)) return true;
+                if (role === "heading") return true;
+                if (el.hasAttribute("role")) return true;
+                if (["INPUT", "SELECT", "TEXTAREA", "FORM"].includes(el.tagName)) return true;
+                if (["navigation", "main", "banner", "contentinfo", "complementary"].includes(role)) return true;
+                
+                if (role === "generic" && ["DIV", "SPAN"].includes(el.tagName)) {
+                  return el.hasAttribute("data-testid") || el.hasAttribute("aria-label");
+                }
+                
+                return false;
+              }
+
+              const processElement = (el, indent = "") => {
+                if (!shouldInclude(el)) {
+                  Array.from(el.children).forEach(child => {
+                    processElement(child, indent);
+                  });
+                  return;
+                }
+
+                const role = getRole(el);
+                const name = getName(el);
+
+                let line = indent + "- " + role;
+                if (name) line += ' "' + name + '"';
+
+                const isInteractive = ["link", "button", "textbox", "checkbox", "radio", "select"].includes(role) ||
+                                    ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(el.tagName);
+
+                if (isInteractive) {
+                  const ref = "e" + ++this.counter;
+                  line += " [ref=" + ref + "]";
+
+                  this.elements.set(ref, {
+                    element: el,
+                    tagName: el.tagName,
+                    role: role,
+                    name: name,
+                    attributes: this.getAttributes(el),
+                  });
+                }
+
+                lines.push(line);
+                Array.from(el.children).forEach(child => {
+                  processElement(child, indent + "  ");
+                });
+              };
+
+              processElement(document.body);
+
+              return {
+                text: lines.join("\\n"),
+                elementCount: this.elements.size,
+              };
+            } catch (error) {
+              console.error("Snapshot error:", error);
+              return {
+                text: "Error: " + error.message,
+                elementCount: 0,
+              };
+            }
+          },
+          
+          // Click functionality
+          click(ref) {
+            const info = this.elements.get(ref);
+            if (!info) throw new Error(\`Element \${ref} not found\`);
+            info.element.click();
+          },
+          
+          // Type functionality
+          type(ref, text) {
+            const info = this.elements.get(ref);
+            if (!info) throw new Error(\`Element \${ref} not found\`);
+            const el = info.element;
+            el.focus();
+            el.value = text;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          },
+          
+          // Inspect functionality
+          inspect(ref) {
+            const info = this.elements.get(ref);
+            if (!info) throw new Error(\`Element \${ref} not found\`);
+            const el = info.element;
+            const rect = el.getBoundingClientRect();
+            
+            return {
+              ref: ref,
+              tagName: info.tagName,
+              role: info.role,
+              name: info.name,
+              selector: info.selector,
+              attributes: info.attributes,
+              siblingIndex: info.siblingIndex,
+              parentRef: info.parentRef,
+              text: el.textContent?.trim(),
+              visible: rect.width > 0 && rect.height > 0,
+              bounds: {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height
+              }
+            };
+          },
+          
+          // Get ancestors with exploration helpers
+          get_ancestors(ref) {
+            ${createExplorationHelpersScript.toString()}
+            const helpers = createExplorationHelpersScript();
+            
+            const targetInfo = this.elements.get(ref);
+            if (!targetInfo) return null;
+            
+            const ancestors = [];
+            let current = targetInfo.element.parentElement;
+            let level = 1;
+            
+            while (current && current !== document.body) {
+              const ancestorInfo = {
+                level: level,
+                tagName: current.tagName.toLowerCase(),
+                attributes: helpers.getRelevantAttributes(current),
+                childElements: current.children.length,
+                containsRefs: helpers.findContainedRefs(current, this.elements),
+              };
+              
+              ancestors.push(ancestorInfo);
+              current = current.parentElement;
+              level++;
+            }
+            
+            return {
+              target: {
+                ref: ref,
+                tagName: targetInfo.tagName.toLowerCase(),
+                text: targetInfo.element.textContent?.trim() || ""
+              },
+              ancestors: ancestors
+            };
+          },
+          
+          // Get siblings
+          get_siblings(ref, ancestorLevel) {
+            ${createExplorationHelpersScript.toString()}
+            const helpers = createExplorationHelpersScript();
+            
+            const targetInfo = this.elements.get(ref);
+            if (!targetInfo) return null;
+            
+            let ancestor = targetInfo.element;
+            for (let i = 0; i < ancestorLevel; i++) {
+              if (!ancestor.parentElement || ancestor.parentElement === document.body) {
+                return null;
+              }
+              ancestor = ancestor.parentElement;
+            }
+            
+            const parent = ancestor.parentElement;
+            if (!parent) return null;
+            
+            const siblings = Array.from(parent.children)
+              .filter(child => child.tagName === ancestor.tagName)
+              .map((sibling, index) => ({
+                index: index,
+                tagName: sibling.tagName.toLowerCase(),
+                attributes: helpers.getRelevantAttributes(sibling),
+                containsRefs: helpers.findContainedRefs(sibling, this.elements),
+                containsText: helpers.extractMeaningfulTexts(sibling),
+              }));
+              
+            return {
+              ancestorLevel: ancestorLevel,
+              siblings: siblings
+            };
+          },
+          
+          // Helper function for getting attributes
+          getAttributes(el) {
+            const attrs = {};
+            for (let i = 0; i < el.attributes.length; i++) {
+              const attr = el.attributes[i];
+              attrs[attr.name] = attr.value;
+            }
+            return attrs;
+          },
+          
+          // Get descendants
+          get_descendants(ref, ancestorLevel) {
+            ${createExplorationHelpersScript.toString()}
+            const helpers = createExplorationHelpersScript();
+            
+            const targetInfo = this.elements.get(ref);
+            if (!targetInfo) return null;
+            
+            let ancestor = targetInfo.element;
+            for (let i = 0; i < ancestorLevel; i++) {
+              if (!ancestor.parentElement || ancestor.parentElement === document.body) {
+                return null;
+              }
+              ancestor = ancestor.parentElement;
+            }
+            
+            const descendants = [];
+            Array.from(ancestor.children).forEach(child => {
+              const descendantInfo = {
+                tagName: child.tagName.toLowerCase(),
+                attributes: helpers.getRelevantAttributes(child),
+                contains: []
+              };
+              
+              Array.from(child.children).slice(0, 10).forEach(grandchild => {
+                const content = {
+                  tagName: grandchild.tagName.toLowerCase()
+                };
+                
+                // Check if grandchild has a ref
+                const refForGrandchild = Array.from(this.elements.entries())
+                  .find(([_, info]) => info.element === grandchild)?.[0];
+                  
+                if (refForGrandchild) {
+                  content.ref = refForGrandchild;
+                  const refInfo = this.elements.get(refForGrandchild);
+                  if (refInfo) {
+                    content.role = refInfo.role;
+                    const text = grandchild.textContent?.trim();
+                    if (text && text.length > 0) {
+                      content.text = text;
+                    }
+                  }
+                } else {
+                  const text = grandchild.textContent?.trim();
+                  if (text && text.length > 0 && text.length < 100) {
+                    if (['H1','H2','H3','H4','H5','H6','P','SPAN','DIV'].includes(grandchild.tagName)) {
+                      content.text = text;
+                    }
+                  }
+                  if (grandchild.children.length > 0) {
+                    content.childCount = grandchild.children.length;
+                  }
+                }
+                
+                descendantInfo.contains.push(content);
+              });
+              
+              if (descendantInfo.contains.length === 0) {
+                const childText = child.textContent?.trim();
+                if (childText && childText.length > 0 && childText.length < 100) {
+                  descendantInfo.contains.push({
+                    tagName: "text",
+                    text: childText
+                  });
+                }
+              }
+              
+              descendants.push(descendantInfo);
+            });
+            
+            return {
+              ancestorAt: {
+                level: ancestorLevel,
+                tagName: ancestor.tagName.toLowerCase(),
+                attributes: helpers.getRelevantAttributes(ancestor)
+              },
+              descendants: descendants
+            };
+          }
+        };
+        
+        return bridge;
+      })()
+    `;
+  }
+
+  /**
+   * CRITICAL: Ensure bridge is alive for a specific role context
+   * This handles bridge resurrection after navigation or context destruction
+   */
+  private async ensureBridgeForContext(context: RoleContext): Promise<void> {
+    // If we don't have a bridge object, create one
+    if (!context.bridgeObjectId) {
+      await this._setupIsolatedWorldForContext(context);
+      return;
+    }
+
+    try {
+      // Test if the bridge object is still alive
+      await context.cdpSession.send("Runtime.callFunctionOn", {
+        functionDeclaration: 'function() { return "alive"; }',
+        objectId: context.bridgeObjectId,
+        returnByValue: true,
+      });
+
+      // Bridge is alive, we're good
+    } catch (error) {
+      // Bridge is dead (navigation, context destroyed, etc.)
+      console.warn(
+        `🔄 Bridge recreation needed for role ${context.role}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+
+      // Clear invalid references
+      context.isolatedWorldId = null;
+      context.bridgeObjectId = null;
+
+      // Recreate the bridge
+      await this._setupIsolatedWorldForContext(context);
+    }
+  }
+
+  // Multi-role API methods
+
+  /**
+   * Enable multi-role mode (switches from single-context to multi-context)
+   */
+  async enableMultiRoleMode(): Promise<void> {
+    if (this._multiRoleMode) {
+      console.log("Multi-role mode already enabled");
+      return;
+    }
+
+    console.log("🚀 Enabling multi-role mode...");
+
+    // Create persistence directory
+    try {
+      await fs.mkdir(this.persistenceDir, { recursive: true });
+    } catch (error) {
+      console.warn("Could not create persistence directory:", error);
+    }
+
+    this._multiRoleMode = true;
+    console.log("✅ Multi-role mode enabled");
+  }
+
+  /**
+   * Get current role
+   */
+  getCurrentRole(): string {
+    return this.currentRole;
+  }
+
+  /**
+   * List all available roles
+   */
+  listRoles(): string[] {
+    return Array.from(this._roleContexts.keys());
+  }
+
+  /**
+   * Switch to a different role
+   */
+  async switchRole(role: string): Promise<void> {
+    if (!this._multiRoleMode) {
+      throw new Error(
+        "Multi-role mode not enabled. Call enableMultiRoleMode() first."
+      );
+    }
+
+    // Guard: Don't switch to same role
+    if (role === this.currentRole) {
+      return;
+    }
+
+    // Remember old role for rollback
+    const oldRole = this.currentRole;
+
+    try {
+      // Switch role pointer
+      this.currentRole = role;
+
+      // Trigger context creation to validate role works
+      await this.getCurrentContext();
+
+      console.log(`✅ Switched to role: ${role}`);
+    } catch (error) {
+      // CRITICAL: Rollback on failure
+      this.currentRole = oldRole;
+      throw new Error(
+        `Failed to switch to role '${role}': ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
   async close() {
+    console.log("🧹 Starting browser cleanup...");
+
+    // If in multi-role mode, clean up all role contexts
+    if (this._multiRoleMode && this._roleContexts.size > 0) {
+      console.log(`Cleaning up ${this._roleContexts.size} role contexts...`);
+
+      const closePromises = [];
+      for (const [role, contextPromise] of this._roleContexts.entries()) {
+        closePromises.push(this._closeRoleContext(role, contextPromise));
+      }
+
+      try {
+        await Promise.all(closePromises);
+      } catch (error) {
+        console.error("Some contexts failed to close cleanly:", error);
+      }
+
+      this._roleContexts.clear();
+    }
+
+    // Close browser (handles both single and multi-role mode)
     if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-      this.page = null;
-      this.cdp = null;
-      this.isolatedWorldId = null;
-      this.bridgeObjectId = null;
+      try {
+        await this.browser.close();
+        this.browser = null;
+      } catch (error) {
+        console.error("Failed to close browser:", error);
+      }
+    }
+
+    // Clear single-role state
+    this.page = null;
+    this.cdp = null;
+    this.isolatedWorldId = null;
+    this.bridgeObjectId = null;
+
+    console.log("✅ Browser cleanup completed");
+  }
+
+  private async _closeRoleContext(
+    role: string,
+    contextPromise: Promise<RoleContext>
+  ): Promise<void> {
+    try {
+      const context = await contextPromise;
+
+      // Cleanup order matters: CDP -> Page -> Context
+      if (context.cdpSession) {
+        await context.cdpSession.detach();
+      }
+      if (context.page && !context.page.isClosed()) {
+        await context.page.close();
+      }
+      if (context.browserContext) {
+        await context.browserContext.close();
+      }
+
+      console.log(`✅ Closed context for role: ${role}`);
+    } catch (error) {
+      console.error(`❌ Failed to close context for role ${role}:`, error);
     }
   }
 }
