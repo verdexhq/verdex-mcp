@@ -1,46 +1,12 @@
-import puppeteer, {
-  Browser,
-  Page,
-  CDPSession,
-  BrowserContext,
-} from "puppeteer";
-import { Snapshot, ElementInfo } from "./types.js";
+import puppeteer, { Browser } from "puppeteer";
+import {
+  Snapshot,
+  ElementInfo,
+  RoleContext,
+  PlaywrightStorageState,
+} from "./types.js";
 import { generateBridgeCode } from "./bridge-generator.js";
 import * as fs from "fs/promises";
-
-// Multi-role interfaces
-interface RoleContext {
-  role: string;
-  browserContext: BrowserContext;
-  page: Page;
-  cdpSession: CDPSession;
-  isolatedWorldId: number | null;
-  bridgeObjectId: string | null;
-  mainFrameId: string;
-  defaultUrl?: string;
-  createdAt: number;
-  lastUsed: number;
-  storageStatePath?: string; // NEW: Path to Playwright storage state file
-}
-
-// NEW: Playwright-compatible storage state interface
-interface PlaywrightStorageState {
-  cookies: Array<{
-    name: string;
-    value: string;
-    domain: string;
-    path: string;
-    expires?: number;
-    httpOnly?: boolean;
-    secure?: boolean;
-    sameSite?: "Strict" | "Lax" | "None";
-  }>;
-  origins: Array<{
-    origin: string;
-    localStorage: Array<{ name: string; value: string }>;
-    sessionStorage?: Array<{ name: string; value: string }>; // Optional
-  }>;
-}
 
 export class BrowserBridge {
   private browser: Browser | null = null;

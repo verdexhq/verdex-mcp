@@ -1,3 +1,5 @@
+import { BrowserContext, CDPSession, Page } from "puppeteer";
+
 /**
  * Represents information about an interactive element stored in the browser context.
  * This interface ensures type safety for element data stored in the bridge's element map.
@@ -129,4 +131,38 @@ export interface GetDescendantsResult {
     attributes: Attributes;
   };
   descendants: DescendantInfo[];
+}
+
+// Multi-role interfaces
+export interface RoleContext {
+  role: string;
+  browserContext: BrowserContext;
+  page: Page;
+  cdpSession: CDPSession;
+  isolatedWorldId: number | null;
+  bridgeObjectId: string | null;
+  mainFrameId: string;
+  defaultUrl?: string;
+  createdAt: number;
+  lastUsed: number;
+  storageStatePath?: string; // NEW: Path to Playwright storage state file
+}
+
+// NEW: Playwright-compatible storage state interface
+export interface PlaywrightStorageState {
+  cookies: Array<{
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    expires?: number;
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: "Strict" | "Lax" | "None";
+  }>;
+  origins: Array<{
+    origin: string;
+    localStorage: Array<{ name: string; value: string }>;
+    sessionStorage?: Array<{ name: string; value: string }>; // Optional
+  }>;
 }
