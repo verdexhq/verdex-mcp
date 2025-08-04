@@ -12,7 +12,6 @@ export class BrowserBridge {
   private browser: Browser | null = null;
   private _roleContexts = new Map<string, Promise<RoleContext>>();
   private currentRole: string = "default";
-  private persistenceDir: string = "./auth-states";
 
   async initialize() {
     // Close any existing browser if it exists
@@ -30,13 +29,6 @@ export class BrowserBridge {
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--start-maximized"],
         defaultViewport: null,
       });
-    }
-
-    // Create persistence directory
-    try {
-      await fs.mkdir(this.persistenceDir, { recursive: true });
-    } catch (error) {
-      console.warn("Could not create persistence directory:", error);
     }
   }
 
@@ -72,7 +64,15 @@ export class BrowserBridge {
    * Get the current context (lazy creation)
    */
   private async ensureCurrentRoleContext(): Promise<RoleContext> {
-    return this.getOrCreateRole(this.currentRole);
+    try {
+      return await this.getOrCreateRole(this.currentRole);
+    } catch (error) {
+      throw new Error(
+        `Failed to ensure context for role '${this.currentRole}': ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   /**
@@ -200,64 +200,85 @@ export class BrowserBridge {
    * This handles bridge resurrection after navigation or context destruction
    */
   private async ensureBridgeForContext(context: RoleContext): Promise<void> {
-    // If we don't have a bridge object, create one
-    if (!context.bridgeObjectId) {
-      await this._setupIsolatedWorldForContext(context);
-      return;
-    }
-
     try {
-      // Test if the bridge object is still alive
-      await context.cdpSession.send("Runtime.callFunctionOn", {
-        functionDeclaration: 'function() { return "alive"; }',
-        objectId: context.bridgeObjectId,
-        returnByValue: true,
-      });
+      // If we don't have a bridge object, create one
+      if (!context.bridgeObjectId) {
+        await this._setupIsolatedWorldForContext(context);
+        return;
+      }
 
-      // Bridge is alive, we're good
+      try {
+        // Test if the bridge object is still alive
+        await context.cdpSession.send("Runtime.callFunctionOn", {
+          functionDeclaration: 'function() { return "alive"; }',
+          objectId: context.bridgeObjectId,
+          returnByValue: true,
+        });
+
+        // Bridge is alive, we're good
+      } catch (error) {
+        // Bridge is dead (navigation, context destroyed, etc.)
+        // Clear invalid references
+        context.isolatedWorldId = null;
+        context.bridgeObjectId = null;
+
+        // Recreate the bridge
+        await this._setupIsolatedWorldForContext(context);
+      }
     } catch (error) {
-      // Bridge is dead (navigation, context destroyed, etc.)
-      console.warn(
-        `🔄 Bridge recreation needed for role ${context.role}: ${
+      throw new Error(
+        `Failed to ensure bridge for role '${context.role}': ${
           error instanceof Error ? error.message : String(error)
         }`
       );
-
-      // Clear invalid references
-      context.isolatedWorldId = null;
-      context.bridgeObjectId = null;
-
-      // Recreate the bridge
-      await this._setupIsolatedWorldForContext(context);
     }
   }
 
   // Public API methods (unified - no branching)
 
   async navigate(url: string): Promise<Snapshot> {
-    const context = await this.ensureCurrentRoleContext();
+    try {
+      const context = await this.ensureCurrentRoleContext();
+      await context.page.goto(url, { waitUntil: "networkidle0" });
 
-    await context.page.goto(url, { waitUntil: "networkidle0" });
+      // CRITICAL: Navigation destroys isolated worlds for this context
+      context.isolatedWorldId = null;
+      context.bridgeObjectId = null;
 
-    // CRITICAL: Navigation destroys isolated worlds for this context
-    context.isolatedWorldId = null;
-    context.bridgeObjectId = null;
-
-    // Bridge will be recreated on next operation that needs it
-    return this.snapshot();
+      // Bridge will be recreated on next operation that needs it
+      return this.snapshot();
+    } catch (error) {
+      // Provide detailed error information that will show up in Cursor
+      throw new Error(
+        `Navigate failed for role '${this.currentRole}' to '${url}': ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   async snapshot(): Promise<Snapshot> {
-    const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
+    try {
+      const context = await this.ensureCurrentRoleContext();
+      await this.ensureBridgeForContext(context);
 
-    const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration: "function() { return this.snapshot(); }",
-      objectId: context.bridgeObjectId!,
-      returnByValue: true,
-    });
+      const { result } = await context.cdpSession.send(
+        "Runtime.callFunctionOn",
+        {
+          functionDeclaration: "function() { return this.snapshot(); }",
+          objectId: context.bridgeObjectId!,
+          returnByValue: true,
+        }
+      );
 
-    return result.value;
+      return result.value;
+    } catch (error) {
+      throw new Error(
+        `Snapshot failed for role '${this.currentRole}': ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   async click(ref: string): Promise<void> {
@@ -451,10 +472,9 @@ export class BrowserBridge {
    * Save current role's auth state in Playwright-compatible format
    * Perfect for integration with playwright.config.ts projects!
    */
-  async saveStorageState(filePath?: string): Promise<string> {
+  async saveStorageState(filePath: string): Promise<string> {
     const context = await this.ensureCurrentRoleContext();
-    const outputPath =
-      filePath || `${this.persistenceDir}/${this.currentRole}.json`;
+    const outputPath = filePath;
 
     // Use Puppeteer's built-in storage state extraction
     const cookies = await context.browserContext.cookies();
@@ -585,36 +605,6 @@ export class BrowserBridge {
         `Failed to load storage state from ${filePath}: ${error}`
       );
     }
-  }
-
-  /**
-   * Create a role with pre-existing Playwright storage state
-   * Perfect for loading auth states created by Playwright setup scripts!
-   */
-  async createRoleFromStorageState(
-    role: string,
-    storageStatePath: string
-  ): Promise<void> {
-    // Switch to the role (this will create the context)
-    await this.selectRole(role);
-
-    // Read the storage state to determine what origin we need to navigate to
-    const storageStateJson = await fs.readFile(storageStatePath, "utf-8");
-    const storageState: PlaywrightStorageState = JSON.parse(storageStateJson);
-
-    // Navigate to the first origin in the storage state if available
-    if (storageState.origins && storageState.origins.length > 0) {
-      const firstOrigin = storageState.origins[0].origin;
-      console.log(`🔄 Navigating to origin: ${firstOrigin}`);
-      await this.navigate(firstOrigin);
-    }
-
-    // Load the storage state
-    await this.loadStorageState(storageStatePath);
-
-    console.log(
-      `✅ Created role '${role}' with storage state from: ${storageStatePath}`
-    );
   }
 
   async close() {
