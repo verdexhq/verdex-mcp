@@ -1,4 +1,4 @@
-import puppeteer, { Browser } from "puppeteer";
+import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
 import {
   Snapshot,
   ElementInfo,
@@ -76,21 +76,13 @@ export class BrowserBridge {
   }
 
   /**
-   * Create a new role context with true isolation
+   * Setup CDP session and create role context from browser context and page
    */
-  private async _createRoleContext(role: string): Promise<RoleContext> {
-    if (!this.browser) {
-      throw new Error("Browser not initialized - call initialize() first");
-    }
-
-    console.log(`🔧 Creating isolated context for role: ${role}`);
-
-    // CRITICAL: Incognito context provides true isolation
-    const browserContext = await this.browser.createBrowserContext();
-
-    // Create page in the isolated context
-    const page = await browserContext.newPage();
-
+  private async _setupRoleContext(
+    role: string,
+    browserContext: BrowserContext,
+    page: Page
+  ): Promise<RoleContext> {
     // Get CDP session for this specific page
     const cdpSession = await page.createCDPSession();
 
@@ -117,7 +109,7 @@ export class BrowserBridge {
     };
 
     // Set up navigation listener for this specific context
-    cdpSession.on("Page.frameNavigated", (event) => {
+    cdpSession.on("Page.frameNavigated", (event: any) => {
       if (event.frame.id === mainFrameId && !event.frame.parentId) {
         // Only invalidate for main frame navigation (not subframes/iframes)
         context.isolatedWorldId = null;
@@ -128,6 +120,43 @@ export class BrowserBridge {
       }
     });
 
+    return context;
+  }
+
+  /**
+   * Create a new role context with true isolation
+   */
+  private async _createRoleContext(role: string): Promise<RoleContext> {
+    if (!this.browser) {
+      throw new Error("Browser not initialized - call initialize() first");
+    }
+
+    // SPECIAL CASE: Default role uses main browser context (no isolation)
+    if (role === "default") {
+      console.log(`🔧 Creating main context for default role: ${role}`);
+
+      // Use main browser context instead of creating isolated one
+      const browserContext = this.browser.defaultBrowserContext();
+
+      // Reuse existing page if available, like regular browser-bridge does
+      const pages = await browserContext.pages();
+      const page = pages[0] || (await browserContext.newPage());
+
+      const context = await this._setupRoleContext(role, browserContext, page);
+      console.log(`✅ Created main context for default role: ${role}`);
+      return context;
+    }
+
+    // NON-DEFAULT ROLES: Create isolated contexts for true isolation
+    console.log(`🔧 Creating isolated context for role: ${role}`);
+
+    // CRITICAL: Incognito context provides true isolation
+    const browserContext = await this.browser.createBrowserContext();
+
+    // Create page in the isolated context
+    const page = await browserContext.newPage();
+
+    const context = await this._setupRoleContext(role, browserContext, page);
     console.log(`✅ Created isolated context for role: ${role}`);
     return context;
   }
