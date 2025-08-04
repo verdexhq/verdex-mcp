@@ -1,5 +1,3 @@
-import { createExplorationHelpersScript } from "./inject.js";
-
 /**
  * Generates the complete bridge JavaScript code for injection into isolated worlds
  * This eliminates the duplication between setupIsolatedWorld and _createBridgeCodeForContext
