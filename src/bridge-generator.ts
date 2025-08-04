@@ -198,13 +198,33 @@ export function generateBridgeCode(isolatedWorldId: number): string {
           };
         },
         
-        // Get ancestors with exploration helpers
+        // Get ancestors with inlined helpers (v0 fix)
         get_ancestors(ref) {
-          ${createExplorationHelpersScript.toString()}
-          const helpers = createExplorationHelpersScript();
-          
           const targetInfo = this.elements.get(ref);
           if (!targetInfo) return null;
+          
+          // Inline helper functions directly (no external injection)
+          const getRelevantAttributes = (element) => {
+            const relevant = ["class", "id", "data-testid", "role", "aria-label"];
+            const attrs = {};
+            relevant.forEach((attrName) => {
+              const value = element.getAttribute(attrName);
+              if (value) {
+                attrs[attrName] = value;
+              }
+            });
+            return attrs;
+          };
+          
+          const findContainedRefs = (container) => {
+            const refs = [];
+            this.elements.forEach((info, refId) => {
+              if (container.contains(info.element) && info.element !== container) {
+                refs.push(refId);
+              }
+            });
+            return refs;
+          };
           
           const ancestors = [];
           let current = targetInfo.element.parentElement;
@@ -214,9 +234,9 @@ export function generateBridgeCode(isolatedWorldId: number): string {
             const ancestorInfo = {
               level: level,
               tagName: current.tagName.toLowerCase(),
-              attributes: helpers.getRelevantAttributes(current),
+              attributes: getRelevantAttributes(current),
               childElements: current.children.length,
-              containsRefs: helpers.findContainedRefs(current, this.elements),
+              containsRefs: findContainedRefs(current),
             };
             
             ancestors.push(ancestorInfo);
@@ -234,13 +254,77 @@ export function generateBridgeCode(isolatedWorldId: number): string {
           };
         },
         
-        // Get siblings
+        // Get siblings with inlined helpers (v0 fix)
         get_siblings(ref, ancestorLevel) {
-          ${createExplorationHelpersScript.toString()}
-          const helpers = createExplorationHelpersScript();
-          
           const targetInfo = this.elements.get(ref);
           if (!targetInfo) return null;
+          
+          // Inline helper functions directly (no external injection)
+          const getRelevantAttributes = (element) => {
+            const relevant = ["class", "id", "data-testid", "role", "aria-label"];
+            const attrs = {};
+            relevant.forEach((attrName) => {
+              const value = element.getAttribute(attrName);
+              if (value) {
+                attrs[attrName] = value;
+              }
+            });
+            return attrs;
+          };
+          
+          const findContainedRefs = (container) => {
+            const refs = [];
+            this.elements.forEach((info, refId) => {
+              if (container.contains(info.element) && info.element !== container) {
+                refs.push(refId);
+              }
+            });
+            return refs;
+          };
+          
+          const extractMeaningfulTexts = (element) => {
+            const texts = [];
+            const walker = document.createTreeWalker(
+              element,
+              NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+              {
+                acceptNode: (node) => {
+                  if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent && node.textContent.trim();
+                    if (text && text.length > 0) {
+                      return NodeFilter.FILTER_ACCEPT;
+                    }
+                  } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const el = node;
+                    if (["H1", "H2", "H3", "H4", "H5", "H6", "BUTTON", "A", "LABEL"].includes(el.tagName)) {
+                      return NodeFilter.FILTER_ACCEPT;
+                    }
+                  }
+                  return NodeFilter.FILTER_SKIP;
+                }
+              }
+            );
+            
+            let node;
+            while ((node = walker.nextNode())) {
+              if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent && node.textContent.trim();
+                if (text && text.length > 0) {
+                  texts.push(text);
+                }
+              } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const text = node.textContent && node.textContent.trim();
+                if (text && text.length > 0) {
+                  texts.push(text);
+                }
+              }
+            }
+            
+            const uniqueTexts = [...new Set(texts)].filter(
+              (text) => text.length > 1 && text.trim().length > 0
+            );
+            return uniqueTexts;
+          };
           
           let ancestor = targetInfo.element;
           for (let i = 0; i < ancestorLevel; i++) {
@@ -258,9 +342,9 @@ export function generateBridgeCode(isolatedWorldId: number): string {
             .map((sibling, index) => ({
               index: index,
               tagName: sibling.tagName.toLowerCase(),
-              attributes: helpers.getRelevantAttributes(sibling),
-              containsRefs: helpers.findContainedRefs(sibling, this.elements),
-              containsText: helpers.extractMeaningfulTexts(sibling),
+              attributes: getRelevantAttributes(sibling),
+              containsRefs: findContainedRefs(sibling),
+              containsText: extractMeaningfulTexts(sibling),
             }));
             
           return {
@@ -279,13 +363,23 @@ export function generateBridgeCode(isolatedWorldId: number): string {
           return attrs;
         },
         
-        // Get descendants
+        // Get descendants with inlined helpers (v0 fix)
         get_descendants(ref, ancestorLevel) {
-          ${createExplorationHelpersScript.toString()}
-          const helpers = createExplorationHelpersScript();
-          
           const targetInfo = this.elements.get(ref);
           if (!targetInfo) return null;
+          
+          // Inline helper function directly (no external injection)
+          const getRelevantAttributes = (element) => {
+            const relevant = ["class", "id", "data-testid", "role", "aria-label"];
+            const attrs = {};
+            relevant.forEach((attrName) => {
+              const value = element.getAttribute(attrName);
+              if (value) {
+                attrs[attrName] = value;
+              }
+            });
+            return attrs;
+          };
           
           let ancestor = targetInfo.element;
           for (let i = 0; i < ancestorLevel; i++) {
@@ -299,7 +393,7 @@ export function generateBridgeCode(isolatedWorldId: number): string {
           Array.from(ancestor.children).forEach(child => {
             const descendantInfo = {
               tagName: child.tagName.toLowerCase(),
-              attributes: helpers.getRelevantAttributes(child),
+              attributes: getRelevantAttributes(child),
               contains: []
             };
             
@@ -354,7 +448,7 @@ export function generateBridgeCode(isolatedWorldId: number): string {
             ancestorAt: {
               level: ancestorLevel,
               tagName: ancestor.tagName.toLowerCase(),
-              attributes: helpers.getRelevantAttributes(ancestor)
+              attributes: getRelevantAttributes(ancestor)
             },
             descendants: descendants
           };

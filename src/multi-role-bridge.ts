@@ -302,21 +302,30 @@ export class BrowserBridge {
     const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
-    const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
+    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
       functionDeclaration: "function(ref) { return this.get_ancestors(ref); }",
       objectId: context.bridgeObjectId!,
       arguments: [{ value: ref }],
       returnByValue: true,
     });
 
-    return result.value;
+    // Check for exceptions thrown by the bridge function
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          "Element not found"
+      );
+    }
+
+    return response.result.value;
   }
 
   async get_siblings(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
-    const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
+    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
       functionDeclaration:
         "function(ref, level) { return this.get_siblings(ref, level); }",
       objectId: context.bridgeObjectId!,
@@ -324,14 +333,23 @@ export class BrowserBridge {
       returnByValue: true,
     });
 
-    return result.value;
+    // Check for exceptions thrown by the bridge function
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          "Element not found"
+      );
+    }
+
+    return response.result.value;
   }
 
   async get_descendants(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 
-    const { result } = await context.cdpSession.send("Runtime.callFunctionOn", {
+    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
       functionDeclaration:
         "function(ref, level) { return this.get_descendants(ref, level); }",
       objectId: context.bridgeObjectId!,
@@ -339,7 +357,16 @@ export class BrowserBridge {
       returnByValue: true,
     });
 
-    return result.value;
+    // Check for exceptions thrown by the bridge function
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          "Element not found"
+      );
+    }
+
+    return response.result.value;
   }
 
   // Role management API (kept for compatibility)
