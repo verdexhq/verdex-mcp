@@ -465,8 +465,6 @@ export class BrowserBridge {
     }
   }
 
-  // NEW: Playwright Storage State Integration
-
   async close() {
     console.log("🧹 Starting browser cleanup...");
 

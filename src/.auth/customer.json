@@ -1,0 +1,55 @@
+{
+  "cookies": [
+    {
+      "name": "auth",
+      "value": "ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpwWkNJNk1UVTRNQ3dpWlcxaGFXd2lPaUpyWlhKeWVTdGpjMEJxYjJsdWVtbHdjR1Z5TG1OdmJTSXNJblZ6WlhKdVlXMWxJam9pYTJWeWNubGpjeUlzSW5KdmJHVWlPbTUxYkd3c0ltbGhkQ0k2TVRjMU5ESTRNelUwTUN3aVpYaHdJam94TnpVME16WTVPVFF3ZlEuVTJZWm9RektCczA5aWlzWTdSV1RqcnczMm01UTNleHRUTDg2LW5zb3lUdyI%3D.JFAeP1E1FjkUtHl1nkjKvrrqP6BQJ79jaIW%2BIS9E2zg",
+      "domain": "cs-fit.staging01.joinzipper.com",
+      "path": "/",
+      "expires": 1754888340.53799,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "m",
+      "value": "a003730a-b82a-40c2-89b7-c14d38276c241df8c1",
+      "domain": "m.stripe.com",
+      "path": "/",
+      "expires": 1788843544.818184,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__stripe_mid",
+      "value": "8c04fd3e-1313-4c1e-9113-9119476fb917550516",
+      "domain": ".cs-fit.staging01.joinzipper.com",
+      "path": "/",
+      "expires": 1785819551,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "__stripe_sid",
+      "value": "7c7c98c2-84db-4e54-b9b0-0e4969bce39d495741",
+      "domain": ".cs-fit.staging01.joinzipper.com",
+      "path": "/",
+      "expires": 1754285351,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://cs-fit.staging01.joinzipper.com",
+      "localStorage": [
+        {
+          "name": "cs-fit.staging01.joinzipper.com_cookie_accept_August 2025",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

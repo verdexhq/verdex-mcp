@@ -9,9 +9,14 @@ import {
 import type { AncestorInfo, SiblingInfo, DescendantInfo } from "./types.js";
 import { BrowserBridge } from "./multi-role-bridge.js";
 
+interface RolesConfiguration {
+  roles: Record<string, string>;
+}
+
 class MultiRoleBrowserMCPServer {
   private server: Server;
   private bridge: BrowserBridge;
+  private rolesConfig: RolesConfiguration | null = null;
 
   constructor() {
     this.server = new Server(
@@ -27,7 +32,61 @@ class MultiRoleBrowserMCPServer {
     );
 
     this.bridge = new BrowserBridge();
+    this.loadRolesConfiguration();
     this.setupHandlers();
+  }
+
+  private loadRolesConfiguration(): void {
+    try {
+      const configEnv = process.env.MCP_ROLES_CONFIG;
+      if (configEnv) {
+        const parsedConfig = JSON.parse(configEnv) as RolesConfiguration;
+
+        // Validate the configuration structure
+        if (!parsedConfig.roles || typeof parsedConfig.roles !== "object") {
+          throw new Error(
+            'Invalid configuration: "roles" property must be an object'
+          );
+        }
+
+        // Validate that each role has a valid auth file path
+        for (const [roleName, authPath] of Object.entries(parsedConfig.roles)) {
+          if (typeof authPath !== "string" || authPath.trim() === "") {
+            throw new Error(
+              `Invalid auth file path for role "${roleName}": must be a non-empty string`
+            );
+          }
+
+          // Check if the auth file exists (basic validation)
+          try {
+            const fs = require("fs");
+            if (!fs.existsSync(authPath)) {
+              console.warn(
+                `⚠️ Warning: Auth file not found for role "${roleName}": ${authPath}`
+              );
+            }
+          } catch (fsError) {
+            console.warn(
+              `⚠️ Warning: Could not verify auth file for role "${roleName}": ${authPath}`
+            );
+          }
+        }
+
+        this.rolesConfig = parsedConfig;
+        console.log(
+          `✅ Loaded roles configuration: ${Object.keys(
+            this.rolesConfig.roles
+          ).join(", ")}`
+        );
+      } else {
+        console.log(
+          "ℹ️ No MCP_ROLES_CONFIG environment variable found, using default role management"
+        );
+      }
+    } catch (error) {
+      console.error("❌ Failed to parse or validate MCP_ROLES_CONFIG:", error);
+      this.rolesConfig = null;
+    }
   }
 
   private setupHandlers() {
@@ -587,21 +646,75 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
           }
 
           case "list_current_roles": {
-            const roles = this.bridge.listRoles();
             const currentRole = this.bridge.getCurrentRole();
+            let output = "Available roles:\n";
+
+            // If we have roles configuration from MCP, use that
+            if (this.rolesConfig && this.rolesConfig.roles) {
+              const configuredRoles = Object.keys(this.rolesConfig.roles);
+
+              if (configuredRoles.length === 0) {
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: "Available roles: none (configured in MCP)",
+                    },
+                  ],
+                };
+              }
+
+              output += "\n🔧 Configured roles (from MCP):\n";
+              const sortedConfigRoles = [...configuredRoles].sort();
+
+              for (const role of sortedConfigRoles) {
+                const isCurrent = role === currentRole;
+                const authPath = this.rolesConfig.roles[role];
+                output += `• ${role}${isCurrent ? " (current)" : ""}\n`;
+                output += `  📁 Auth file: ${authPath}\n`;
+              }
+            }
+
+            // Also show any manually added roles (from bridge usage)
+            const manualRoles = this.bridge.listRoles();
+            const configuredRoleNames = this.rolesConfig
+              ? Object.keys(this.rolesConfig.roles)
+              : [];
+            const manualOnlyRoles = manualRoles.filter(
+              (role) => !configuredRoleNames.includes(role)
+            );
+
+            if (manualOnlyRoles.length > 0) {
+              output += "\n🖥️ Active roles (from bridge usage):\n";
+              const sortedManualRoles = [...manualOnlyRoles].sort();
+
+              for (const role of sortedManualRoles) {
+                const isCurrent = role === currentRole;
+                output += `• ${role}${isCurrent ? " (current)" : ""}\n`;
+              }
+            }
+
+            // If no roles at all
+            if (
+              (!this.rolesConfig ||
+                Object.keys(this.rolesConfig.roles).length === 0) &&
+              manualRoles.length === 0
+            ) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: "Available roles: none",
+                  },
+                ],
+              };
+            }
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `Available roles: ${
-                    roles.length > 0
-                      ? roles
-                          .map((role) =>
-                            role === currentRole ? `${role} (current)` : role
-                          )
-                          .join(", ")
-                      : "none"
-                  }`,
+                  text: output.trim(),
                 },
               ],
             };
