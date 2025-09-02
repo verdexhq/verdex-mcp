@@ -3,7 +3,7 @@ import {
   Snapshot,
   ElementInfo,
   RoleContext,
-  PlaywrightStorageState,
+  RolesConfiguration,
 } from "./types.js";
 import { generateBridgeCode } from "./bridge-generator.js";
 
@@ -11,6 +11,14 @@ export class BrowserBridge {
   private browser: Browser | null = null;
   private _roleContexts = new Map<string, Promise<RoleContext>>();
   private currentRole: string = "default";
+  private rolesConfig: RolesConfiguration | null = null;
+
+  /**
+   * Set roles configuration from MCP server
+   */
+  setRolesConfiguration(config: RolesConfiguration): void {
+    this.rolesConfig = config;
+  }
 
   async initialize() {
     // Close any existing browser if it exists
@@ -94,6 +102,9 @@ export class BrowserBridge {
     const { frameTree } = await cdpSession.send("Page.getFrameTree");
     const mainFrameId = frameTree.frame.id;
 
+    // Get default URL from configuration if available
+    const defaultUrl = this.rolesConfig?.roles[role]?.defaultUrl;
+
     // Create the context object
     const context: RoleContext = {
       role,
@@ -103,8 +114,10 @@ export class BrowserBridge {
       isolatedWorldId: null, // Will be set during bridge injection
       bridgeObjectId: null, // Will be set during bridge injection
       mainFrameId,
+      defaultUrl,
       createdAt: Date.now(),
       lastUsed: Date.now(),
+      hasNavigated: false, // Track if this context has been navigated
     };
 
     // Set up navigation listener for this specific context
@@ -240,7 +253,8 @@ export class BrowserBridge {
       const context = await this.ensureCurrentRoleContext();
       await context.page.goto(url, { waitUntil: "networkidle0" });
 
-      // CRITICAL: Navigation destroys isolated worlds for this context
+      // Mark context as navigated and clear bridge state
+      context.hasNavigated = true;
       context.isolatedWorldId = null;
       context.bridgeObjectId = null;
 
@@ -451,7 +465,30 @@ export class BrowserBridge {
       this.currentRole = role;
 
       // Trigger context creation to validate role works
-      await this.ensureCurrentRoleContext();
+      const context = await this.ensureCurrentRoleContext();
+
+      // Auto-navigate to default URL only for contexts that haven't been navigated yet
+      // This preserves navigation state when switching between existing roles
+      if (context.defaultUrl && !context.hasNavigated) {
+        const currentUrl = context.page.url();
+        if (
+          currentUrl === "about:blank" ||
+          currentUrl === "" ||
+          currentUrl === "chrome://newtab/"
+        ) {
+          console.log(
+            `🔄 Initial navigation to default URL for new role '${role}': ${context.defaultUrl}`
+          );
+          await context.page.goto(context.defaultUrl, {
+            waitUntil: "networkidle0",
+          });
+
+          // Mark as navigated and clear bridge state
+          context.hasNavigated = true;
+          context.isolatedWorldId = null;
+          context.bridgeObjectId = null;
+        }
+      }
 
       console.log(`✅ Switched to role: ${role}`);
     } catch (error) {
