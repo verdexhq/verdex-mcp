@@ -5,9 +5,9 @@ import {
   RoleContext,
   RolesConfiguration,
 } from "./types.js";
-import { generateBridgeCode } from "./bridge-generator.js";
+import { generateDomBridgeCode } from "./dom-bridge-code.js";
 
-export class BrowserBridge {
+export class MultiContextBrowser {
   private browser: Browser | null = null;
   private _roleContexts = new Map<string, Promise<RoleContext>>();
   private currentRole: string = "default";
@@ -147,10 +147,10 @@ export class BrowserBridge {
     if (role === "default") {
       console.log(`🔧 Creating main context for default role: ${role}`);
 
-      // Use main browser context instead of creating isolated one
+      // Use main browser context instead of creating an isolated one
       const browserContext = this.browser.defaultBrowserContext();
 
-      // Reuse existing page if available, like regular browser-bridge does
+      // Reuse existing page if available
       const pages = await browserContext.pages();
       const page = pages[0] || (await browserContext.newPage());
 
@@ -194,7 +194,7 @@ export class BrowserBridge {
     context.isolatedWorldId = executionContextId;
 
     // Create bridge code using shared generator
-    const bridgeCode = generateBridgeCode(executionContextId);
+    const bridgeCode = generateDomBridgeCode();
 
     const { result } = await cdpSession.send("Runtime.evaluate", {
       expression: bridgeCode,

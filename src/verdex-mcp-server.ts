@@ -6,17 +6,24 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { AncestorInfo, SiblingInfo, DescendantInfo } from "./types.js";
-import { BrowserBridge } from "./browser-bridge.js";
+import type {
+  AncestorInfo,
+  SiblingInfo,
+  DescendantInfo,
+  RolesConfiguration,
+  RoleConfig,
+} from "./types.js";
+import { MultiContextBrowser } from "./multi-context-browser.js";
 
-class BrowserMCPServer {
+class VerdexMCPServer {
   private server: Server;
-  private bridge: BrowserBridge;
+  private bridge: MultiContextBrowser;
+  private rolesConfig: RolesConfiguration | null = null;
 
   constructor() {
     this.server = new Server(
       {
-        name: "browser-bridge-server",
+        name: "verdex-mcp-server",
         version: "1.0.0",
       },
       {
@@ -26,14 +33,110 @@ class BrowserMCPServer {
       }
     );
 
-    this.bridge = new BrowserBridge();
+    this.bridge = new MultiContextBrowser();
+    this.loadRolesConfiguration();
+
+    // Pass roles configuration to bridge if available
+    if (this.rolesConfig) {
+      this.bridge.setRolesConfiguration(this.rolesConfig);
+    }
+
     this.setupHandlers();
+  }
+
+  private loadRolesConfiguration(): void {
+    try {
+      const roles: Record<string, RoleConfig> = {};
+      const args = process.argv;
+
+      // Parse --role <name> <auth_path> [default_url] arguments
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === "--role" && i + 2 < args.length) {
+          const roleName = args[i + 1];
+          const authPath = args[i + 2];
+          const potentialDefaultUrl = args[i + 3]; // May be undefined
+
+          if (typeof roleName !== "string" || roleName.trim() === "") {
+            throw new Error(`Invalid role name: must be a non-empty string`);
+          }
+
+          if (typeof authPath !== "string" || authPath.trim() === "") {
+            throw new Error(
+              `Invalid auth file path for role "${roleName}": must be a non-empty string`
+            );
+          }
+
+          // Check if the auth file exists (basic validation)
+          try {
+            const fs = require("fs");
+            if (!fs.existsSync(authPath)) {
+              console.warn(
+                `⚠️ Warning: Auth file not found for role "${roleName}": ${authPath}`
+              );
+            }
+          } catch (fsError) {
+            console.warn(
+              `⚠️ Warning: Could not verify auth file for role "${roleName}": ${authPath}`
+            );
+          }
+
+          // Handle optional default URL
+          let defaultUrl: string | undefined = undefined;
+          let argsToSkip = 2; // By default, skip role name and auth path
+
+          if (
+            potentialDefaultUrl &&
+            typeof potentialDefaultUrl === "string" &&
+            potentialDefaultUrl.trim() !== ""
+          ) {
+            // Check if it's a valid URL
+            try {
+              new URL(potentialDefaultUrl);
+              defaultUrl = potentialDefaultUrl;
+              argsToSkip = 3; // Skip role name, auth path, and default URL
+              console.log(
+                `📍 Default URL configured for role "${roleName}": ${defaultUrl}`
+              );
+            } catch (urlError) {
+              // Not a valid URL - might be the next --role flag or other argument
+              // Don't treat it as a default URL, just skip 2 arguments
+              console.log(
+                `ℹ️ No default URL for role "${roleName}" (3rd argument not a valid URL)`
+              );
+            }
+          } else {
+            console.log(`ℹ️ No default URL configured for role "${roleName}"`);
+          }
+
+          roles[roleName] = {
+            authPath: authPath,
+            defaultUrl: defaultUrl,
+          };
+          i += argsToSkip; // Skip the processed arguments
+        }
+      }
+
+      if (Object.keys(roles).length > 0) {
+        this.rolesConfig = { roles };
+        console.log(
+          `✅ Loaded roles configuration: ${Object.keys(roles).join(", ")}`
+        );
+      } else {
+        console.log(
+          "ℹ️ No --role arguments found, using default role management"
+        );
+      }
+    } catch (error) {
+      console.error("❌ Failed to parse role arguments:", error);
+      this.rolesConfig = null;
+    }
   }
 
   private setupHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
+          // Core browser functionality
           {
             name: "browser_initialize",
             description: "Initialize the browser instance",
@@ -136,6 +239,7 @@ class BrowserMCPServer {
             },
           },
 
+          // Element analysis tools
           {
             name: "get_ancestors",
             description:
@@ -191,6 +295,38 @@ class BrowserMCPServer {
               required: ["ref", "ancestorLevel"],
             },
           },
+
+          // Multi-role functionality
+          {
+            name: "get_current_role",
+            description: "Get the currently active role",
+            inputSchema: {
+              type: "object",
+              properties: {},
+            },
+          },
+          {
+            name: "list_current_roles",
+            description: "List all available roles",
+            inputSchema: {
+              type: "object",
+              properties: {},
+            },
+          },
+          {
+            name: "select_role",
+            description: "Switch to a different role",
+            inputSchema: {
+              type: "object",
+              properties: {
+                role: {
+                  type: "string",
+                  description: "Role name to switch to",
+                },
+              },
+              required: ["role"],
+            },
+          },
         ],
       };
     });
@@ -200,13 +336,14 @@ class BrowserMCPServer {
 
       try {
         switch (name) {
+          // Core browser functionality
           case "browser_initialize": {
             await this.bridge.initialize();
             return {
               content: [
                 {
                   type: "text",
-                  text: "Browser initialized successfully",
+                  text: "Multi-role browser initialized successfully",
                 },
               ],
             };
@@ -219,7 +356,9 @@ class BrowserMCPServer {
               content: [
                 {
                   type: "text",
-                  text: `Navigated to ${url}\n\nPage Snapshot:\n${snapshot.text}\n\nFound ${snapshot.elementCount} interactive elements`,
+                  text: `Navigated to ${url} (Role: ${this.bridge.getCurrentRole()})\n\nPage Snapshot:\n${
+                    snapshot.text
+                  }\n\nFound ${snapshot.elementCount} interactive elements`,
                 },
               ],
             };
@@ -231,7 +370,9 @@ class BrowserMCPServer {
               content: [
                 {
                   type: "text",
-                  text: `Current Page Snapshot:\n${snapshot.text}\n\nFound ${snapshot.elementCount} interactive elements`,
+                  text: `Current Page Snapshot (Role: ${this.bridge.getCurrentRole()}):\n${
+                    snapshot.text
+                  }\n\nFound ${snapshot.elementCount} interactive elements`,
                 },
               ],
             };
@@ -244,7 +385,7 @@ class BrowserMCPServer {
               content: [
                 {
                   type: "text",
-                  text: `Clicked element ${ref}`,
+                  text: `Clicked element ${ref} (Role: ${this.bridge.getCurrentRole()})`,
                 },
               ],
             };
@@ -257,7 +398,7 @@ class BrowserMCPServer {
               content: [
                 {
                   type: "text",
-                  text: `Typed "${text}" into element ${ref}`,
+                  text: `Typed "${text}" into element ${ref} (Role: ${this.bridge.getCurrentRole()})`,
                 },
               ],
             };
@@ -271,7 +412,7 @@ class BrowserMCPServer {
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found`,
+                    text: `Element ${ref} not found (Role: ${this.bridge.getCurrentRole()})`,
                   },
                 ],
               };
@@ -280,14 +421,13 @@ class BrowserMCPServer {
               content: [
                 {
                   type: "text",
-                  text: `Element ${ref} details:
+                  text: `Element ${ref} details (Role: ${this.bridge.getCurrentRole()}):
 Role: ${info.role}
 Name: ${info.name}
 Tag: ${info.tagName}
-Text: ${info.text || "(no text)"}
-Visible: ${info.visible}
-Bounds: ${JSON.stringify(info.bounds)}
 Selector: ${info.selector}
+Sibling Index: ${info.siblingIndex}
+Parent Ref: ${info.parentRef || "(none)"}
 Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 },
               ],
@@ -313,12 +453,13 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
               content: [
                 {
                   type: "text",
-                  text: "Browser closed successfully",
+                  text: "Multi-role browser closed successfully",
                 },
               ],
             };
           }
 
+          // Element analysis tools
           case "get_ancestors": {
             const { ref } = args as { ref: string };
             const result = await this.bridge.get_ancestors(ref);
@@ -327,14 +468,14 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found`,
+                    text: `Element ${ref} not found (Role: ${this.bridge.getCurrentRole()})`,
                   },
                 ],
               };
             }
 
             // Format the result for better readability
-            let output = `Ancestry analysis for element ${ref}:\n\n`;
+            let output = `Ancestry analysis for element ${ref} (Role: ${this.bridge.getCurrentRole()}):\n\n`;
 
             // Target element info
             output += `🎯 Target Element:\n`;
@@ -394,14 +535,14 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high`,
+                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.bridge.getCurrentRole()})`,
                   },
                 ],
               };
             }
 
             // Format the result for better readability
-            let output = `Sibling analysis for element ${ref} at ancestor level ${ancestorLevel}:\n\n`;
+            let output = `Sibling analysis for element ${ref} at ancestor level ${ancestorLevel} (Role: ${this.bridge.getCurrentRole()}):\n\n`;
 
             if (result.siblings.length === 0) {
               output += `📍 No siblings found at level ${ancestorLevel}\n`;
@@ -465,14 +606,14 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high`,
+                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.bridge.getCurrentRole()})`,
                   },
                 ],
               };
             }
 
             // Format the result for better readability
-            let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel}:\n\n`;
+            let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel} (Role: ${this.bridge.getCurrentRole()}):\n\n`;
 
             output += `🏗️ Analyzing within ancestor: ${result.ancestorAt.tagName}`;
             if (Object.keys(result.ancestorAt.attributes).length > 0) {
@@ -534,6 +675,112 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
             };
           }
 
+          // Multi-role functionality
+          case "get_current_role": {
+            const currentRole = this.bridge.getCurrentRole();
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Current role: ${currentRole}`,
+                },
+              ],
+            };
+          }
+
+          case "list_current_roles": {
+            const currentRole = this.bridge.getCurrentRole();
+            let output = "Available roles:\n";
+
+            // If we have roles configuration from MCP, use that
+            if (this.rolesConfig && this.rolesConfig.roles) {
+              const configuredRoles = Object.keys(this.rolesConfig.roles);
+
+              if (configuredRoles.length === 0) {
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: "Available roles: none (configured in MCP)",
+                    },
+                  ],
+                };
+              }
+
+              output += "\n🔧 Configured roles (from MCP):\n";
+              const sortedConfigRoles = [...configuredRoles].sort();
+
+              for (const role of sortedConfigRoles) {
+                const isCurrent = role === currentRole;
+                const roleConfig = this.rolesConfig.roles[role];
+                output += `• ${role}${isCurrent ? " (current)" : ""}\n`;
+                output += `  📁 Auth file: ${roleConfig.authPath}\n`;
+                if (roleConfig.defaultUrl) {
+                  output += `  🌐 Default URL: ${roleConfig.defaultUrl}\n`;
+                } else {
+                  output += `  🌐 Default URL: (none)\n`;
+                }
+              }
+            }
+
+            // Also show any manually added roles (from bridge usage)
+            const manualRoles = this.bridge.listRoles();
+            const configuredRoleNames = this.rolesConfig
+              ? Object.keys(this.rolesConfig.roles)
+              : [];
+            const manualOnlyRoles = manualRoles.filter(
+              (role) => !configuredRoleNames.includes(role)
+            );
+
+            if (manualOnlyRoles.length > 0) {
+              output += "\n🖥️ Active roles (from bridge usage):\n";
+              const sortedManualRoles = [...manualOnlyRoles].sort();
+
+              for (const role of sortedManualRoles) {
+                const isCurrent = role === currentRole;
+                output += `• ${role}${isCurrent ? " (current)" : ""}\n`;
+              }
+            }
+
+            // If no roles at all
+            if (
+              (!this.rolesConfig ||
+                Object.keys(this.rolesConfig.roles).length === 0) &&
+              manualRoles.length === 0
+            ) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: "Available roles: none",
+                  },
+                ],
+              };
+            }
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: output.trim(),
+                },
+              ],
+            };
+          }
+
+          case "select_role": {
+            const { role } = args as { role: string };
+            await this.bridge.selectRole(role);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Switched to role: ${role}`,
+                },
+              ],
+            };
+          }
+
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -555,14 +802,14 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error("Browser MCP Server running on stdio");
+    console.error("Multi-Role Browser MCP Server running on stdio");
   }
 }
 
 // Start the server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new BrowserMCPServer();
+  const server = new VerdexMCPServer();
   server.run().catch(console.error);
 }
 
-export { BrowserMCPServer };
+export { VerdexMCPServer as MultiRoleBrowserMCPServer };

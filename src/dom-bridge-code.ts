@@ -1,8 +1,7 @@
 /**
  * Generates the complete bridge JavaScript code for injection into isolated worlds
- * This eliminates the duplication between setupIsolatedWorld and _createBridgeCodeForContext
  */
-export function generateBridgeCode(isolatedWorldId: number): string {
+export function generateDomBridgeCode(): string {
   return `
     (() => {
       // Element storage system
@@ -10,7 +9,7 @@ export function generateBridgeCode(isolatedWorldId: number): string {
         elements: new Map(),
         counter: 0,
         
-        // Your snapshot function
+        // Snapshot function
         snapshot() {
           console.log("Starting snapshot...");
           try {

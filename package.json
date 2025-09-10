@@ -1,33 +1,29 @@
 {
-  "name": "browser-bridge",
+  "name": "verdex-mcp-server",
+  "description": "Enhanced browser automation with DOM intelligence",
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/mcp-server.js",
+  "main": "dist/verdex-mcp-server.js",
   "scripts": {
-    "demo": "tsx src/demo.ts",
-    "build": "rm -rf dist && tsc",
-    "start": "npm run build && node dist/demo.js",
-    "mcp-server": "tsx src/mcp-server.ts",
-    "mcp-server:build": "npm run build && node dist/mcp-server.js",
-    "test": "playwright test",
-    "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed"
+    "build": "rm -rf dist && tsc"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "mcp",
+    "model context protocol",
+    "browser automation",
+    "playwright mcp",
+    "playwright",
+    "puppeteer"
+  ],
+  "author": "John Childs-Eddy",
+  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
-    "playwright": "^1.55.0",
-    "puppeteer": "^24.14.0",
-    "react": "^19.1.0",
-    "ts-morph": "^26.0.0"
+    "@playwright/test": "^1.55.0",
+    "puppeteer": "^24.14.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.1",
     "@types/node": "^24.0.15",
-    "@types/react": "^19.1.8",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }
