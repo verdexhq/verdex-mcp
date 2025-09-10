@@ -36,9 +36,22 @@ declare global {
   }
 }
 
+export interface NavigationMetadata {
+  success: boolean;
+  requestedUrl: string;
+  finalUrl: string;
+  pageTitle: string;
+  statusCode?: number;
+  loadTime: number; // in milliseconds
+  redirectCount?: number;
+  contentType?: string;
+  timestamp: number; // when navigation completed
+}
+
 export interface Snapshot {
   text: string;
   elementCount: number;
+  navigation?: NavigationMetadata; // Optional - only present after navigation
   isolatedWorldInfo?: {
     sessionId?: string;
     worldType?: string;

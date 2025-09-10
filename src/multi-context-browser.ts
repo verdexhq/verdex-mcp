@@ -249,24 +249,115 @@ export class MultiContextBrowser {
   // Public API methods (unified - no branching)
 
   async navigate(url: string): Promise<Snapshot> {
+    const startTime = Date.now();
+    let redirectCount = 0;
+    let finalResponse: any = null;
+
     try {
       const context = await this.ensureCurrentRoleContext();
-      await context.page.goto(url, { waitUntil: "networkidle0" });
 
-      // Mark context as navigated and clear bridge state
-      context.hasNavigated = true;
-      context.isolatedWorldId = null;
-      context.bridgeObjectId = null;
+      // Track redirects by monitoring responses
+      const responseHandler = (response: any) => {
+        if (
+          response.url() !== url &&
+          response.status() >= 300 &&
+          response.status() < 400
+        ) {
+          redirectCount++;
+        }
+        // Keep track of the final response
+        finalResponse = response;
+      };
 
-      // Bridge will be recreated on next operation that needs it
-      return this.snapshot();
+      context.page.on("response", responseHandler);
+
+      try {
+        // Perform navigation
+        const response = await context.page.goto(url, {
+          waitUntil: "networkidle0",
+        });
+        finalResponse = response || finalResponse;
+
+        const endTime = Date.now();
+        const loadTime = endTime - startTime;
+
+        // Capture navigation metadata
+        const finalUrl = context.page.url();
+        const pageTitle = await context.page.title();
+        const statusCode = finalResponse?.status();
+        const contentType = finalResponse?.headers()["content-type"];
+
+        // Mark context as navigated and clear bridge state
+        context.hasNavigated = true;
+        context.isolatedWorldId = null;
+        context.bridgeObjectId = null;
+
+        // Get snapshot
+        const snapshot = await this.snapshot();
+
+        // Add navigation metadata to snapshot
+        snapshot.navigation = {
+          success: true,
+          requestedUrl: url,
+          finalUrl,
+          pageTitle,
+          statusCode,
+          loadTime,
+          redirectCount: redirectCount > 0 ? redirectCount : undefined,
+          contentType,
+          timestamp: endTime,
+        };
+
+        return snapshot;
+      } finally {
+        // Clean up event listener
+        context.page.off("response", responseHandler);
+      }
     } catch (error) {
-      // Provide detailed error information that will show up in Cursor
-      throw new Error(
-        `Navigate failed for role '${this.currentRole}' to '${url}': ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
+      const endTime = Date.now();
+      const loadTime = endTime - startTime;
+
+      // For failed navigation, we still want to return a snapshot with error metadata
+      // but we need to throw the error as expected by the current API
+      const errorMessage = `Navigate failed for role '${
+        this.currentRole
+      }' to '${url}': ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+
+      // Try to get current page state for error context
+      try {
+        const context = await this.ensureCurrentRoleContext();
+        const currentUrl = context.page.url();
+        const currentTitle = await context.page.title().catch(() => "Unknown");
+
+        // Create error snapshot
+        const errorSnapshot = await this.snapshot().catch(
+          (): Snapshot => ({
+            text: "Navigation failed - unable to capture page state",
+            elementCount: 0,
+          })
+        );
+
+        errorSnapshot.navigation = {
+          success: false,
+          requestedUrl: url,
+          finalUrl: currentUrl,
+          pageTitle: currentTitle,
+          statusCode: finalResponse?.status(),
+          loadTime,
+          redirectCount: redirectCount > 0 ? redirectCount : undefined,
+          contentType: finalResponse?.headers()["content-type"],
+          timestamp: endTime,
+        };
+
+        // Store error snapshot in context for potential retrieval
+        // But still throw error to maintain API contract
+      } catch (contextError) {
+        // If we can't even get context, just throw original error
+      }
+
+      throw new Error(errorMessage);
     }
   }
 

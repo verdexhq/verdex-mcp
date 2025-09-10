@@ -352,13 +352,55 @@ class VerdexMCPServer {
           case "browser_navigate": {
             const { url } = args as { url: string };
             const snapshot = await this.bridge.navigate(url);
+
+            let responseText = "";
+
+            if (snapshot.navigation) {
+              const nav = snapshot.navigation;
+              responseText = `Navigation ${
+                nav.success ? "successful" : "failed"
+              } (Role: ${this.bridge.getCurrentRole()})
+
+📍 Navigation Details:
+   Requested URL: ${nav.requestedUrl}
+   Final URL: ${nav.finalUrl}
+   Page Title: "${nav.pageTitle}"
+   Load Time: ${nav.loadTime}ms${
+                nav.statusCode
+                  ? `
+   Status Code: ${nav.statusCode}`
+                  : ""
+              }${
+                nav.redirectCount
+                  ? `
+   Redirects: ${nav.redirectCount}`
+                  : ""
+              }${
+                nav.contentType
+                  ? `
+   Content Type: ${nav.contentType}`
+                  : ""
+              }
+
+📄 Page Snapshot:
+${snapshot.text}
+
+Found ${snapshot.elementCount} interactive elements`;
+            } else {
+              // Fallback for snapshots without navigation metadata
+              responseText = `Navigated to ${url} (Role: ${this.bridge.getCurrentRole()})
+
+Page Snapshot:
+${snapshot.text}
+
+Found ${snapshot.elementCount} interactive elements`;
+            }
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `Navigated to ${url} (Role: ${this.bridge.getCurrentRole()})\n\nPage Snapshot:\n${
-                    snapshot.text
-                  }\n\nFound ${snapshot.elementCount} interactive elements`,
+                  text: responseText,
                 },
               ],
             };
