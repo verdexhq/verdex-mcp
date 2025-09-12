@@ -138,11 +138,7 @@ export class MultiContextBrowser {
   /**
    * Load authentication data from auth file into browser context
    */
-  private async _loadAuthData(
-    role: string,
-    browserContext: any,
-    page: any
-  ): Promise<void> {
+  private async _loadAuthData(role: string, page: Page): Promise<void> {
     const authPath = this.rolesConfig?.roles[role]?.authPath;
     if (!authPath) return;
 
@@ -200,7 +196,7 @@ export class MultiContextBrowser {
       const page = pages[0] || (await browserContext.newPage());
 
       // Load auth data
-      await this._loadAuthData(role, browserContext, page);
+      await this._loadAuthData(role, page);
 
       const context = await this._setupRoleContext(role, browserContext, page);
       console.log(`✅ Created main context for default role: ${role}`);
@@ -217,7 +213,7 @@ export class MultiContextBrowser {
     const page = await browserContext.newPage();
 
     // Load auth data
-    await this._loadAuthData(role, browserContext, page);
+    await this._loadAuthData(role, page);
 
     const context = await this._setupRoleContext(role, browserContext, page);
     console.log(`✅ Created isolated context for role: ${role}`);
