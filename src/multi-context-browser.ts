@@ -5,7 +5,7 @@ import {
   RoleContext,
   RolesConfiguration,
 } from "./types.js";
-import { generateDomBridgeCode } from "./dom-bridge-code.js";
+import { injectedCode } from "./injected-code.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;
@@ -136,6 +136,51 @@ export class MultiContextBrowser {
   }
 
   /**
+   * Load authentication data from auth file into browser context
+   */
+  private async _loadAuthData(
+    role: string,
+    browserContext: any,
+    page: any
+  ): Promise<void> {
+    const authPath = this.rolesConfig?.roles[role]?.authPath;
+    if (!authPath) return;
+
+    try {
+      const fs = await import("fs");
+      const authData = JSON.parse(fs.readFileSync(authPath, "utf8"));
+
+      console.log(`🔐 Loading auth data for role: ${role}`);
+
+      // Load cookies
+      if (authData.cookies) {
+        console.log(`🍪 Loading ${authData.cookies.length} cookies`);
+        await page.setCookie(...authData.cookies);
+      }
+
+      // Load localStorage (simple: just do the first origin)
+      if (authData.origins?.[0]?.localStorage) {
+        const origin = authData.origins[0];
+        console.log(`💾 Loading localStorage for: ${origin.origin}`);
+        await page.goto(origin.origin);
+        for (const item of origin.localStorage) {
+          await page.evaluate(
+            (name: string, value: string) => {
+              localStorage.setItem(name, value);
+            },
+            item.name,
+            item.value
+          );
+        }
+      }
+
+      console.log(`✅ Auth data loaded for role: ${role}`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to load auth for role ${role}:`, error);
+    }
+  }
+
+  /**
    * Create a new role context with true isolation
    */
   private async _createRoleContext(role: string): Promise<RoleContext> {
@@ -154,6 +199,9 @@ export class MultiContextBrowser {
       const pages = await browserContext.pages();
       const page = pages[0] || (await browserContext.newPage());
 
+      // Load auth data
+      await this._loadAuthData(role, browserContext, page);
+
       const context = await this._setupRoleContext(role, browserContext, page);
       console.log(`✅ Created main context for default role: ${role}`);
       return context;
@@ -167,6 +215,9 @@ export class MultiContextBrowser {
 
     // Create page in the isolated context
     const page = await browserContext.newPage();
+
+    // Load auth data
+    await this._loadAuthData(role, browserContext, page);
 
     const context = await this._setupRoleContext(role, browserContext, page);
     console.log(`✅ Created isolated context for role: ${role}`);
@@ -194,7 +245,7 @@ export class MultiContextBrowser {
     context.isolatedWorldId = executionContextId;
 
     // Create bridge code using shared generator
-    const bridgeCode = generateDomBridgeCode();
+    const bridgeCode = injectedCode();
 
     const { result } = await cdpSession.send("Runtime.evaluate", {
       expression: bridgeCode,

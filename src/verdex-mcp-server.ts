@@ -17,7 +17,7 @@ import { MultiContextBrowser } from "./multi-context-browser.js";
 
 class VerdexMCPServer {
   private server: Server;
-  private bridge: MultiContextBrowser;
+  private browser: MultiContextBrowser;
   private rolesConfig: RolesConfiguration | null = null;
 
   constructor() {
@@ -33,12 +33,12 @@ class VerdexMCPServer {
       }
     );
 
-    this.bridge = new MultiContextBrowser();
+    this.browser = new MultiContextBrowser();
     this.loadRolesConfiguration();
 
     // Pass roles configuration to bridge if available
     if (this.rolesConfig) {
-      this.bridge.setRolesConfiguration(this.rolesConfig);
+      this.browser.setRolesConfiguration(this.rolesConfig);
     }
 
     this.setupHandlers();
@@ -338,7 +338,7 @@ class VerdexMCPServer {
         switch (name) {
           // Core browser functionality
           case "browser_initialize": {
-            await this.bridge.initialize();
+            await this.browser.initialize();
             return {
               content: [
                 {
@@ -351,7 +351,7 @@ class VerdexMCPServer {
 
           case "browser_navigate": {
             const { url } = args as { url: string };
-            const snapshot = await this.bridge.navigate(url);
+            const snapshot = await this.browser.navigate(url);
 
             let responseText = "";
 
@@ -359,7 +359,7 @@ class VerdexMCPServer {
               const nav = snapshot.navigation;
               responseText = `Navigation ${
                 nav.success ? "successful" : "failed"
-              } (Role: ${this.bridge.getCurrentRole()})
+              } (Role: ${this.browser.getCurrentRole()})
 
 📍 Navigation Details:
    Requested URL: ${nav.requestedUrl}
@@ -388,7 +388,7 @@ ${snapshot.text}
 Found ${snapshot.elementCount} interactive elements`;
             } else {
               // Fallback for snapshots without navigation metadata
-              responseText = `Navigated to ${url} (Role: ${this.bridge.getCurrentRole()})
+              responseText = `Navigated to ${url} (Role: ${this.browser.getCurrentRole()})
 
 Page Snapshot:
 ${snapshot.text}
@@ -407,12 +407,12 @@ Found ${snapshot.elementCount} interactive elements`;
           }
 
           case "browser_snapshot": {
-            const snapshot = await this.bridge.snapshot();
+            const snapshot = await this.browser.snapshot();
             return {
               content: [
                 {
                   type: "text",
-                  text: `Current Page Snapshot (Role: ${this.bridge.getCurrentRole()}):\n${
+                  text: `Current Page Snapshot (Role: ${this.browser.getCurrentRole()}):\n${
                     snapshot.text
                   }\n\nFound ${snapshot.elementCount} interactive elements`,
                 },
@@ -422,12 +422,12 @@ Found ${snapshot.elementCount} interactive elements`;
 
           case "browser_click": {
             const { ref } = args as { ref: string };
-            await this.bridge.click(ref);
+            await this.browser.click(ref);
             return {
               content: [
                 {
                   type: "text",
-                  text: `Clicked element ${ref} (Role: ${this.bridge.getCurrentRole()})`,
+                  text: `Clicked element ${ref} (Role: ${this.browser.getCurrentRole()})`,
                 },
               ],
             };
@@ -435,12 +435,12 @@ Found ${snapshot.elementCount} interactive elements`;
 
           case "browser_type": {
             const { ref, text } = args as { ref: string; text: string };
-            await this.bridge.type(ref, text);
+            await this.browser.type(ref, text);
             return {
               content: [
                 {
                   type: "text",
-                  text: `Typed "${text}" into element ${ref} (Role: ${this.bridge.getCurrentRole()})`,
+                  text: `Typed "${text}" into element ${ref} (Role: ${this.browser.getCurrentRole()})`,
                 },
               ],
             };
@@ -448,13 +448,13 @@ Found ${snapshot.elementCount} interactive elements`;
 
           case "browser_inspect": {
             const { ref } = args as { ref: string };
-            const info = await this.bridge.inspect(ref);
+            const info = await this.browser.inspect(ref);
             if (!info) {
               return {
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found (Role: ${this.bridge.getCurrentRole()})`,
+                    text: `Element ${ref} not found (Role: ${this.browser.getCurrentRole()})`,
                   },
                 ],
               };
@@ -463,7 +463,7 @@ Found ${snapshot.elementCount} interactive elements`;
               content: [
                 {
                   type: "text",
-                  text: `Element ${ref} details (Role: ${this.bridge.getCurrentRole()}):
+                  text: `Element ${ref} details (Role: ${this.browser.getCurrentRole()}):
 Role: ${info.role}
 Name: ${info.name}
 Tag: ${info.tagName}
@@ -490,7 +490,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
           }
 
           case "browser_close": {
-            await this.bridge.close();
+            await this.browser.close();
             return {
               content: [
                 {
@@ -504,20 +504,20 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
           // Element analysis tools
           case "get_ancestors": {
             const { ref } = args as { ref: string };
-            const result = await this.bridge.get_ancestors(ref);
+            const result = await this.browser.get_ancestors(ref);
             if (!result) {
               return {
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found (Role: ${this.bridge.getCurrentRole()})`,
+                    text: `Element ${ref} not found (Role: ${this.browser.getCurrentRole()})`,
                   },
                 ],
               };
             }
 
             // Format the result for better readability
-            let output = `Ancestry analysis for element ${ref} (Role: ${this.bridge.getCurrentRole()}):\n\n`;
+            let output = `Ancestry analysis for element ${ref} (Role: ${this.browser.getCurrentRole()}):\n\n`;
 
             // Target element info
             output += `🎯 Target Element:\n`;
@@ -571,20 +571,20 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
               ref: string;
               ancestorLevel: number;
             };
-            const result = await this.bridge.get_siblings(ref, ancestorLevel);
+            const result = await this.browser.get_siblings(ref, ancestorLevel);
             if (!result) {
               return {
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.bridge.getCurrentRole()})`,
+                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.browser.getCurrentRole()})`,
                   },
                 ],
               };
             }
 
             // Format the result for better readability
-            let output = `Sibling analysis for element ${ref} at ancestor level ${ancestorLevel} (Role: ${this.bridge.getCurrentRole()}):\n\n`;
+            let output = `Sibling analysis for element ${ref} at ancestor level ${ancestorLevel} (Role: ${this.browser.getCurrentRole()}):\n\n`;
 
             if (result.siblings.length === 0) {
               output += `📍 No siblings found at level ${ancestorLevel}\n`;
@@ -639,7 +639,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
               ref: string;
               ancestorLevel: number;
             };
-            const result = await this.bridge.get_descendants(
+            const result = await this.browser.get_descendants(
               ref,
               ancestorLevel
             );
@@ -648,14 +648,14 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 content: [
                   {
                     type: "text",
-                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.bridge.getCurrentRole()})`,
+                    text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.browser.getCurrentRole()})`,
                   },
                 ],
               };
             }
 
             // Format the result for better readability
-            let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel} (Role: ${this.bridge.getCurrentRole()}):\n\n`;
+            let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel} (Role: ${this.browser.getCurrentRole()}):\n\n`;
 
             output += `🏗️ Analyzing within ancestor: ${result.ancestorAt.tagName}`;
             if (Object.keys(result.ancestorAt.attributes).length > 0) {
@@ -719,7 +719,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
 
           // Multi-role functionality
           case "get_current_role": {
-            const currentRole = this.bridge.getCurrentRole();
+            const currentRole = this.browser.getCurrentRole();
             return {
               content: [
                 {
@@ -731,7 +731,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
           }
 
           case "list_current_roles": {
-            const currentRole = this.bridge.getCurrentRole();
+            const currentRole = this.browser.getCurrentRole();
             let output = "Available roles:\n";
 
             // If we have roles configuration from MCP, use that
@@ -766,7 +766,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
             }
 
             // Also show any manually added roles (from bridge usage)
-            const manualRoles = this.bridge.listRoles();
+            const manualRoles = this.browser.listRoles();
             const configuredRoleNames = this.rolesConfig
               ? Object.keys(this.rolesConfig.roles)
               : [];
@@ -812,7 +812,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
 
           case "select_role": {
             const { role } = args as { role: string };
-            await this.bridge.selectRole(role);
+            await this.browser.selectRole(role);
             return {
               content: [
                 {
@@ -854,4 +854,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   server.run().catch(console.error);
 }
 
-export { VerdexMCPServer as MultiRoleBrowserMCPServer };
+export { VerdexMCPServer };

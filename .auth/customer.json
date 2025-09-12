@@ -1,44 +1,44 @@
 {
   "cookies": [
     {
+      "name": "auth",
+      "value": "ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpwWkNJNk1UVTRNQ3dpWlcxaGFXd2lPaUpyWlhKeWVTdGpjMEJxYjJsdWVtbHdjR1Z5TG1OdmJTSXNJblZ6WlhKdVlXMWxJam9pYTJWeWNubGpjeUlzSW5KdmJHVWlPbTUxYkd3c0ltbGhkQ0k2TVRjMU56WXpORFV5TUN3aVpYaHdJam94TnpVM056SXdPVEl3ZlEuUlMtQnBzRkhvT2RoNVVSMXMzVjRHRWpsRk9TazBvRXpWVmVBYmx0SHk3byI%3D.RTHBhZg0u9vx4ieMeXrWXKivTYs5gcQfZ%2FQVs1%2BdCsg",
+      "domain": "cs-fit.staging01.joinzipper.com",
+      "path": "/",
+      "expires": 1758239320.294733,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
       "name": "m",
-      "value": "b1d395a7-9bf1-4931-8fc5-a25d0e45c8d2970dd5",
+      "value": "b22d8efd-e0d6-46a7-b813-63b90ee50ac488c50f",
       "domain": "m.stripe.com",
       "path": "/",
-      "expires": 1791417157.009791,
+      "expires": 1792194521.211988,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "__stripe_mid",
-      "value": "3471ba77-7e31-4d0b-b4ac-028e2c39fc18910900",
+      "value": "c8e5eab4-bd31-4a3a-9289-d85c9b3e126d78614c",
       "domain": ".cs-fit.staging01.joinzipper.com",
       "path": "/",
-      "expires": 1788393160,
+      "expires": 1789170531,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Strict"
     },
     {
       "name": "__stripe_sid",
-      "value": "66e73a5c-2c87-4747-a96f-67e662c8ae7671b25d",
+      "value": "47f20bbb-7766-42cb-9c65-7f774e6dc8a5fe1b6b",
       "domain": ".cs-fit.staging01.joinzipper.com",
       "path": "/",
-      "expires": 1756858960,
+      "expires": 1757636331,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Strict"
-    },
-    {
-      "name": "auth",
-      "value": "ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpwWkNJNk1UVTRNQ3dpWlcxaGFXd2lPaUpyWlhKeWVTdGpjMEJxYjJsdWVtbHdjR1Z5TG1OdmJTSXNJblZ6WlhKdVlXMWxJam9pYTJWeWNubGpjeUlzSW5KdmJHVWlPbTUxYkd3c0ltbGhkQ0k2TVRjMU5qZzFOekUxTml3aVpYaHdJam94TnpVMk9UUXpOVFUyZlEuM3g5T0lqTkc4TlBObGV0NjhlZFhmWG1ZQ09ZTFRzVFV1QVREUVYzd1FfdyI%3D.WhYjbMly9MfRcQY7ldRGoobeZ2LOKdUQ5s1sA9H1qTA",
-      "domain": "cs-fit.staging01.joinzipper.com",
-      "path": "/",
-      "expires": 1757461957.321608,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
     }
   ],
   "origins": [

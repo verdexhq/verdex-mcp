@@ -1,7 +1,7 @@
 /**
- * Generates the complete bridge JavaScript code for injection into isolated worlds
+ * Generates the complete code for injection into isolated worlds
  */
-export function generateDomBridgeCode(): string {
+export function injectedCode(): string {
   return `
     (() => {
       // Element storage system
