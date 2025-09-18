@@ -11,13 +11,16 @@ import type {
   AncestorInfo,
   SiblingInfo,
   DescendantInfo,
+  BridgeConfig,
 } from "../types/index.js";
 
 export class StructuralAnalyzer {
   private bridge: IBridge;
+  private config: BridgeConfig;
 
-  constructor(bridge: IBridge) {
+  constructor(bridge: IBridge, config: BridgeConfig = {}) {
     this.bridge = bridge;
+    this.config = config;
   }
 
   /**
@@ -129,13 +132,14 @@ export class StructuralAnalyzer {
         ancestor = ancestor.parentElement;
       }
 
-      const descendants = this.traverseDescendants(ancestor, 4, 0);
+      const maxDepth = this.config.maxDepth ?? 4;
+      const descendants = this.traverseDescendants(ancestor, maxDepth, 0, 0);
 
       // Calculate max depth safely
-      let maxDepth = 0;
+      let maxDepthReached = 0;
       if (descendants && descendants.length > 0) {
         const depths = descendants.map((d) => d?.depth || 1);
-        maxDepth = Math.max(...depths);
+        maxDepthReached = Math.max(...depths);
       }
 
       return {
@@ -146,7 +150,7 @@ export class StructuralAnalyzer {
         },
         descendants: descendants || [],
         totalDescendants: descendants ? descendants.length : 0,
-        maxDepthReached: maxDepth,
+        maxDepthReached: maxDepthReached,
       };
     } catch (error) {
       return {
@@ -165,16 +169,24 @@ export class StructuralAnalyzer {
   private traverseDescendants(
     element: Element,
     maxDepth: number = 4,
-    currentDepth: number = 0
+    currentDepth: number = 0,
+    totalDescendants: number = 0
   ): DescendantInfo[] {
-    if (currentDepth >= maxDepth || !element?.children) {
+    const maxDescendants = this.config.maxDescendants ?? 100;
+
+    if (
+      currentDepth >= maxDepth ||
+      !element?.children ||
+      totalDescendants >= maxDescendants
+    ) {
       return [];
     }
 
     const children: DescendantInfo[] = [];
 
+    const maxSiblings = this.config.maxSiblings ?? 15;
     Array.from(element.children)
-      .slice(0, 15) // Limit to first 15 children for performance
+      .slice(0, maxSiblings) // Limit children for performance
       .forEach((child, index) => {
         const childInfo: DescendantInfo = {
           depth: currentDepth + 1,
@@ -244,7 +256,8 @@ export class StructuralAnalyzer {
           const nestedDescendants = this.traverseDescendants(
             child,
             maxDepth,
-            currentDepth + 1
+            currentDepth + 1,
+            totalDescendants + children.length
           );
           if (nestedDescendants && nestedDescendants.length > 0) {
             childInfo.descendants = nestedDescendants;

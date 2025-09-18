@@ -31,7 +31,10 @@ export interface IBridge {
 }
 
 export interface BridgeConfig {
+  /** Maximum depth to traverse when analyzing descendants (default: 4) */
   maxDepth?: number;
+  /** Maximum number of siblings to analyze at each level (default: 15) */
   maxSiblings?: number;
+  /** Maximum total number of descendants to process (default: 100) */
   maxDescendants?: number;
 }

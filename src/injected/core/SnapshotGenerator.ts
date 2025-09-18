@@ -4,13 +4,20 @@
 
 import { AriaUtils } from "../utils/AriaUtils.js";
 import { DOMAnalyzer } from "../utils/DOMAnalyzer.js";
-import type { IBridge, SnapshotResult, ElementInfo } from "../types/index.js";
+import type {
+  IBridge,
+  SnapshotResult,
+  ElementInfo,
+  BridgeConfig,
+} from "../types/index.js";
 
 export class SnapshotGenerator {
   private bridge: IBridge;
+  private config: BridgeConfig;
 
-  constructor(bridge: IBridge) {
+  constructor(bridge: IBridge, config: BridgeConfig = {}) {
     this.bridge = bridge;
+    this.config = config;
   }
 
   /**

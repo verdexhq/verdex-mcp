@@ -12,6 +12,7 @@ export class MultiContextBrowser {
   private _roleContexts = new Map<string, Promise<RoleContext>>();
   private currentRole: string = "default";
   private rolesConfig: RolesConfiguration | null = null;
+  private bridgeConfig: Record<string, any> = {};
 
   /**
    * Set roles configuration from MCP server
@@ -20,7 +21,43 @@ export class MultiContextBrowser {
     this.rolesConfig = config;
   }
 
+  /**
+   * Set bridge configuration (performance limits)
+   * This will be injected into the browser context
+   */
+  setBridgeConfiguration(config: {
+    maxDepth?: number;
+    maxSiblings?: number;
+    maxDescendants?: number;
+  }): void {
+    this.bridgeConfig = { ...config };
+  }
+
+  /**
+   * Load bridge configuration from environment variables
+   */
+  private loadBridgeConfigFromEnv(): void {
+    if (process.env.BRIDGE_MAX_DEPTH) {
+      this.bridgeConfig.maxDepth = parseInt(process.env.BRIDGE_MAX_DEPTH, 10);
+    }
+    if (process.env.BRIDGE_MAX_SIBLINGS) {
+      this.bridgeConfig.maxSiblings = parseInt(
+        process.env.BRIDGE_MAX_SIBLINGS,
+        10
+      );
+    }
+    if (process.env.BRIDGE_MAX_DESCENDANTS) {
+      this.bridgeConfig.maxDescendants = parseInt(
+        process.env.BRIDGE_MAX_DESCENDANTS,
+        10
+      );
+    }
+  }
+
   async initialize() {
+    // Load bridge configuration from environment variables
+    this.loadBridgeConfigFromEnv();
+
     // Close any existing browser if it exists
     if (this.browser) {
       try {
@@ -240,8 +277,8 @@ export class MultiContextBrowser {
 
     context.isolatedWorldId = executionContextId;
 
-    // Create bridge code using injected script
-    const bridgeCode = injectedCode();
+    // Create bridge code using injected script with config
+    const bridgeCode = injectedCode(this.bridgeConfig);
 
     const { result } = await cdpSession.send("Runtime.evaluate", {
       expression: bridgeCode,

@@ -27,7 +27,7 @@ export class BridgeFactory {
 
       // Core functionality
       snapshot(): SnapshotResult {
-        const generator = new SnapshotGenerator(this);
+        const generator = new SnapshotGenerator(this, config);
         return generator.generate();
       },
 
@@ -80,17 +80,17 @@ export class BridgeFactory {
 
       // Structural analysis
       get_ancestors(ref: string): AncestorsResult | null {
-        const analyzer = new StructuralAnalyzer(this);
+        const analyzer = new StructuralAnalyzer(this, config);
         return analyzer.getAncestors(ref);
       },
 
       get_siblings(ref: string, ancestorLevel: number): SiblingsResult | null {
-        const analyzer = new StructuralAnalyzer(this);
+        const analyzer = new StructuralAnalyzer(this, config);
         return analyzer.getSiblings(ref, ancestorLevel);
       },
 
       get_descendants(ref: string, ancestorLevel: number): DescendantsResult {
-        const analyzer = new StructuralAnalyzer(this);
+        const analyzer = new StructuralAnalyzer(this, config);
         return analyzer.getDescendants(ref, ancestorLevel);
       },
 

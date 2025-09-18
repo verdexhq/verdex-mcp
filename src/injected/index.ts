@@ -15,7 +15,7 @@ function serializeClass(cls: any): string {
   return cls.toString();
 }
 
-export function injectedCode(): string {
+export function injectedCode(config: any = {}): string {
   // Serialize all utility classes
   const utils = [
     serializeClass(AriaUtils),
@@ -29,8 +29,8 @@ export function injectedCode(): string {
     (() => {
       ${utils}
       
-      // Create and return the bridge using the factory
-      return BridgeFactory.create();
+      // Create and return the bridge using the factory with config
+      return BridgeFactory.create(${JSON.stringify(config)});
     })()
   `;
 }

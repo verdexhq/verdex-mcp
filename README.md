@@ -92,6 +92,56 @@ The page snapshot will show interactive elements with reference IDs like:
 
 You can then interact with these elements using their ref IDs (e1, e2, e3, etc.).
 
+## Configuration
+
+### Environment Variables
+
+You can configure the browser bridge performance using environment variables:
+
+```bash
+# Maximum depth to traverse when analyzing DOM descendants (default: 4)
+export BRIDGE_MAX_DEPTH=4
+
+# Maximum number of siblings to analyze at each level (default: 15)
+export BRIDGE_MAX_SIBLINGS=15
+
+# Maximum total number of descendants to process (default: 100)
+export BRIDGE_MAX_DESCENDANTS=100
+```
+
+**Example configurations for different scenarios:**
+
+For simple pages (faster performance):
+```bash
+export BRIDGE_MAX_DEPTH=2
+export BRIDGE_MAX_SIBLINGS=10
+export BRIDGE_MAX_DESCENDANTS=50
+```
+
+For complex pages (more thorough analysis):
+```bash
+export BRIDGE_MAX_DEPTH=6
+export BRIDGE_MAX_SIBLINGS=25
+export BRIDGE_MAX_DESCENDANTS=200
+```
+
+### Programmatic Configuration
+
+You can also set configuration programmatically (this overrides environment variables):
+
+```javascript
+const browser = new MultiContextBrowser();
+
+// Set custom performance limits
+browser.setBridgeConfiguration({
+  maxDepth: 6,
+  maxSiblings: 20,
+  maxDescendants: 150
+});
+
+await browser.initialize();
+```
+
 ## Features
 
 - Accessibility-focused element detection
@@ -99,6 +149,7 @@ You can then interact with these elements using their ref IDs (e1, e2, e3, etc.)
 - Detailed element inspection
 - Cross-platform browser automation
 - Error handling and validation
+- Configurable performance limits via environment variables
 
 ## Requirements
 

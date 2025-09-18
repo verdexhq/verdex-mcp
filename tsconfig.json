@@ -16,6 +16,6 @@
     "resolveJsonModule": true,
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/injected/src/injectedScript.js"],
   "exclude": ["src/**/*.js", "node_modules", "dist"]
 }
