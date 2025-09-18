@@ -5,8 +5,7 @@ import {
   RoleContext,
   RolesConfiguration,
 } from "./types.js";
-import { injectedCode } from "./injected-code.js";
-import { injectedCode as newInjectedCode } from "./injected/src/injectedScript.js";
+import { injectedCode } from "./injected/index.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;
@@ -241,14 +240,8 @@ export class MultiContextBrowser {
 
     context.isolatedWorldId = executionContextId;
 
-    // Create bridge code using shared generator
-    // Use new modular injected script if environment variable is set
-    const useNewInjected = process.env.USE_NEW_INJECTED === "true";
-    const bridgeCode = useNewInjected ? newInjectedCode() : injectedCode();
-
-    if (useNewInjected) {
-      console.log(`🔧 Using NEW modular injected script for role: ${role}`);
-    }
+    // Create bridge code using injected script
+    const bridgeCode = injectedCode();
 
     const { result } = await cdpSession.send("Runtime.evaluate", {
       expression: bridgeCode,
