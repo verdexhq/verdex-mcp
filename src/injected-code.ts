@@ -335,10 +335,10 @@ export function injectedCode(): string {
           if (!parent) return null;
           
           const siblings = Array.from(parent.children)
-            .filter(child => child.tagName === ancestor.tagName)
             .map((sibling, index) => ({
               index: index,
               tagName: sibling.tagName.toLowerCase(),
+              isTargetType: sibling.tagName === ancestor.tagName,
               attributes: getRelevantAttributes(sibling),
               containsRefs: findContainedRefs(sibling),
               containsText: extractMeaningfulTexts(sibling),
@@ -360,10 +360,19 @@ export function injectedCode(): string {
           return attrs;
         },
         
-        // Get descendants with inlined helpers (v0 fix)
+        // Get descendants with inlined helpers (improved depth and semantic extraction)
         get_descendants(ref, ancestorLevel) {
-          const targetInfo = this.elements.get(ref);
-          if (!targetInfo) return null;
+          try {
+            const targetInfo = this.elements.get(ref);
+            if (!targetInfo) {
+              return {
+                error: "Element " + ref + " not found",
+                ancestorAt: null,
+                descendants: [],
+                totalDescendants: 0,
+                maxDepthReached: 0
+              };
+            }
           
           // Inline helper function directly (no external injection)
           const getRelevantAttributes = (element) => {
@@ -378,68 +387,91 @@ export function injectedCode(): string {
             return attrs;
           };
           
+          // Recursive function to traverse descendants with configurable depth
+          const traverseDescendants = (element, maxDepth = 4, currentDepth = 0) => {
+            if (currentDepth >= maxDepth || !element || !element.children) return [];
+            
+            const children = [];
+            Array.from(element.children).slice(0, 15).forEach((child, index) => {
+              const childInfo = {
+                depth: currentDepth + 1,
+                index: index,
+                tagName: child.tagName.toLowerCase(),
+                attributes: getRelevantAttributes(child)
+              };
+              
+              // Check if child has a ref
+              const refForChild = Array.from(this.elements.entries())
+                .find(([_, info]) => info.element === child)?.[0];
+                
+              if (refForChild) {
+                childInfo.ref = refForChild;
+                const refInfo = this.elements.get(refForChild);
+                if (refInfo) {
+                  childInfo.role = refInfo.role;
+                  childInfo.name = refInfo.name;
+                }
+              }
+              
+              // Get meaningful text content
+              const directText = child && child.childNodes ? 
+                Array.from(child.childNodes)
+                  .filter(node => node.nodeType === Node.TEXT_NODE)
+                  .map(node => node.textContent?.trim())
+                  .filter(text => text && text.length > 0)
+                  .join(' ') : '';
+                
+              if (directText && directText.length > 0 && directText.length < 200) {
+                childInfo.directText = directText;
+              }
+              
+              // For semantic elements, capture full text content
+              if (['H1','H2','H3','H4','H5','H6','P','SPAN','LABEL','BUTTON','A'].includes(child.tagName)) {
+                const fullText = child.textContent?.trim();
+                if (fullText && fullText.length > 0 && fullText.length < 200 && fullText !== directText) {
+                  childInfo.fullText = fullText;
+                }
+              }
+              
+              // Add child count for containers
+              if (child && child.children && child.children.length > 0) {
+                childInfo.childCount = child.children.length;
+                
+                // Recursively get nested descendants
+                const nestedDescendants = traverseDescendants(child, maxDepth, currentDepth + 1);
+                if (nestedDescendants && nestedDescendants.length > 0) {
+                  childInfo.descendants = nestedDescendants;
+                }
+              }
+              
+              children.push(childInfo);
+            });
+            
+            return children;
+          };
+          
           let ancestor = targetInfo.element;
           for (let i = 0; i < ancestorLevel; i++) {
             if (!ancestor.parentElement || ancestor.parentElement === document.body) {
-              return null;
+              return {
+                error: "Ancestor level " + ancestorLevel + " is too high - reached document.body",
+                ancestorAt: null,
+                descendants: [],
+                totalDescendants: 0,
+                maxDepthReached: 0
+              };
             }
             ancestor = ancestor.parentElement;
           }
           
-          const descendants = [];
-          Array.from(ancestor.children).forEach(child => {
-            const descendantInfo = {
-              tagName: child.tagName.toLowerCase(),
-              attributes: getRelevantAttributes(child),
-              contains: []
-            };
-            
-            Array.from(child.children).slice(0, 10).forEach(grandchild => {
-              const content = {
-                tagName: grandchild.tagName.toLowerCase()
-              };
-              
-              // Check if grandchild has a ref
-              const refForGrandchild = Array.from(this.elements.entries())
-                .find(([_, info]) => info.element === grandchild)?.[0];
-                
-              if (refForGrandchild) {
-                content.ref = refForGrandchild;
-                const refInfo = this.elements.get(refForGrandchild);
-                if (refInfo) {
-                  content.role = refInfo.role;
-                  const text = grandchild.textContent?.trim();
-                  if (text && text.length > 0) {
-                    content.text = text;
-                  }
-                }
-              } else {
-                const text = grandchild.textContent?.trim();
-                if (text && text.length > 0 && text.length < 100) {
-                  if (['H1','H2','H3','H4','H5','H6','P','SPAN','DIV'].includes(grandchild.tagName)) {
-                    content.text = text;
-                  }
-                }
-                if (grandchild.children.length > 0) {
-                  content.childCount = grandchild.children.length;
-                }
-              }
-              
-              descendantInfo.contains.push(content);
-            });
-            
-            if (descendantInfo.contains.length === 0) {
-              const childText = child.textContent?.trim();
-              if (childText && childText.length > 0 && childText.length < 100) {
-                descendantInfo.contains.push({
-                  tagName: "text",
-                  text: childText
-                });
-              }
-            }
-            
-            descendants.push(descendantInfo);
-          });
+          const descendants = traverseDescendants(ancestor, 4, 0);
+          
+          // Calculate max depth safely
+          let maxDepth = 0;
+          if (descendants && descendants.length > 0) {
+            const depths = descendants.map(d => d && d.depth ? d.depth : 1);
+            maxDepth = Math.max(...depths);
+          }
           
           return {
             ancestorAt: {
@@ -447,8 +479,19 @@ export function injectedCode(): string {
               tagName: ancestor.tagName.toLowerCase(),
               attributes: getRelevantAttributes(ancestor)
             },
-            descendants: descendants
+            descendants: descendants || [],
+            totalDescendants: descendants ? descendants.length : 0,
+            maxDepthReached: maxDepth
           };
+          } catch (error) {
+            return {
+              error: "Error in get_descendants: " + error.message + " (Stack: " + error.stack + ")",
+              ancestorAt: null,
+              descendants: [],
+              totalDescendants: 0,
+              maxDepthReached: 0
+            };
+          }
         }
       };
       

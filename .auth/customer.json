@@ -2,40 +2,40 @@
   "cookies": [
     {
       "name": "auth",
-      "value": "ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpwWkNJNk1UVTRNQ3dpWlcxaGFXd2lPaUpyWlhKeWVTdGpjMEJxYjJsdWVtbHdjR1Z5TG1OdmJTSXNJblZ6WlhKdVlXMWxJam9pYTJWeWNubGpjeUlzSW5KdmJHVWlPbTUxYkd3c0ltbGhkQ0k2TVRjMU56WXpORFV5TUN3aVpYaHdJam94TnpVM056SXdPVEl3ZlEuUlMtQnBzRkhvT2RoNVVSMXMzVjRHRWpsRk9TazBvRXpWVmVBYmx0SHk3byI%3D.RTHBhZg0u9vx4ieMeXrWXKivTYs5gcQfZ%2FQVs1%2BdCsg",
+      "value": "ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpwWkNJNk1UVTRNQ3dpWlcxaGFXd2lPaUpyWlhKeWVTdGpjMEJxYjJsdWVtbHdjR1Z5TG1OdmJTSXNJblZ6WlhKdVlXMWxJam9pYTJWeWNubGpjeUlzSW5KdmJHVWlPbTUxYkd3c0ltbGhkQ0k2TVRjMU56ZzVNemcyT0N3aVpYaHdJam94TnpVM09UZ3dNalk0ZlEuanpvaXdyTDVfWHNVV3IxenJNTkRhR1JxemVHb05nU3J0S2Jsa1N5a1VtcyI%3D.Q9ityx%2Bd8mbjBbtBVtF9hm64MlSxoD1WdGh%2BYh%2Bg6KY",
       "domain": "cs-fit.staging01.joinzipper.com",
       "path": "/",
-      "expires": 1758239320.294733,
+      "expires": 1758498668.684167,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "m",
-      "value": "b22d8efd-e0d6-46a7-b813-63b90ee50ac488c50f",
+      "value": "b6201c86-7d36-4185-93c7-fa4eae8a6cd81e9146",
       "domain": "m.stripe.com",
       "path": "/",
-      "expires": 1792194521.211988,
+      "expires": 1792453869.123765,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "__stripe_mid",
-      "value": "c8e5eab4-bd31-4a3a-9289-d85c9b3e126d78614c",
+      "value": "b8198b05-d699-4c7a-bc94-b62281b024eb9c8265",
       "domain": ".cs-fit.staging01.joinzipper.com",
       "path": "/",
-      "expires": 1789170531,
+      "expires": 1789429879,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Strict"
     },
     {
       "name": "__stripe_sid",
-      "value": "47f20bbb-7766-42cb-9c65-7f774e6dc8a5fe1b6b",
+      "value": "07690732-1c21-4e6c-bbb9-90460e3c042e99d947",
       "domain": ".cs-fit.staging01.joinzipper.com",
       "path": "/",
-      "expires": 1757636331,
+      "expires": 1757895679,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Strict"

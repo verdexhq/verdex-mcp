@@ -296,6 +296,17 @@ class VerdexMCPServer {
             },
           },
 
+          // Usage instructions
+          {
+            name: "get_usage_instructions",
+            description:
+              "Get comprehensive instructions for using the Verdex MCP server effectively",
+            inputSchema: {
+              type: "object",
+              properties: {},
+            },
+          },
+
           // Multi-role functionality
           {
             name: "get_current_role",
@@ -657,18 +668,34 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
             // Format the result for better readability
             let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel} (Role: ${this.browser.getCurrentRole()}):\n\n`;
 
+            // Handle error cases
+            if (result.error) {
+              output += `❌ Error: ${result.error}\n`;
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: output,
+                  },
+                ],
+              };
+            }
+
             output += `🏗️ Analyzing within ancestor: ${result.ancestorAt.tagName}`;
-            if (Object.keys(result.ancestorAt.attributes).length > 0) {
+            if (
+              result.ancestorAt.attributes &&
+              Object.keys(result.ancestorAt.attributes).length > 0
+            ) {
               output += ` ${JSON.stringify(result.ancestorAt.attributes)}`;
             }
             output += `\n\n`;
 
-            if (result.descendants.length === 0) {
+            if (!result.descendants || result.descendants.length === 0) {
               output += `📍 No descendants found within ancestor at level ${ancestorLevel}\n`;
             } else {
               output += `🔍 Found ${result.descendants.length} direct children within ancestor:\n\n`;
 
-              result.descendants.forEach(
+              (result.descendants || []).forEach(
                 (descendant: DescendantInfo, index: number) => {
                   output += `Child ${index + 1} (${descendant.tagName}):\n`;
 
@@ -678,7 +705,7 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                     )}\n`;
                   }
 
-                  if (descendant.contains.length > 0) {
+                  if (descendant.contains && descendant.contains.length > 0) {
                     output += `   Contains:\n`;
                     descendant.contains.forEach((content) => {
                       output += `      - ${content.tagName}`;
@@ -700,7 +727,10 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                     output += `   Contains: (empty)\n`;
                   }
 
-                  if (index < result.descendants.length - 1) {
+                  if (
+                    result.descendants &&
+                    index < result.descendants.length - 1
+                  ) {
                     output += `\n`;
                   }
                 }
@@ -712,6 +742,349 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 {
                   type: "text",
                   text: output,
+                },
+              ],
+            };
+          }
+
+          // Usage instructions
+          case "get_usage_instructions": {
+            const instructions = `
+# Verdex MCP Server - Tool Usage Guide
+
+## Core Browser Tools
+- **browser_initialize**: Start browser session
+- **browser_navigate**: Navigate to URL and get page snapshot
+- **browser_snapshot**: Get current page accessibility tree
+- **browser_click/type**: Interact with elements by reference ID
+- **browser_inspect**: Get detailed element attributes and positioning
+- **wait_for_browser**: Pause for page loads/animations
+- **browser_close**: Clean shutdown
+
+## DOM Exploration Workflow (Use in Order)
+1. **get_ancestors**: Find element's containment hierarchy and stable containers
+2. **get_siblings**: Analyze sibling patterns at specific ancestor level
+3. **get_descendants**: Explore internal structure within target container
+
+This 3-step process helps build robust selectors by understanding element context and uniqueness.
+
+## Multi-Role Management
+- **get_current_role**: Check active authentication context
+- **list_current_roles**: View all available roles and their configs
+- **select_role**: Switch between different authenticated sessions
+
+## Usage Pattern
+1. Initialize browser → Navigate to page
+2. Use DOM exploration tools to understand structure
+3. Interact with elements using click/type
+4. Switch roles as needed for different access levels
+
+This is the most effective way to build robust selectors:
+
+getByAltText
+Allows locating elements by their alt text.
+
+Usage
+
+For example, this method will find the image by alt text "Playwright logo":
+
+<img alt='Playwright logo'>
+
+await page.getByAltText('Playwright logo').click();
+
+Arguments
+
+text string | RegExp#
+
+Text to locate the element for.
+
+options Object (optional)
+
+exact boolean (optional)#
+
+Whether to find an exact match: case-sensitive and whole-string. Default to false. Ignored when locating by a regular expression. Note that exact match still trims whitespace.
+
+Returns
+
+Locator#
+getByLabel
+
+Allows locating input elements by the text of the associated <label> or aria-labelledby element, or by the aria-label attribute.
+
+Usage
+
+For example, this method will find inputs by label "Username" and "Password" in the following DOM:
+
+<input aria-label="Username">
+<label for="password-input">Password:</label>
+<input id="password-input">
+
+await page.getByLabel('Username').fill('john');
+await page.getByLabel('Password').fill('secret');
+
+Arguments
+
+text string | RegExp#
+
+Text to locate the element for.
+
+options Object (optional)
+
+exact boolean (optional)#
+
+Whether to find an exact match: case-sensitive and whole-string. Default to false. Ignored when locating by a regular expression. Note that exact match still trims whitespace.
+
+Returns
+
+Locator#
+getByPlaceholder
+
+Allows locating input elements by the placeholder text.
+
+Usage
+
+For example, consider the following DOM structure.
+
+<input type="email" placeholder="name@example.com" />
+
+You can fill the input after locating it by the placeholder text:
+
+await page
+    .getByPlaceholder('name@example.com')
+    .fill('playwright@microsoft.com');
+
+Arguments
+
+text string | RegExp#
+
+Text to locate the element for.
+
+options Object (optional)
+
+exact boolean (optional)#
+
+Whether to find an exact match: case-sensitive and whole-string. Default to false. Ignored when locating by a regular expression. Note that exact match still trims whitespace.
+
+Returns
+
+Locator#
+getByRole
+
+Allows locating elements by their ARIA role, ARIA attributes and accessible name.
+
+Usage
+
+Consider the following DOM structure.
+
+<h3>Sign up</h3>
+<label>
+  <input type="checkbox" /> Subscribe
+</label>
+<br/>
+<button>Submit</button>
+
+You can locate each element by it's implicit role:
+
+await expect(page.getByRole('heading', { name: 'Sign up' })).toBeVisible();
+
+await page.getByRole('checkbox', { name: 'Subscribe' }).check();
+
+await page.getByRole('button', { name: /submit/i }).click();
+
+Arguments
+
+role "alert" | "alertdialog" | "application" | "article" | "banner" | "blockquote" | "button" | "caption" | "cell" | "checkbox" | "code" | "columnheader" | "combobox" | "complementary" | "contentinfo" | "definition" | "deletion" | "dialog" | "directory" | "document" | "emphasis" | "feed" | "figure" | "form" | "generic" | "grid" | "gridcell" | "group" | "heading" | "img" | "insertion" | "link" | "list" | "listbox" | "listitem" | "log" | "main" | "marquee" | "math" | "meter" | "menu" | "menubar" | "menuitem" | "menuitemcheckbox" | "menuitemradio" | "navigation" | "none" | "note" | "option" | "paragraph" | "presentation" | "progressbar" | "radio" | "radiogroup" | "region" | "row" | "rowgroup" | "rowheader" | "scrollbar" | "search" | "searchbox" | "separator" | "slider" | "spinbutton" | "status" | "strong" | "subscript" | "superscript" | "switch" | "tab" | "table" | "tablist" | "tabpanel" | "term" | "textbox" | "time" | "timer" | "toolbar" | "tooltip" | "tree" | "treegrid" | "treeitem"#
+
+Required aria role.
+
+options Object (optional)
+
+checked boolean (optional)#
+
+An attribute that is usually set by aria-checked or native <input type=checkbox> controls.
+
+Learn more about aria-checked.
+
+disabled boolean (optional)#
+
+An attribute that is usually set by aria-disabled or disabled.
+
+note
+Unlike most other attributes, disabled is inherited through the DOM hierarchy. Learn more about aria-disabled.
+
+exact boolean (optional) Added in: v1.28#
+
+Whether name is matched exactly: case-sensitive and whole-string. Defaults to false. Ignored when name is a regular expression. Note that exact match still trims whitespace.
+
+expanded boolean (optional)#
+
+An attribute that is usually set by aria-expanded.
+
+Learn more about aria-expanded.
+
+includeHidden boolean (optional)#
+
+Option that controls whether hidden elements are matched. By default, only non-hidden elements, as defined by ARIA, are matched by role selector.
+
+Learn more about aria-hidden.
+
+level number (optional)#
+
+A number attribute that is usually present for roles heading, listitem, row, treeitem, with default values for <h1>-<h6> elements.
+
+Learn more about aria-level.
+
+name string | RegExp (optional)#
+
+Option to match the accessible name. By default, matching is case-insensitive and searches for a substring, use exact to control this behavior.
+
+Learn more about accessible name.
+
+pressed boolean (optional)#
+
+An attribute that is usually set by aria-pressed.
+
+Learn more about aria-pressed.
+
+selected boolean (optional)#
+
+An attribute that is usually set by aria-selected.
+
+Learn more about aria-selected.
+
+Returns
+
+Locator#
+Details
+
+Role selector does not replace accessibility audits and conformance tests, but rather gives early feedback about the ARIA guidelines.
+
+Many html elements have an implicitly defined role that is recognized by the role selector. You can find all the supported roles here. ARIA guidelines do not recommend duplicating implicit roles and attributes by setting role and/or aria-* attributes to default values.
+
+getByTestId
+
+Locate element by the test id.
+
+Usage
+
+Consider the following DOM structure.
+
+<button data-testid="directions">Itinéraire</button>
+
+You can locate the element by it's test id:
+
+await page.getByTestId('directions').click();
+
+Arguments
+
+testId string | RegExp#
+
+Id to locate the element by.
+
+Returns
+
+Locator#
+Details
+
+By default, the data-testid attribute is used as a test id. Use selectors.setTestIdAttribute() to configure a different test id attribute if necessary.
+
+// Set custom test id attribute from @playwright/test config:
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    testIdAttribute: 'data-pw'
+  },
+});
+
+getByText
+
+Allows locating elements that contain given text.
+
+See also locator.filter() that allows to match by another criteria, like an accessible role, and then filter by the text content.
+
+Usage
+
+Consider the following DOM structure:
+
+<div>Hello <span>world</span></div>
+<div>Hello</div>
+
+You can locate by text substring, exact string, or a regular expression:
+
+// Matches <span>
+page.getByText('world');
+
+// Matches first <div>
+page.getByText('Hello world');
+
+// Matches second <div>
+page.getByText('Hello', { exact: true });
+
+// Matches both <div>s
+page.getByText(/Hello/);
+
+// Matches second <div>
+page.getByText(/^hello$/i);
+
+Arguments
+
+text string | RegExp#
+
+Text to locate the element for.
+
+options Object (optional)
+
+exact boolean (optional)#
+
+Whether to find an exact match: case-sensitive and whole-string. Default to false. Ignored when locating by a regular expression. Note that exact match still trims whitespace.
+
+Returns
+
+Locator#
+Details
+
+Matching by text always normalizes whitespace, even with exact match. For example, it turns multiple spaces into one, turns line breaks into spaces and ignores leading and trailing whitespace.
+
+Input elements of the type button and submit are matched by their value instead of the text content. For example, locating by text "Log in" matches <input type=button value="Log in">.
+
+getByTitle
+
+Allows locating elements by their title attribute.
+
+Usage
+
+Consider the following DOM structure.
+
+<span title='Issues count'>25 issues</span>
+
+You can check the issues count after locating it by the title text:
+
+await expect(page.getByTitle('Issues count')).toHaveText('25 issues');
+
+Arguments
+
+text string | RegExp#
+
+Text to locate the element for.
+
+options Object (optional)
+
+exact boolean (optional)#
+
+Whether to find an exact match: case-sensitive and whole-string. Default to false. Ignored when locating by a regular expression. Note that exact match still trims whitespace.
+
+Returns
+
+Locator#
+
+`;
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: instructions.trim(),
                 },
               ],
             };
