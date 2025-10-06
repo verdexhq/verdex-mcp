@@ -24,6 +24,8 @@ export interface AriaNode {
   pressed?: boolean | "mixed";
   selected?: boolean;
   active?: boolean;
+  // Element properties for disambiguation
+  props?: Record<string, string>;
 }
 
 export class SnapshotGenerator {
@@ -116,11 +118,20 @@ export class SnapshotGenerator {
     const line = this.buildNodeLine(ariaNode, indent);
     lines.push(line);
 
-    // Process children with increased indentation
-    this.processChildren(element, lines, indent + "  ", isVisible);
-
-    // Process aria-owns elements
-    this.processAriaOwnedElements(element, lines, indent + "  ");
+    // Check if this is an input with a value
+    const inputValue = this.getInputValue(element);
+    if (inputValue !== null && inputValue.length > 0) {
+      // Show the input value as a child text node (escape quotes!)
+      const escapedValue = inputValue.replace(/"/g, '\\"');
+      lines.push(`${indent}  - text: "${escapedValue}"`);
+      // Still process aria-owns but skip normal children for inputs
+      this.processAriaOwnedElements(element, lines, indent + "  ");
+    } else {
+      // Process children normally
+      this.processChildren(element, lines, indent + "  ", isVisible);
+      // Process aria-owns elements
+      this.processAriaOwnedElements(element, lines, indent + "  ");
+    }
   }
 
   /**
@@ -156,6 +167,9 @@ export class SnapshotGenerator {
       element,
       ...ariaProperties,
     };
+
+    // Extract element properties for disambiguation
+    this.extractElementProperties(element, ariaNode);
 
     // Add reference for interactive elements
     if (AriaUtils.isInteractive(element, role)) {
@@ -202,12 +216,84 @@ export class SnapshotGenerator {
 
     if (ariaNode.selected) line += " [selected]";
 
+    // Add element properties
+    if (ariaNode.props && Object.keys(ariaNode.props).length > 0) {
+      const propsStr = Object.entries(ariaNode.props)
+        .map(([key, value]) => `${key}="${value.replace(/"/g, '\\"')}"`)
+        .join(' ');
+      line += ` [${propsStr}]`;
+    }
+
     // Add reference
     if (ariaNode.ref) {
       line += ` [ref=${ariaNode.ref}]`;
     }
 
     return line;
+  }
+
+  /**
+   * Extract important element properties for navigation and testing
+   */
+  private extractElementProperties(element: Element, ariaNode: AriaNode): void {
+    const props: Record<string, string> = {};
+    
+    // Links: capture URL
+    if (ariaNode.role === 'link' && element.hasAttribute('href')) {
+      props.url = element.getAttribute('href')!;
+    }
+    
+    // Textboxes and searchboxes: capture placeholder
+    if (ariaNode.role === 'textbox' || ariaNode.role === 'searchbox') {
+      const placeholder = element.getAttribute('placeholder');
+      if (placeholder) {
+        props.placeholder = placeholder;
+      }
+    }
+    
+    // Images: capture src (alt already in name)
+    if (element instanceof HTMLImageElement && element.src) {
+      props.src = element.src;
+    }
+    
+    // Buttons: capture type if submit/reset
+    if (ariaNode.role === 'button') {
+      const type = element.getAttribute('type');
+      if (type === 'submit' || type === 'reset') {
+        props.type = type;
+      }
+    }
+    
+    // Comboboxes: capture autocomplete
+    if (ariaNode.role === 'combobox') {
+      const autocomplete = element.getAttribute('autocomplete');
+      if (autocomplete) {
+        props.autocomplete = autocomplete;
+      }
+    }
+    
+    if (Object.keys(props).length > 0) {
+      ariaNode.props = props;
+    }
+  }
+
+  /**
+   * Get the current value of an input element
+   */
+  private getInputValue(element: Element): string | null {
+    if (!(element instanceof HTMLInputElement || 
+          element instanceof HTMLTextAreaElement)) {
+      return null;
+    }
+    
+    if (element instanceof HTMLInputElement) {
+      const skipTypes = ['checkbox', 'radio', 'file', 'button', 'submit', 'reset', 'image', 'hidden'];
+      if (skipTypes.includes(element.type)) {
+        return null;
+      }
+    }
+    
+    return element.value;
   }
 
   /**

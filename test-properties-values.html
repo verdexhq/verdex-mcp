@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Element Properties & Input Values</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    .links {
+      margin-top: 30px;
+    }
+    .links a {
+      display: block;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Properties & Values</h1>
+  
+  <form>
+    <div class="form-group">
+      <input type="email" placeholder="Email" value="test@example.com">
+    </div>
+    
+    <div class="form-group">
+      <input type="password" placeholder="Password">
+    </div>
+    
+    <div class="form-group">
+      <input type="text" placeholder="Name">
+    </div>
+    
+    <div class="form-group">
+      <textarea placeholder="Message" rows="3"></textarea>
+    </div>
+    
+    <button type="submit">Submit</button>
+    <button type="reset">Reset</button>
+    <button type="button">Cancel</button>
+  </form>
+  
+  <div class="links">
+    <a href="/pricing">Learn More</a>
+    <a href="/contact">Learn More</a>
+    <a href="/about">About Us</a>
+  </div>
+  
+  <script type="module">
+    import { BridgeFactory } from './dist/injected/bridge/BridgeFactory.js';
+    
+    // Create bridge instance
+    window.bridge = BridgeFactory.create();
+    
+    // Generate initial snapshot
+    console.log('Initial snapshot:');
+    const snapshot = window.bridge.snapshot();
+    console.log(snapshot.text);
+    console.log(`\nElements found: ${snapshot.elementCount}`);
+    
+    // Test typing into an input
+    setTimeout(() => {
+      console.log('\n--- After typing into password field ---');
+      window.bridge.type('e2', 'myPassword123');
+      
+      const snapshot2 = window.bridge.snapshot();
+      console.log(snapshot2.text);
+    }, 1000);
+    
+    // Test typing into textarea
+    setTimeout(() => {
+      console.log('\n--- After typing into textarea ---');
+      window.bridge.type('e4', 'Hello world!');
+      
+      const snapshot3 = window.bridge.snapshot();
+      console.log(snapshot3.text);
+    }, 2000);
+  </script>
+</body>
+</html>
