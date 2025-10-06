@@ -49,8 +49,23 @@ export class SnapshotGenerator {
       this.bridge.counter = 0;
       this.visited.clear();
 
+      // Phase 1: Build the tree
+      const rootChildren = this.buildAriaTree(document.body, true);
+
+      // Create a virtual root node
+      const rootNode: AriaNode = {
+        role: "WebArea",
+        name: "",
+        children: rootChildren,
+        element: document.body,
+      };
+
+      // Phase 2: Optimize generic roles (Playwright's approach)
+      this.normalizeGenericRoles(rootNode);
+
+      // Phase 3: Render to text
       const lines: string[] = [];
-      this.processNode(document.body, lines, "", true);
+      this.renderTree(rootNode, lines, "");
 
       return {
         text: lines.join("\n"),
@@ -66,20 +81,19 @@ export class SnapshotGenerator {
   }
 
   /**
-   * Process a node (element or text) recursively
+   * Build accessibility tree structure from a node
+   * Returns an array of AriaNode | string (text nodes)
    */
-  private processNode(
+  private buildAriaTree(
     node: Node,
-    lines: string[],
-    indent: string,
     parentVisible: boolean
-  ): void {
-    if (this.visited.has(node)) return;
+  ): (AriaNode | string)[] {
+    if (this.visited.has(node)) return [];
     this.visited.add(node);
 
     // Handle text nodes
     if (node.nodeType === Node.TEXT_NODE && node.nodeValue) {
-      if (!parentVisible) return;
+      if (!parentVisible) return [];
 
       const text = this.normalizeWhitespace(node.nodeValue);
       if (text && text.length > 0) {
@@ -88,49 +102,45 @@ export class SnapshotGenerator {
         if (parent) {
           const parentRole = AriaUtils.getRole(parent);
           if (parentRole !== "textbox") {
-            lines.push(`${indent}- text: "${text}"`);
+            return [text];
           }
         }
       }
-      return;
+      return [];
     }
 
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node.nodeType !== Node.ELEMENT_NODE) return [];
 
     const element = node as Element;
     const isVisible = AriaUtils.isVisibleForAria(element);
 
     // Skip if not visible for ARIA, but still process children in case they are visible
     if (!isVisible) {
-      this.processChildren(element, lines, indent, false);
-      return;
+      return this.buildChildrenTree(element, false);
     }
 
     const ariaNode = this.createAriaNode(element);
     if (!ariaNode) {
       // Element doesn't contribute to accessibility tree, but process children
-      this.processChildren(element, lines, indent, isVisible);
-      return;
+      return this.buildChildrenTree(element, isVisible);
     }
 
-    // Build the line representation
-    const line = this.buildNodeLine(ariaNode, indent);
-    lines.push(line);
-
-    // Check if this is an input with a value
+    // Build children for this node
     const inputValue = this.getInputValue(element);
     if (inputValue !== null && inputValue.length > 0) {
-      // Show the input value as a child text node (escape quotes!)
-      const escapedValue = inputValue.replace(/"/g, '\\"');
-      lines.push(`${indent}  - text: "${escapedValue}"`);
+      // Show the input value as a child text node
+      ariaNode.children = [inputValue];
       // Still process aria-owns but skip normal children for inputs
-      this.processAriaOwnedElements(element, lines, indent + "  ");
+      const ownedChildren = this.buildAriaOwnedTree(element);
+      ariaNode.children.push(...ownedChildren);
     } else {
       // Process children normally
-      this.processChildren(element, lines, indent + "  ", isVisible);
-      // Process aria-owns elements
-      this.processAriaOwnedElements(element, lines, indent + "  ");
+      const children = this.buildChildrenTree(element, isVisible);
+      const ownedChildren = this.buildAriaOwnedTree(element);
+      ariaNode.children = [...children, ...ownedChildren];
     }
+
+    return [ariaNode];
   }
 
   /**
@@ -309,60 +319,127 @@ export class SnapshotGenerator {
   }
 
   /**
-   * Process child nodes
+   * Build tree from child nodes
    */
-  private processChildren(
+  private buildChildrenTree(
     element: Element,
-    lines: string[],
-    indent: string,
     parentVisible: boolean
-  ): void {
+  ): (AriaNode | string)[] {
+    const result: (AriaNode | string)[] = [];
+
     // Handle slot elements
     if (element.nodeName === "SLOT") {
       const slot = element as HTMLSlotElement;
       const assignedNodes = slot.assignedNodes();
       if (assignedNodes.length > 0) {
         assignedNodes.forEach((child) => {
-          this.processNode(child, lines, indent, parentVisible);
+          result.push(...this.buildAriaTree(child, parentVisible));
         });
-        return;
+        return result;
       }
     }
 
     // Process regular children
     Array.from(element.childNodes).forEach((child) => {
       if (!(child as Element).assignedSlot) {
-        this.processNode(child, lines, indent, parentVisible);
+        result.push(...this.buildAriaTree(child, parentVisible));
       }
     });
 
     // Process shadow DOM
     if (element.shadowRoot) {
       Array.from(element.shadowRoot.childNodes).forEach((child) => {
-        this.processNode(child, lines, indent, parentVisible);
+        result.push(...this.buildAriaTree(child, parentVisible));
       });
     }
+
+    return result;
   }
 
   /**
-   * Process elements referenced by aria-owns
+   * Build tree from elements referenced by aria-owns
    */
-  private processAriaOwnedElements(
-    element: Element,
-    lines: string[],
-    indent: string
-  ): void {
+  private buildAriaOwnedTree(element: Element): (AriaNode | string)[] {
     const owns = element.getAttribute("aria-owns");
-    if (!owns) return;
+    if (!owns) return [];
 
     const ownedElements = owns
       .split(/\s+/)
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
 
+    const result: (AriaNode | string)[] = [];
     ownedElements.forEach((owned) => {
-      this.processNode(owned, lines, indent, true);
+      result.push(...this.buildAriaTree(owned, true));
     });
+
+    return result;
+  }
+
+  /**
+   * Normalize generic roles using Playwright's approach
+   * Removes unnecessary generic containers that only wrap a single interactive element
+   */
+  private normalizeGenericRoles(node: AriaNode): (AriaNode | string)[] {
+    const result: (AriaNode | string)[] = [];
+
+    for (const child of node.children || []) {
+      if (typeof child === "string") {
+        result.push(child);
+        continue;
+      }
+
+      // Recursively normalize this child
+      const normalized = this.normalizeGenericRoles(child);
+      // Spread the result (might be [child] or child's children if child was removed)
+      result.push(...normalized);
+    }
+
+    // Only remove generic that encloses one element
+    // Logical grouping still makes sense, even if it is not ref-able
+    const removeSelf =
+      node.role === "generic" &&
+      result.length <= 1 &&
+      result.every((c) => typeof c !== "string" && !!c.ref);
+
+    if (removeSelf) {
+      return result; // Hoist children up
+    }
+
+    node.children = result;
+    return [node]; // Keep this node
+  }
+
+  /**
+   * Render the accessibility tree to text lines
+   */
+  private renderTree(
+    node: AriaNode | string,
+    lines: string[],
+    indent: string
+  ): void {
+    // Handle text nodes
+    if (typeof node === "string") {
+      lines.push(`${indent}- text: "${node}"`);
+      return;
+    }
+
+    // Skip the virtual WebArea root
+    if (node.role === "WebArea") {
+      for (const child of node.children) {
+        this.renderTree(child, lines, indent);
+      }
+      return;
+    }
+
+    // Build the line representation
+    const line = this.buildNodeLine(node, indent);
+    lines.push(line);
+
+    // Render children with increased indentation
+    for (const child of node.children) {
+      this.renderTree(child, lines, indent + "  ");
+    }
   }
 
   /**
