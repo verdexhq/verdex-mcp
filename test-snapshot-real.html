@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnapshotGenerator Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        .hidden { display: none; }
+        .aria-hidden { visibility: hidden; }
+    </style>
+</head>
+<body>
+    <h1>SnapshotGenerator Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        <div id="test-results"></div>
+    </div>
+
+    <!-- Test Content Sections -->
+    
+    <div class="test-section" id="basic-elements">
+        <h2>Basic Elements Test</h2>
+        <p>This section tests basic HTML elements and their accessibility roles.</p>
+        <button id="test-button">Click Me</button>
+        <a href="#test" id="test-link">Test Link</a>
+        <input type="text" id="test-input" placeholder="Enter text">
+    </div>
+
+    <div class="test-section" id="form-elements">
+        <h2>Form Elements Test</h2>
+        <form>
+            <label for="username">Username:</label>
+            <input type="text" id="username" required>
+            
+            <label for="email">Email:</label>
+            <input type="email" id="email" placeholder="user@example.com">
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password">
+            
+            <label>
+                <input type="checkbox" id="newsletter"> Subscribe to newsletter
+            </label>
+            
+            <label for="country">Country:</label>
+            <select id="country">
+                <option value="">Select a country</option>
+                <option value="us">United States</option>
+                <option value="ca">Canada</option>
+                <option value="uk">United Kingdom</option>
+            </select>
+            
+            <label for="message">Message:</label>
+            <textarea id="message" placeholder="Your message here"></textarea>
+            
+            <button type="submit">Submit Form</button>
+            <button type="reset">Reset Form</button>
+        </form>
+    </div>
+
+    <div class="test-section" id="aria-elements">
+        <h2>ARIA Elements Test</h2>
+        <button aria-pressed="true" id="toggle-button">Toggle (Pressed)</button>
+        <button aria-expanded="false" aria-controls="menu" id="menu-button">Menu</button>
+        <div role="tab" aria-selected="true" tabindex="0" id="active-tab">Active Tab</div>
+        <div role="tab" aria-selected="false" tabindex="-1" id="inactive-tab">Inactive Tab</div>
+        <input type="checkbox" checked aria-describedby="checkbox-help" id="aria-checkbox">
+        <div id="checkbox-help">This checkbox has additional help text</div>
+        <div role="alert" id="error-message">This is an error message</div>
+    </div>
+
+    <div class="test-section" id="visibility-test">
+        <h2>Visibility Test</h2>
+        <button id="visible-button">Visible Button</button>
+        <button class="hidden" id="hidden-button">Hidden Button (CSS)</button>
+        <button aria-hidden="true" id="aria-hidden-button">ARIA Hidden Button</button>
+        <div style="visibility: hidden;">
+            <button id="visibility-hidden-button">Visibility Hidden Button</button>
+        </div>
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwZiIvPjwvc3ZnPg==" alt="Test Image" id="test-image">
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YwMCIvPjwvc3ZnPg==" alt="" id="decorative-image">
+    </div>
+
+    <div class="test-section" id="nested-structure">
+        <h2>Nested Structure Test</h2>
+        <nav>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li>
+                    <span>Products</span>
+                    <ul>
+                        <li><a href="#laptops">Laptops</a></li>
+                        <li><a href="#phones">Phones</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
+        
+        <article>
+            <header>
+                <h3>Article Title</h3>
+                <p>By Author Name</p>
+            </header>
+            <section>
+                <h4>Section 1</h4>
+                <p>This is some content in the first section.</p>
+            </section>
+            <section>
+                <h4>Section 2</h4>
+                <p>This is some content in the second section.</p>
+            </section>
+        </article>
+    </div>
+
+    <script type="module">
+        // Import the compiled SnapshotGenerator
+        import { SnapshotGenerator, AriaUtils } from './dist/injected/core/SnapshotGenerator.js';
+        
+        // Mock Bridge implementation
+        class TestBridge {
+            constructor() {
+                this.elements = new Map();
+                this.counter = 0;
+            }
+            
+            getAttributes(element) {
+                const attrs = {};
+                for (let i = 0; i < element.attributes.length; i++) {
+                    const attr = element.attributes[i];
+                    attrs[attr.name] = attr.value;
+                }
+                return attrs;
+            }
+        }
+
+        // Test framework
+        class TestRunner {
+            constructor() {
+                this.results = [];
+            }
+
+            test(name, testFn) {
+                console.log(`Running test: ${name}`);
+                try {
+                    const result = testFn();
+                    this.results.push({ name, passed: true, result });
+                    this.logResult(name, 'PASS', result);
+                } catch (error) {
+                    this.results.push({ name, passed: false, error: error.message });
+                    this.logResult(name, 'FAIL', error.message);
+                }
+            }
+
+            logResult(name, status, details) {
+                const resultsDiv = document.getElementById('test-results');
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${status.toLowerCase()}`;
+                resultDiv.innerHTML = `
+                    <strong>${status}: ${name}</strong>
+                    <div>${typeof details === 'string' ? details : JSON.stringify(details, null, 2)}</div>
+                `;
+                resultsDiv.appendChild(resultDiv);
+            }
+
+            summary() {
+                const passed = this.results.filter(r => r.passed).length;
+                const total = this.results.length;
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = `test-result ${passed === total ? 'pass' : 'fail'}`;
+                summaryDiv.innerHTML = `
+                    <strong>Test Summary</strong>
+                    <div>Passed: ${passed}/${total}</div>
+                `;
+                document.getElementById('test-results').appendChild(summaryDiv);
+            }
+        }
+
+        // Make functions available globally
+        window.runTests = function() {
+            const runner = new TestRunner();
+            
+            // Test 1: Basic instantiation
+            runner.test('SnapshotGenerator instantiation', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                if (!generator) throw new Error('Failed to create instance');
+                return 'SnapshotGenerator created successfully';
+            });
+
+            // Test 2: Generate snapshot of entire page
+            runner.test('Full page snapshot', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                const result = generator.generate();
+                
+                if (!result || typeof result.text !== 'string') {
+                    throw new Error('Invalid result format');
+                }
+                
+                return {
+                    elementCount: result.elementCount,
+                    textLength: result.text.length,
+                    preview: result.text.substring(0, 200) + '...'
+                };
+            });
+
+            // Test 3: Interactive elements detection
+            runner.test('Interactive elements detection', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                const result = generator.generate();
+                
+                const interactiveCount = result.elementCount;
+                const refMatches = (result.text.match(/\[ref=e\d+\]/g) || []).length;
+                
+                if (interactiveCount !== refMatches) {
+                    throw new Error(`Mismatch: ${interactiveCount} elements but ${refMatches} refs`);
+                }
+                
+                return {
+                    interactiveElements: interactiveCount,
+                    referencesFound: refMatches,
+                    storedElements: bridge.elements.size
+                };
+            });
+
+            // Test 4: ARIA properties
+            runner.test('ARIA properties capture', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                const result = generator.generate();
+                
+                const hasPressed = result.text.includes('[pressed]');
+                const hasExpanded = result.text.includes('[expanded');
+                const hasSelected = result.text.includes('[selected]');
+                const hasChecked = result.text.includes('[checked]');
+                
+                return {
+                    hasPressed,
+                    hasExpanded,
+                    hasSelected,
+                    hasChecked,
+                    ariaPropertiesFound: [hasPressed, hasExpanded, hasSelected, hasChecked].filter(Boolean).length
+                };
+            });
+
+            // Test 5: Visibility rules
+            runner.test('Visibility rules', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                const result = generator.generate();
+                
+                const hasVisibleButton = result.text.includes('Visible Button');
+                const hasHiddenButton = result.text.includes('Hidden Button');
+                const hasAriaHiddenButton = result.text.includes('ARIA Hidden Button');
+                
+                return {
+                    visibleButtonFound: hasVisibleButton,
+                    hiddenButtonExcluded: !hasHiddenButton,
+                    ariaHiddenButtonExcluded: !hasAriaHiddenButton
+                };
+            });
+
+            // Test 6: Semantic structure
+            runner.test('Semantic structure', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                const result = generator.generate();
+                
+                const hasNavigation = result.text.includes('- navigation');
+                const hasList = result.text.includes('- list');
+                const hasArticle = result.text.includes('- article');
+                const hasHeadings = result.text.includes('- heading');
+                
+                return {
+                    hasNavigation,
+                    hasList,
+                    hasArticle,
+                    hasHeadings,
+                    semanticElementsFound: [hasNavigation, hasList, hasArticle, hasHeadings].filter(Boolean).length
+                };
+            });
+
+            // Test 7: Element references mapping
+            runner.test('Element references mapping', () => {
+                const bridge = new TestBridge();
+                const generator = new SnapshotGenerator(bridge, {});
+                const result = generator.generate();
+                
+                const elementDetails = [];
+                for (const [ref, info] of bridge.elements) {
+                    elementDetails.push({
+                        ref,
+                        role: info.role,
+                        name: info.name,
+                        tagName: info.tagName
+                    });
+                }
+                
+                return {
+                    totalElements: bridge.elements.size,
+                    sampleElements: elementDetails.slice(0, 5)
+                };
+            });
+
+            runner.summary();
+        };
+
+        window.clearResults = function() {
+            document.getElementById('test-results').innerHTML = '';
+        };
+
+        // Auto-run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, SnapshotGenerator available');
+        });
+    </script>
+</body>
+</html>
