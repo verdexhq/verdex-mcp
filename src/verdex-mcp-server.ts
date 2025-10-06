@@ -695,9 +695,59 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
             } else {
               output += `🔍 Found ${result.descendants.length} direct children within ancestor:\n\n`;
 
+              // Helper function to format a descendant recursively
+              const formatDescendant = (
+                descendant: DescendantInfo,
+                indent: string = "   "
+              ): string => {
+                let desc = "";
+                desc += `${indent}${descendant.tagName}`;
+
+                // Add ref if present
+                if (descendant.ref) {
+                  desc += ` [ref=${descendant.ref}]`;
+                  if (descendant.role) desc += ` (${descendant.role})`;
+                }
+
+                // Add text content
+                if (descendant.directText) {
+                  desc += ` "${descendant.directText.substring(0, 50)}${
+                    descendant.directText.length > 50 ? "..." : ""
+                  }"`;
+                } else if (descendant.fullText) {
+                  desc += ` "${descendant.fullText.substring(0, 50)}${
+                    descendant.fullText.length > 50 ? "..." : ""
+                  }"`;
+                }
+
+                // Add child count
+                if (descendant.childCount) {
+                  desc += ` (${descendant.childCount} children)`;
+                }
+
+                // Add attributes if present
+                if (Object.keys(descendant.attributes).length > 0) {
+                  desc += ` ${JSON.stringify(descendant.attributes)}`;
+                }
+
+                desc += `\n`;
+
+                // Recursively format nested descendants
+                if (
+                  descendant.descendants &&
+                  descendant.descendants.length > 0
+                ) {
+                  descendant.descendants.forEach((nested) => {
+                    desc += formatDescendant(nested, indent + "   ");
+                  });
+                }
+
+                return desc;
+              };
+
               (result.descendants || []).forEach(
                 (descendant: DescendantInfo, index: number) => {
-                  output += `Child ${index + 1} (${descendant.tagName}):\n`;
+                  output += `Child ${index + 1} (depth ${descendant.depth}):\n`;
 
                   if (Object.keys(descendant.attributes).length > 0) {
                     output += `   Attributes: ${JSON.stringify(
@@ -705,26 +755,45 @@ Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                     )}\n`;
                   }
 
-                  if (descendant.contains && descendant.contains.length > 0) {
-                    output += `   Contains:\n`;
-                    descendant.contains.forEach((content) => {
-                      output += `      - ${content.tagName}`;
-                      if (content.ref) {
-                        output += ` [ref=${content.ref}]`;
-                        if (content.role) output += ` (${content.role})`;
-                      }
-                      if (content.text) {
-                        output += ` "${content.text.substring(0, 50)}${
-                          content.text.length > 50 ? "..." : ""
-                        }"`;
-                      }
-                      if (content.childCount) {
-                        output += ` (${content.childCount} children)`;
-                      }
-                      output += `\n`;
+                  // Show immediate content
+                  if (descendant.ref) {
+                    output += `   Ref: ${descendant.ref}`;
+                    if (descendant.role) output += ` (${descendant.role})`;
+                    if (descendant.name) output += ` "${descendant.name}"`;
+                    output += `\n`;
+                  }
+
+                  if (descendant.directText) {
+                    output += `   Direct Text: "${descendant.directText.substring(
+                      0,
+                      100
+                    )}${descendant.directText.length > 100 ? "..." : ""}"\n`;
+                  }
+
+                  if (
+                    descendant.fullText &&
+                    descendant.fullText !== descendant.directText
+                  ) {
+                    output += `   Full Text: "${descendant.fullText.substring(
+                      0,
+                      100
+                    )}${descendant.fullText.length > 100 ? "..." : ""}"\n`;
+                  }
+
+                  // Show nested descendants
+                  if (
+                    descendant.descendants &&
+                    descendant.descendants.length > 0
+                  ) {
+                    output += `   Contains ${descendant.descendants.length} nested elements:\n`;
+                    descendant.descendants.forEach((nested) => {
+                      output += formatDescendant(nested, "      ");
                     });
-                  } else {
-                    output += `   Contains: (empty)\n`;
+                  } else if (
+                    descendant.childCount &&
+                    descendant.childCount > 0
+                  ) {
+                    output += `   Contains ${descendant.childCount} children (not shown - depth limit reached)\n`;
                   }
 
                   if (

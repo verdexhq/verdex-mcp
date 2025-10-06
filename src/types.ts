@@ -115,35 +115,35 @@ export interface GetSiblingsResult {
 }
 
 /**
- * Content found within a descendant element.
- */
-export interface DescendantContent {
-  ref?: string; // Interactive element ref, if this element has one
-  tagName: string;
-  text?: string; // For headings, buttons, links
-  role?: string; // ARIA role, if element has an interactive ref
-  childCount?: number; // For containers, number of child elements
-}
-
-/**
- * Information about a child element within an ancestor.
+ * Information about a descendant element (recursive tree structure)
  */
 export interface DescendantInfo {
+  depth: number;
+  index: number;
   tagName: string;
   attributes: Attributes;
-  contains: DescendantContent[]; // What's inside this descendant (2 levels deep max)
+  ref?: string;
+  role?: string;
+  name?: string;
+  directText?: string;
+  fullText?: string;
+  childCount?: number;
+  descendants?: DescendantInfo[]; // Recursive: nested descendants
 }
 
 /**
  * Result of analyzing descendants within a specific ancestor.
  */
 export interface GetDescendantsResult {
+  error?: string;
   ancestorAt: {
     level: number; // Which ancestor level was analyzed
     tagName: string;
     attributes: Attributes;
-  };
+  } | null;
   descendants: DescendantInfo[];
+  totalDescendants: number;
+  maxDepthReached: number;
 }
 
 // Multi-role interfaces
