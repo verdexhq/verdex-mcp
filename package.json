@@ -19,12 +19,11 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
-    "@playwright/test": "^1.55.0",
     "puppeteer": "^24.14.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.15",
-    "jsdom": "^27.0.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }
