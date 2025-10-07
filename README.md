@@ -52,7 +52,7 @@ Using compiled version:
   "mcpServers": {
     "browser-bridge": {
       "command": "node", 
-      "args": ["dist/mcp-server.js"],
+      "args": ["dist/verdex-mcp-server.js"],
       "cwd": "/path/to/your/browser-bridge"
     }
   }
@@ -65,7 +65,7 @@ Using tsx directly:
   "mcpServers": {
     "browser-bridge": {
       "command": "npx",
-      "args": ["tsx", "src/mcp-server.ts"], 
+      "args": ["tsx", "src/verdex-mcp-server.ts"], 
       "cwd": "/path/to/your/browser-bridge"
     }
   }

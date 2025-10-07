@@ -29,6 +29,8 @@ export interface InspectResult {
     width: number;
     height: number;
   };
+  siblingIndex: number;
+  parentRef: string | null;
 }
 
 export interface AncestorInfo {

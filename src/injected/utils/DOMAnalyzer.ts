@@ -122,4 +122,38 @@ export class DOMAnalyzer {
 
     return attrs;
   }
+
+  /**
+   * Get sibling index of an element among its siblings
+   * Returns the 0-based position among all sibling elements
+   */
+  static getSiblingIndex(element: Element): number {
+    if (!element.parentElement) return 0;
+
+    const siblings = Array.from(element.parentElement.children);
+    return siblings.indexOf(element);
+  }
+
+  /**
+   * Find parent element ref in the elements map
+   * Walks up the DOM tree to find the first parent that is an interactive element
+   */
+  static findParentRef(
+    element: Element,
+    elementsMap: Map<string, ElementInfo>
+  ): string | null {
+    let parent = element.parentElement;
+
+    while (parent) {
+      // Check if this parent is in our elements map
+      for (const [ref, info] of elementsMap.entries()) {
+        if (info.element === parent) {
+          return ref;
+        }
+      }
+      parent = parent.parentElement;
+    }
+
+    return null;
+  }
 }

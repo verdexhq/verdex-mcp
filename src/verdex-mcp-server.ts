@@ -6,12 +6,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { existsSync } from "fs";
 import type {
   AncestorInfo,
   SiblingInfo,
   DescendantInfo,
   RolesConfiguration,
   RoleConfig,
+  InspectResult,
 } from "./types.js";
 import { MultiContextBrowser } from "./multi-context-browser.js";
 
@@ -68,8 +70,7 @@ class VerdexMCPServer {
 
           // Check if the auth file exists (basic validation)
           try {
-            const fs = require("fs");
-            if (!fs.existsSync(authPath)) {
+            if (!existsSync(authPath)) {
               console.warn(
                 `⚠️ Warning: Auth file not found for role "${roleName}": ${authPath}`
               );
@@ -459,7 +460,7 @@ Found ${snapshot.elementCount} interactive elements`;
 
           case "browser_inspect": {
             const { ref } = args as { ref: string };
-            const info = await this.browser.inspect(ref);
+            const info: InspectResult | null = await this.browser.inspect(ref);
             if (!info) {
               return {
                 content: [
@@ -478,9 +479,13 @@ Found ${snapshot.elementCount} interactive elements`;
 Role: ${info.role}
 Name: ${info.name}
 Tag: ${info.tagName}
-Selector: ${info.selector}
+Text: ${info.text}
+Visible: ${info.visible}
 Sibling Index: ${info.siblingIndex}
 Parent Ref: ${info.parentRef || "(none)"}
+Bounds: x=${info.bounds.x}, y=${info.bounds.y}, width=${
+                    info.bounds.width
+                  }, height=${info.bounds.height}
 Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
                 },
               ],
