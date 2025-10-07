@@ -1,0 +1,11 @@
+# Linguist overrides for accurate language statistics
+# https://github.com/github/linguist
+
+# Exclude package-lock.json from language stats
+package-lock.json linguist-generated=true
+
+# Mark TypeScript as the primary language
+*.ts linguist-language=TypeScript
+
+# Exclude documentation from stats
+*.md linguist-documentation=true
