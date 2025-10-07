@@ -2,6 +2,7 @@ import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
 import {
   Snapshot,
   ElementInfo,
+  InspectResult,
   RoleContext,
   RolesConfiguration,
 } from "./types.js";
@@ -513,7 +514,7 @@ export class MultiContextBrowser {
     }
   }
 
-  async inspect(ref: string): Promise<ElementInfo | null> {
+  async inspect(ref: string): Promise<InspectResult | null> {
     const context = await this.ensureCurrentRoleContext();
     await this.ensureBridgeForContext(context);
 

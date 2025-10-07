@@ -75,6 +75,8 @@ export class BridgeFactory {
             width: rect.width,
             height: rect.height,
           },
+          siblingIndex: DOMAnalyzer.getSiblingIndex(el),
+          parentRef: DOMAnalyzer.findParentRef(el, this.elements),
         };
       },
 

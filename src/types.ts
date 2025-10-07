@@ -16,6 +16,28 @@ export interface ElementInfo {
 }
 
 /**
+ * Result of inspecting a specific element.
+ * This is returned by the bridge's inspect() method and matches the injected InspectResult type.
+ */
+export interface InspectResult {
+  ref: string;
+  tagName: string;
+  role: string;
+  name: string;
+  attributes: Record<string, string>;
+  text: string;
+  visible: boolean;
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  siblingIndex: number;
+  parentRef: string | null;
+}
+
+/**
  * Structure of the bridge object injected into browser context.
  * Stores element references and maintains counter for unique IDs.
  */

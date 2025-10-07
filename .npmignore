@@ -1,0 +1,32 @@
+# Source files (users only need dist/)
+src/
+tests/
+*.spec.ts
+
+# Development files
+.auth/
+demo-page.html
+playwright.config.ts
+tsconfig.json
+_playwright/
+node_modules/
+playwright-report/
+test-results/
+
+
+# Git files
+.git/
+.gitignore
+
+# OS files
+.DS_Store
+
+# Editor files
+.vscode/
+.cursor/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*

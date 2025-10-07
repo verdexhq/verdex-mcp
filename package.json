@@ -1,11 +1,28 @@
 {
   "name": "verdex-mcp-server",
   "description": "Enhanced browser automation with DOM intelligence",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/verdex-mcp-server.js",
+  "bin": {
+    "verdex-mcp-server": "./dist/verdex-mcp-server.js"
+  },
   "scripts": {
-    "build": "rm -rf dist && tsc"
+    "dev": "tsx src/verdex-mcp-server.ts",
+    "build": "rm -rf dist && tsc",
+    "start": "node dist/verdex-mcp-server.js",
+    "test": "playwright test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/verdexhq/verdex-mcp.git"
+  },
+  "homepage": "https://github.com/verdexhq/verdex-mcp",
+  "bugs": {
+    "url": "https://github.com/verdexhq/verdex-mcp/issues"
   },
   "keywords": [
     "mcp",
@@ -13,7 +30,10 @@
     "browser automation",
     "playwright mcp",
     "playwright",
-    "puppeteer"
+    "puppeteer",
+    "web testing",
+    "dom analysis",
+    "selector generation"
   ],
   "author": "John Childs-Eddy",
   "license": "Apache-2.0",
