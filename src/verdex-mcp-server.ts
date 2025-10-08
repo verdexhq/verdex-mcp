@@ -6,7 +6,8 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { existsSync } from "fs";
+import { existsSync, realpathSync } from "fs";
+import { fileURLToPath } from "url";
 import type {
   AncestorInfo,
   SiblingInfo,
@@ -1295,8 +1296,21 @@ Locator#
   }
 }
 
-// Start the server if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Start the server if this module is executed as the entrypoint (npx/cli)
+const isDirectExecution = (() => {
+  if (typeof process === "undefined" || !Array.isArray(process.argv))
+    return false;
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  try {
+    const resolvedArgv1 = realpathSync(argv1);
+    return fileURLToPath(import.meta.url) === resolvedArgv1;
+  } catch {
+    return fileURLToPath(import.meta.url) === argv1;
+  }
+})();
+
+if (isDirectExecution) {
   const server = new VerdexMCPServer();
   server.run().catch(console.error);
 }

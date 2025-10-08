@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2025-10-08
+
+### Fixed
+- **npx execution**: Fixed CLI entry detection to work with npx by using `fileURLToPath` and `realpathSync` instead of fragile `import.meta.url` comparison
+- **Missing import**: Added `fileURLToPath` from `url` module to compiled output
+
 ## [0.1.1] - 2025-10-08
 
 ### Fixed
