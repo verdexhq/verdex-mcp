@@ -470,9 +470,7 @@ npm run dev
 
 ## 🙏 Acknowledgments
 
-Huge respect to the [Playwright MCP](https://github.com/microsoft/playwright) team and the [Model Context Protocol](https://modelcontextprotocol.io) creators. Verdex explores adjacent ideas inspired by their excellent work.
-
-Special thanks to the Playwright team's track record: CDP → Puppeteer → Playwright. Standing on the shoulders of giants. 🚀
+Huge respect to the [Playwright MCP](https://github.com/microsoft/playwright) team and the [Model Context Protocol](https://modelcontextprotocol.io) creators. Verdex explores adjacent ideas inspired by their excellent work. 🚀
 
 ---
 
