@@ -97,7 +97,7 @@ git clone https://github.com/verdexhq/verdex-mcp.git
 cd verdex-mcp
 npm install
 npm run build
-node dist/verdex-mcp-server.js
+node dist/index.js
 ```
 
 ---

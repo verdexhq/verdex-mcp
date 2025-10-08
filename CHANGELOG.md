@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 2025-10-08
+
+### Changed
+- **Entry point standardization**: Renamed main entry file from `verdex-mcp-server.ts` to `index.ts` for better convention alignment
+- Updated all references in package.json, README.md, and CHANGELOG.md
+
 ## [0.1.2] - 2025-10-08
 
 ### Fixed
@@ -31,7 +37,7 @@
 - Added package metadata (engines, repo, homepage)
 
 ### Fixed
-- README paths (mcp-server.ts → verdex-mcp-server.ts)
+- README paths (mcp-server.ts → index.ts)
 - Type mismatches in inspect() return types
 - Auth file validation now actually runs
 
