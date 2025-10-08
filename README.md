@@ -5,14 +5,14 @@
 Run directly without installation:
 
 \`\`\`bash
-npx verdex-mcp-server --role customer /path/to/auth.json https://example.com
+npx @verdex/mcp --role customer /path/to/auth.json https://example.com
 \`\`\`
 
 ### Option 2: Global Installation
 
 \`\`\`bash
-npm install -g verdex-mcp-server
-verdex-mcp-server --role customer /path/to/auth.json https://example.com
+npm install -g @verdex/mcp
+verdex-mcp --role customer /path/to/auth.json https://example.com
 \`\`\`
 
 ### Option 3: Local Development
@@ -35,7 +35,7 @@ node dist/verdex-mcp-server.js --role customer /path/to/auth.json
     "verdex": {
       "command": "npx",
       "args": [
-        "verdex-mcp-server",
+        "@verdex/mcp",
         "--role", "customer", "/path/to/customer.json", "https://...",
         "--role", "admin", "/path/to/provider.json", "https://..."
       ]

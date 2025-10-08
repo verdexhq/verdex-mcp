@@ -5,6 +5,8 @@ tests/
 
 # Development files
 .auth/
+.env
+.gitattributes
 demo-page.html
 playwright.config.ts
 tsconfig.json

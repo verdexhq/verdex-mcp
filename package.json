@@ -1,11 +1,14 @@
 {
-  "name": "verdex-mcp-server",
+  "name": "@verdex/mcp",
   "description": "Enhanced browser automation with DOM intelligence",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/verdex-mcp-server.js",
   "bin": {
-    "verdex-mcp-server": "./dist/verdex-mcp-server.js"
+    "verdex-mcp": "dist/verdex-mcp-server.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "dev": "tsx src/verdex-mcp-server.ts",
@@ -18,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/verdexhq/verdex-mcp.git"
+    "url": "git+https://github.com/verdexhq/verdex-mcp.git"
   },
   "homepage": "https://github.com/verdexhq/verdex-mcp",
   "bugs": {
