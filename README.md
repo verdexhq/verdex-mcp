@@ -140,7 +140,9 @@ Test different user roles in isolated browser contexts:
 
 #### Authentication File Format
 
-Create auth files with Playwright's auth storage:
+Verdex leverages [Playwright's authentication approach](https://playwright.dev/docs/auth) using `storageState` files. These files contain cookies, localStorage, and session data.
+
+Create auth files using Playwright's `storageState` format:
 
 ```json
 {
@@ -164,6 +166,31 @@ Create auth files with Playwright's auth storage:
   ]
 }
 ```
+
+**How to generate auth files:**
+
+1. **Manual authentication** - Use Playwright's test setup:
+   ```javascript
+   // auth.setup.ts
+   import { test as setup } from '@playwright/test';
+   
+   setup('authenticate', async ({ page }) => {
+     await page.goto('https://example.com/login');
+     await page.getByLabel('Email').fill('user@example.com');
+     await page.getByLabel('Password').fill('password');
+     await page.getByRole('button', { name: 'Sign in' }).click();
+     await page.waitForURL('https://example.com/dashboard');
+     
+     // Save authentication state
+     await page.context().storageState({ 
+       path: 'playwright/.auth/user.json' 
+     });
+   });
+   ```
+
+2. **Use saved state with Verdex** - Reference the file in your MCP config
+
+See the [Playwright Authentication Guide](https://playwright.dev/docs/auth) for more details on creating and managing auth files.
 
 ---
 
