@@ -37,4 +37,6 @@ export interface BridgeConfig {
   maxSiblings?: number;
   /** Maximum total number of descendants to process (default: 100) */
   maxDescendants?: number;
+  /** Maximum number of outline items per sibling (default: 6) */
+  maxOutlineItems?: number;
 }

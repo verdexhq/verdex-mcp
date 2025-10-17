@@ -8,6 +8,7 @@ export type {
   InspectResult,
   AncestorInfo,
   AncestorsResult,
+  OutlineItem,
   SiblingInfo,
   SiblingsResult,
   DescendantInfo,

@@ -2,7 +2,7 @@
  * DOM analysis utilities for element inspection and text extraction
  */
 
-import type { ElementInfo } from "../types/index.js";
+import type { ElementInfo, OutlineItem } from "../types/index.js";
 
 export class DOMAnalyzer {
   private static readonly RELEVANT_ATTRIBUTES = [
@@ -24,6 +24,96 @@ export class DOMAnalyzer {
     "A",
     "LABEL",
   ];
+
+  /**
+   * Build a shallow, typed outline of salient direct children of `element`.
+   * Facts only: (role|tag), text, and data-testid signals.
+   * Limited to direct children and a small cap for token efficiency.
+   *
+   * Refinements:
+   * - Enriches with ref data (role/name) when elements have refs
+   * - Dedupes by (role|tag, text, testid) combination
+   */
+  static buildShallowOutline(
+    element: Element,
+    maxItems: number = 6,
+    elementsMap?: Map<string, ElementInfo>
+  ): OutlineItem[] {
+    const items: OutlineItem[] = [];
+    const seen = new Set<string>();
+
+    // Direct children likely to carry anchors
+    const selectors = [
+      ":scope > h1",
+      ":scope > h2",
+      ":scope > h3",
+      ":scope > h4",
+      ":scope > h5",
+      ":scope > h6",
+      ":scope > button",
+      ":scope > a",
+      ":scope > label",
+      ":scope > [data-testid]",
+      // one-level-deep meaningful spans/strong/em with text
+      ":scope > span",
+      ":scope > strong",
+      ":scope > em",
+    ].join(",");
+
+    const candidates = Array.from(element.querySelectorAll(selectors));
+
+    // Pre-index only the candidate elements to avoid O(N) scans per child
+    let enrichByEl: Map<Element, ElementInfo> | undefined;
+    if (elementsMap) {
+      const candSet = new Set(candidates);
+      enrichByEl = new Map();
+      elementsMap.forEach((info) => {
+        if (candSet.has(info.element)) {
+          enrichByEl!.set(info.element, info);
+        }
+      });
+    }
+
+    for (const el of candidates) {
+      if (items.length >= maxItems) break;
+
+      // Enrich with ref data when available (facts only)
+      let role: string | undefined = el.getAttribute("role") || undefined;
+      let name: string | undefined = undefined;
+      const info = enrichByEl?.get(el);
+      if (info) {
+        role = role || info.role || undefined;
+        name = info.name || undefined;
+      }
+
+      // Normalize role to lowercase for stable dedupe keys
+      const normalizedRole = role?.toLowerCase();
+
+      const tag = el.tagName?.toLowerCase();
+      const text = (el.textContent || "").trim();
+      const testid = el.getAttribute("data-testid") || undefined;
+      const ariaLabel = el.getAttribute("aria-label") || undefined;
+
+      // Keep short, non-empty text; fall back to ref name or aria-label
+      const cleanText =
+        (text && text.length <= 200 ? text : undefined) || name || ariaLabel;
+      if (!cleanText && !testid && !normalizedRole) continue;
+
+      // Dedupe by combination of key fields
+      const key = `${normalizedRole || tag}|${cleanText || ""}|${testid || ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      items.push({
+        role,
+        tag,
+        text: cleanText,
+        testid,
+      });
+    }
+
+    return items;
+  }
 
   /**
    * Extract relevant attributes from an element

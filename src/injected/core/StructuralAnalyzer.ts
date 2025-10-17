@@ -63,38 +63,72 @@ export class StructuralAnalyzer {
 
   /**
    * Get sibling information at a specific ancestor level
+   * Climbs ancestorLevel ancestors to a container and returns that container's children
    */
   getSiblings(ref: string, ancestorLevel: number): SiblingsResult | null {
     const targetInfo = this.bridge.elements.get(ref);
     if (!targetInfo) return null;
 
-    let ancestor = targetInfo.element;
+    let container: Element | null = targetInfo.element;
     for (let i = 0; i < ancestorLevel; i++) {
-      if (!ancestor.parentElement || ancestor.parentElement === document.body) {
+      if (
+        !container?.parentElement ||
+        container.parentElement === document.body
+      ) {
         return null;
       }
-      ancestor = ancestor.parentElement;
+      container = container.parentElement;
     }
 
-    const parent = ancestor.parentElement;
-    if (!parent) return null;
+    if (!container) return null;
 
-    const siblings: SiblingInfo[] = Array.from(parent.children).map(
+    /**
+     * Compute targetSiblingIndex: which direct child of `container` contains the target element?
+     *
+     * - ancestorLevel === 0: container IS the target element → no sibling path → null
+     * - ancestorLevel >= 1: walk up (ancestorLevel - 1) from target to find the direct child
+     *                       of container that lies on the path to the target
+     *
+     * Edge case: handle non-element node wrappers with null-safe checks.
+     */
+    let unitAncestor: Element | null = targetInfo.element;
+    for (let i = 0; i < Math.max(ancestorLevel - 1, 0); i++) {
+      if (!unitAncestor?.parentElement) break;
+      unitAncestor = unitAncestor.parentElement;
+    }
+
+    // Ensure unitAncestor is actually a direct child of container
+    const unit =
+      unitAncestor &&
+      unitAncestor instanceof Element &&
+      unitAncestor.parentElement === container
+        ? unitAncestor
+        : null;
+
+    const targetSiblingIndex =
+      unit && container ? Array.from(container.children).indexOf(unit) : null;
+
+    const siblings: SiblingInfo[] = Array.from(container.children).map(
       (sibling, index) => ({
         index: index,
         tagName: sibling.tagName.toLowerCase(),
-        isTargetType: sibling.tagName === ancestor.tagName,
         attributes: DOMAnalyzer.getRelevantAttributes(sibling),
-        containsRefs: DOMAnalyzer.findContainedRefs(
+        containsText: DOMAnalyzer.extractMeaningfulTexts(sibling),
+        outline: DOMAnalyzer.buildShallowOutline(
           sibling,
+          this.config.maxOutlineItems ?? 6,
           this.bridge.elements
         ),
-        containsText: DOMAnalyzer.extractMeaningfulTexts(sibling),
       })
     );
 
     return {
       ancestorLevel: ancestorLevel,
+      containerAt: {
+        tagName: container.tagName.toLowerCase(),
+        attributes: DOMAnalyzer.getRelevantAttributes(container),
+      },
+      targetSiblingIndex,
       siblings: siblings,
     };
   }

@@ -50,17 +50,38 @@ export interface AncestorsResult {
   ancestors: AncestorInfo[];
 }
 
+export interface OutlineItem {
+  /** Either ARIA role (preferred) or HTML tag */
+  role?: string;
+  tag?: string;
+  /** Human-visible label/text (trimmed) */
+  text?: string;
+  /** data-testid if present */
+  testid?: string;
+}
+
 export interface SiblingInfo {
   index: number;
   tagName: string;
-  isTargetType: boolean;
   attributes: Record<string, string>;
-  containsRefs: string[];
   containsText: string[];
+  /** Shallow, typed cues for quick uniqueness checks (e.g., headings, buttons, testids) */
+  outline?: OutlineItem[];
 }
 
 export interface SiblingsResult {
   ancestorLevel: number;
+  containerAt: {
+    tagName: string;
+    attributes: Record<string, string>;
+  };
+  /**
+   * Index of the container's child that lies on the path to `ref`
+   * (i.e., the "unit" sibling containing the target at this level).
+   * Null if it cannot be determined.
+   * Note: Only defined for ancestorLevel >= 1.
+   */
+  targetSiblingIndex: number | null;
   siblings: SiblingInfo[];
 }
 
