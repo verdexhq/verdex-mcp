@@ -1,126 +1,144 @@
-# Migration Plan: Bundled Bridge Injection with CDP Auto-Loading
+```markdown
+# Migration Plan: Bundled Bridge Injection with CDP Auto-Loading (Event-Driven, Robust)
 
 **Branch**: `feature/bundled-bridge-injection`  
 **Target**: Clean implementation (no users, no backward compatibility needed)  
-**Status**: Planning Phase
+**Status**: Ready to Implement
 
 ---
 
 ## Executive Summary
 
-Migrate from `class.toString()` serialization to a pre-bundled bridge with CDP auto-injection for:
-- **Stability**: Eliminate serialization brittleness
-- **Debuggability**: Full source maps and breakpoints
-- **Performance**: Bundle once, auto-inject on every page load
-- **Reliability**: Health checks and version tracking
+Migrate from `class.toString()` serialization to a pre-bundled bridge with **CDP auto-injection** into a **named isolated world**, discovered **event-driven** via `Runtime.executionContextCreated`.
+
+**Benefits**
+- **Stability**: Eliminate brittle string serialization
+- **Debuggability**: Real source maps + breakpoints
+- **Performance**: Bundle once; auto-inject for current and future documents
+- **Reliability**: Versioned bundle + explicit health checks
+- **Resilience**: Navigation guard + re-discovery without polling
+
+**Hardening vs. baseline plan**
+- Register **event listeners before** enabling CDP domains (avoid missing initial events)
+- **Fallback** when `runImmediately` isn’t supported (older Chromium)
+- Track and remove **script identifier** for clean teardown
+- Remove **manual bridge invalidations**; the injector owns lifecycle
 
 ---
 
 ## Architecture Changes
 
 ### Current Architecture (toString)
+
 ```
+
 src/injected/index.ts
-  └─ injectedCode() function
-      ├─ Serializes 5 classes via toString()
-      ├─ Concatenates into single string
-      └─ Wrapped in IIFE with config
+└─ injectedCode() function
+├─ Serializes classes via toString()
+├─ Concatenates into single string
+└─ Wrapped in IIFE with config
 
 multi-context-browser.ts
-  └─ _setupIsolatedWorldForContext()
-      ├─ Creates isolated world via CDP
-      ├─ Calls injectedCode(config)
-      └─ Evaluates string in isolated context
+└─ _setupIsolatedWorldForContext()
+├─ Creates isolated world via CDP
+├─ Calls injectedCode(config)
+└─ Evaluates string in isolated context
+
 ```
 
-**Problems**:
-- Bridge recreated on every navigation (lines 376-378)
-- No source maps or debugging support
-- Fragile if import structure changes
-- No health checks or version tracking
+**Problems**
+- Bridge recreated on every navigation
+- No source maps / hard to debug
+- Fragile on import or bundling changes
+- No versioning / health checks
 
-### Target Architecture (Bundled)
+### Target Architecture (Bundled + Event-Driven)
+
 ```
+
 build/
-  └─ bundle-bridge.ts (new)
-      └─ esbuild configuration
-
-dist/
-  └─ bridge-bundle.js (generated)
-      ├─ All classes bundled with dependencies
-      ├─ Inline source maps
-      └─ Global factory function exposed
+└─ bundle-bridge.ts (new, esbuild driver)
 
 src/injection/
-  └─ BridgeInjector.ts (new)
-      ├─ Loads bundle once at startup
-      ├─ Auto-injects via addScriptToEvaluateOnNewDocument
-      ├─ Manages bridge lifecycle
-      └─ Health checks and version verification
+├─ bridge-bundle.ts (generated at prebuild)
+└─ BridgeInjector.ts (new)
+├─ Page.addScriptToEvaluateOnNewDocument({ worldName, runImmediately: true })
+├─ Tracks contextId via Runtime.executionContextCreated
+├─ Handles navigation via Page.* events
+├─ Manages bridge lifecycle (create/healthcheck)
+└─ Version verification, identifier cleanup
 
 multi-context-browser.ts
-  └─ Uses BridgeInjector
-      ├─ No more manual re-injection
-      ├─ Bridge survives navigation
-      └─ Clean separation of concerns
-```
+└─ Uses BridgeInjector
+├─ No manual re-injection on navigation
+├─ Bridge survives reloads & SPA transitions
+└─ Clean separation of concerns
+
+````
+
+**Key fixes**
+- **Event-driven discovery**: `Runtime.executionContextCreated` is the single source of truth
+- **Auto-inject now + later**: `Page.addScriptToEvaluateOnNewDocument(..., { worldName, runImmediately: true })` + fallback for current doc
+- **Navigation guard**: Track `Page.frameStartedLoading`, `Page.navigatedWithinDocument`, `Page.frameNavigated`, `Page.frameStoppedLoading`
+- **Cleanup**: Remove auto-script by identifier on teardown
 
 ---
 
 ## Migration Phases
 
-### **Phase 1: Foundation (Bundle Generation)**
-**Estimated Time**: 30 minutes  
+### Phase 1: Foundation (Bundle Generation)
+
 **Goal**: Create bundling infrastructure
 
-#### Step 1.1: Install Dependencies
-```bash
-npm install --save-dev esbuild
-```
+#### Step 1.1: Install dev deps
 
-#### Step 1.2: Create Bundle Configuration
+```bash
+npm install --save-dev esbuild tsx
+````
+
+#### Step 1.2: Build script
+
 **New file**: `build/bundle-bridge.ts`
 
-```typescript
+```ts
 import * as esbuild from 'esbuild';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const DEV = process.env.NODE_ENV !== 'production';
+
 async function bundleBridge() {
   const version = getVersion();
-  
+
   const result = await esbuild.build({
     entryPoints: ['src/injected/bridge-entry.ts'],
     bundle: true,
     format: 'iife',
-    globalName: '__VerdexBridgeFactory__',
     platform: 'browser',
     target: 'es2020',
-    minify: false, // Keep readable for debugging
-    sourcemap: 'inline',
-    sourcesContent: true,
+    minify: !DEV,
+    sourcemap: DEV ? 'inline' : 'external',
+    sourcesContent: DEV,
     banner: {
       js: [
-        '//# sourceURL=verdex-bridge.js',
         `// Verdex Bridge Bundle v${version}`,
         `// Generated: ${new Date().toISOString()}`,
       ].join('\n'),
     },
     define: {
-      '__VERSION__': JSON.stringify(version), // Replace version placeholder
+      __VERSION__: JSON.stringify(version),
     },
     write: false,
   });
 
-  // Write bundle to src/injection/bridge-bundle.ts as a constant
   const bundleCode = result.outputFiles[0].text;
+
   const bundleModule = `/**
  * Auto-generated bridge bundle
  * DO NOT EDIT - Generated by build/bundle-bridge.ts
  */
-
 export const BRIDGE_BUNDLE = ${JSON.stringify(bundleCode)};
-export const BRIDGE_VERSION = '${getVersion()}';
+export const BRIDGE_VERSION = ${JSON.stringify(version)};
 `;
 
   fs.writeFileSync(
@@ -130,7 +148,7 @@ export const BRIDGE_VERSION = '${getVersion()}';
 
   console.log('✅ Bridge bundle generated');
   console.log(`   Size: ${(bundleCode.length / 1024).toFixed(2)} KB`);
-  console.log(`   Version: ${getVersion()}`);
+  console.log(`   Version: ${version}`);
 }
 
 function getVersion(): string {
@@ -140,465 +158,444 @@ function getVersion(): string {
   return pkg.version;
 }
 
-bundleBridge().catch(console.error);
+bundleBridge().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
 ```
 
-#### Step 1.3: Create Bridge Entry Point
+#### Step 1.3: Bridge entry point
+
 **New file**: `src/injected/bridge-entry.ts`
 
-```typescript
+```ts
 /**
  * Entry point for bundled bridge injection
- * This file is bundled and injected into isolated worlds
+ * Bundled and injected into a named isolated world.
  */
 
 import { BridgeFactory } from './bridge/BridgeFactory.js';
 import type { BridgeConfig, IBridge } from './types/index.js';
 
-// Export version for health checks
-export const __VERDEX_BRIDGE_VERSION__ = '__VERSION__'; // Replaced at build time
+// Replaced at build time by esbuild `define`
+export const __VERDEX_BRIDGE_VERSION__ = __VERSION__ as string;
 
-/**
- * Factory function exposed to isolated world
- */
 export function createBridge(config?: BridgeConfig): IBridge {
   return BridgeFactory.create(config);
 }
 
-// Self-executing initialization
-if (typeof window !== 'undefined' && typeof globalThis !== 'undefined') {
-  // Expose factory to global scope (for CDP access)
-  (globalThis as any).__VerdexBridgeFactory__ = {
+// Expose factory to the *named isolated world* only
+(function expose() {
+  const g = globalThis as any;
+  g.__VerdexBridgeFactory__ = {
     create: createBridge,
     version: __VERDEX_BRIDGE_VERSION__,
   };
-}
+})();
 ```
 
-#### Step 1.4: Update package.json Scripts
+#### Step 1.4: NPM scripts
+
 ```json
 {
   "scripts": {
     "prebuild": "tsx build/bundle-bridge.ts",
     "build": "npm run prebuild && rm -rf dist && tsc",
-    "dev": "tsx build/bundle-bridge.ts && tsx src/index.ts",
-    "bundle:watch": "tsx --watch build/bundle-bridge.ts"
+    "dev": "NODE_ENV=development tsx build/bundle-bridge.ts && tsx src/index.ts",
+    "bundle:watch": "NODE_ENV=development tsx --watch build/bundle-bridge.ts"
   }
 }
 ```
 
-**Validation**:
-- [ ] `npm run prebuild` generates `src/injection/bridge-bundle.ts`
-- [ ] Bundle includes all dependencies
-- [ ] Source maps are inline
-- [ ] Bundle size < 100KB
+**Validation**
+
+* [ ] `npm run prebuild` generates `src/injection/bridge-bundle.ts`
+* [ ] Bundle includes dependencies
+* [ ] Source maps present in dev
+* [ ] Bundle size reasonable (<100 KB in prod)
 
 ---
 
 ## Critical Implementation Notes
 
-### **Issue 1: Version Replacement**
-The `__VERSION__` placeholder in `bridge-entry.ts` must be replaced at build time using esbuild's `define` option. This ensures the bundle contains the actual version string for health checks.
+### Version Replacement
 
-### **Issue 2: Frame Navigation Race Condition**
-When navigation occurs, there's a window where:
-1. `frameNavigated` event fires → `reset()` called
-2. Old bridge methods still in-flight
-3. Methods try to use invalidated `objectId` → crash
+`__VERSION__` in `bridge-entry.ts` is replaced via esbuild `define`. The generated module exports `BRIDGE_VERSION` for health checks.
 
-**Solution**: Add `navigationInProgress` flag:
-- Set to `true` on `reset()`
-- `callBridgeMethod` waits for flag to clear
-- `getBridgeHandle` clears flag after world is ready
+### Auto-Injection Timing (with fallback)
 
-### **Issue 3: Auto-Injection Timing**
-`addScriptToEvaluateOnNewDocument` queues the bundle, but it's not immediately available. We must wait for the isolated world to actually be created before calling bridge methods.
+Preferred path:
 
-**Solution**: Add `waitForIsolatedWorld()` method that:
-- Polls `Runtime.getExecutionContexts` for our named world
-- Retries with exponential backoff (max 5 seconds)
-- Throws clear error if world never appears
+```ts
+Page.addScriptToEvaluateOnNewDocument({
+  source: BRIDGE_BUNDLE,
+  worldName,                 // named isolated world
+  includeCommandLineAPI: false,
+  runImmediately: true       // run now + all future documents (when supported)
+});
+```
+
+If `runImmediately` is not supported, **fallback** by creating the world and `Runtime.evaluate` the bundle once for the current document. Future documents remain covered by the registered script.
+
+### Event-Driven World Discovery
+
+* Register CDP **listeners before** `Page.enable`/`Runtime.enable`
+* Use `Runtime.executionContextCreated` to capture the context for `{ worldName, topFrame }`
+* Optionally key by `auxData.frameId` for future iframe support
+
+### Navigation Guard
+
+Set `navigationInProgress = true` on:
+
+* `Page.frameStartedLoading` (top frame)
+* `Page.navigatedWithinDocument` (top frame)
+* `Page.frameNavigated` (top frame)
+
+Clear when:
+
+* You receive `Runtime.executionContextCreated` for your `{ worldName, topFrame }`, or
+* `Page.frameStoppedLoading` is seen **and** your context appears
+
+Bridge calls block (bounded) while `navigationInProgress` is true.
+
+### Cleanup
+
+Store the script identifier from `addScriptToEvaluateOnNewDocument` and call `Page.removeScriptToEvaluateOnNewDocument({ identifier })` on teardown.
 
 ---
 
-### **Phase 2: Bridge Injector (CDP Integration)**
-**Estimated Time**: 45 minutes  
-**Goal**: Create injection management system
+## Phase 2: Bridge Injector (CDP Integration)
 
-#### Step 2.1: Create BridgeInjector Class
+**Goal**: Injection management with event-driven context tracking + robust fallbacks
+
 **New file**: `src/injection/BridgeInjector.ts`
 
-```typescript
+```ts
 /**
- * Manages bridge injection lifecycle via CDP
+ * Manages bridge injection lifecycle via CDP (event-driven).
  */
-
 import type { CDPSession } from 'puppeteer';
 import { BRIDGE_BUNDLE, BRIDGE_VERSION } from './bridge-bundle.js';
 import type { BridgeConfig } from '../types.js';
 
-export interface InjectorOptions {
+export type InjectorOptions = {
   worldName?: string;
   config?: BridgeConfig;
-}
+  mainFrameId?: string;
+};
 
 export class BridgeInjector {
   private worldName: string;
   private config: BridgeConfig;
-  private isolatedWorldId: number | null = null;
-  private bridgeObjectId: string | null = null;
-  private navigationInProgress: boolean = false; // NEW: Navigation guard
+
+  private mainFrameId: string | null = null;
+  private contextId: number | null = null;       // executionContextId for our world
+  private bridgeObjectId: string | null = null;  // created instance
+  private navigationInProgress = false;
+  private contextReadyResolvers: Array<() => void> = [];
+  private scriptId: string | null = null;        // addScriptToEvaluateOnNewDocument identifier
 
   constructor(options: InjectorOptions = {}) {
-    this.worldName = options.worldName || 'verdex_isolated';
-    this.config = options.config || {};
+    this.worldName = options.worldName ?? 'verdex_isolated';
+    this.config = options.config ?? {};
+    if (options.mainFrameId) this.mainFrameId = options.mainFrameId;
   }
 
-  /**
-   * Setup auto-injection for a CDP session
-   * Bridge will be automatically loaded on every new document
-   */
-  async setupAutoInjection(
-    cdpSession: CDPSession,
-    mainFrameId: string
-  ): Promise<void> {
-    // Auto-inject on every new document (survives navigation)
-    await cdpSession.send('Page.addScriptToEvaluateOnNewDocument', {
-      source: BRIDGE_BUNDLE,
-      worldName: this.worldName,
-      includeCommandLineAPI: false,
+  async setupAutoInjection(cdp: CDPSession, mainFrameId: string): Promise<void> {
+    this.mainFrameId = mainFrameId;
+
+    // 1) LISTENERS FIRST (Runtime emits existing contexts immediately after enable)
+    cdp.on('Runtime.executionContextCreated', (evt: any) => {
+      const ctx = evt.context;
+      const aux = ctx.auxData ?? {};
+      const matchesWorld = ctx.name === this.worldName || aux.name === this.worldName;
+      const matchesTop = !this.mainFrameId || !aux.frameId ? true : aux.frameId === this.mainFrameId;
+      if (matchesWorld && matchesTop) {
+        this.contextId = ctx.id;
+        this.navigationInProgress = false;
+        this.resolveContextReady();
+      }
     });
 
-    // Also inject into current document if it exists
-    await this.injectIntoCurrentDocument(cdpSession, mainFrameId);
-  }
+    cdp.on('Page.frameStartedLoading', (evt: any) => { if (this.isTopFrame(evt.frameId)) this.onTopFrameNavigating(); });
+    cdp.on('Page.navigatedWithinDocument', (evt: any) => { if (this.isTopFrame(evt.frameId)) this.onTopFrameNavigating(); });
+    cdp.on('Page.frameNavigated', (evt: any) => {
+      if (evt.frame && this.isTopFrame(evt.frame.id) && !evt.frame.parentId) this.onTopFrameNavigating();
+    });
+    cdp.on('Page.frameStoppedLoading', (_evt: any) => {
+      // optional fast-path: if context already set, it's safe; otherwise executionContextCreated will resolve
+    });
 
-  /**
-   * Inject bridge into current document
-   */
-  private async injectIntoCurrentDocument(
-    cdpSession: CDPSession,
-    mainFrameId: string
-  ): Promise<void> {
+    // 2) ENABLE DOMAINS
+    await cdp.send('Page.enable');
+    await cdp.send('Runtime.enable');
+
+    // 3) REGISTER FOR NEW DOCS (+ run now when supported)
     try {
-      // Create isolated world
-      const { executionContextId } = await cdpSession.send(
-        'Page.createIsolatedWorld',
-        {
-          frameId: mainFrameId,
-          worldName: this.worldName,
-          grantUniveralAccess: false,
-        }
-      );
+      const { identifier } = await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: BRIDGE_BUNDLE,
+        worldName: this.worldName,
+        includeCommandLineAPI: false,
+        runImmediately: true, // may be ignored on older Chromium
+      });
+      this.scriptId = identifier;
+    } catch {
+      // Keep going; we can still cover the current document via fallback below
+    }
 
-      this.isolatedWorldId = executionContextId;
+    // 4) FALLBACK: if our world hasn't appeared quickly, inject once for current doc
+    let ctxAppeared = false;
+    try { await this.waitForContextReady(500); ctxAppeared = true; } catch { /* timeout */ }
 
-      // Inject bundle
-      await cdpSession.send('Runtime.evaluate', {
+    if (!ctxAppeared) {
+      const { executionContextId } = await cdp.send('Page.createIsolatedWorld', {
+        frameId: this.mainFrameId!,
+        worldName: this.worldName,
+        grantUniveralAccess: false, // CDP uses this spelling
+      });
+      await cdp.send('Runtime.evaluate', {
         expression: BRIDGE_BUNDLE,
         contextId: executionContextId,
         returnByValue: false,
       });
-
-      console.log(`🔧 Bridge injected (v${BRIDGE_VERSION})`);
-    } catch (error) {
-      console.error('Failed to inject bridge:', error);
-      throw error;
     }
   }
 
-  /**
-   * Get or create bridge instance
-   * Waits for isolated world to be ready after navigation
-   */
-  async getBridgeHandle(cdpSession: CDPSession): Promise<string> {
-    if (this.bridgeObjectId && !this.navigationInProgress) {
-      // Check if existing bridge is still alive
-      const isAlive = await this.healthCheck(cdpSession);
-      if (isAlive) {
-        return this.bridgeObjectId;
-      }
-      // Bridge died, recreate
+  private isTopFrame(frameId?: string): boolean {
+    return !!this.mainFrameId && frameId === this.mainFrameId;
+  }
+
+  private onTopFrameNavigating() {
+    this.navigationInProgress = true;
+    this.contextId = null;
+    this.bridgeObjectId = null;
+  }
+
+  private async waitForContextReady(timeoutMs = 5000): Promise<void> {
+    if (this.contextId && !this.navigationInProgress) return;
+    let timeoutHandle: NodeJS.Timeout | null = null;
+    const p = new Promise<void>((resolve, reject) => {
+      const done = () => { if (timeoutHandle) clearTimeout(timeoutHandle); resolve(); };
+      this.contextReadyResolvers.push(done);
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(`Isolated world '${this.worldName}' not ready within ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    return p;
+  }
+
+  private resolveContextReady() {
+    const resolvers = this.contextReadyResolvers.splice(0);
+    resolvers.forEach((fn) => fn());
+  }
+
+  private async waitForNavToClear(maxWaitMs = 10000): Promise<void> {
+    if (!this.navigationInProgress) return;
+    const start = Date.now();
+    while (this.navigationInProgress && Date.now() - start < maxWaitMs) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    if (this.navigationInProgress) {
+      throw new Error('Bridge unavailable: navigation taking too long');
+    }
+  }
+
+  async getBridgeHandle(cdp: CDPSession): Promise<string> {
+    await this.waitForNavToClear();
+
+    if (this.bridgeObjectId) {
+      const alive = await this.healthCheck(cdp);
+      if (alive) return this.bridgeObjectId;
       this.bridgeObjectId = null;
-      this.isolatedWorldId = null;
     }
 
-    // Wait for isolated world to be ready (especially after navigation)
-    await this.waitForIsolatedWorld(cdpSession);
-    
-    // Navigation is complete, clear flag
-    this.navigationInProgress = false;
+    await this.waitForContextReady();
+    if (!this.contextId) throw new Error('No execution context available for the bridge world');
 
-    // Create new bridge instance
-    return this.createBridgeInstance(cdpSession);
-  }
-
-  /**
-   * Wait for isolated world to be created (after navigation or initial load)
-   */
-  private async waitForIsolatedWorld(cdpSession: CDPSession): Promise<void> {
-    if (this.isolatedWorldId) {
-      // Already have world ID, verify it still exists
-      try {
-        await cdpSession.send('Runtime.evaluate', {
-          expression: '1',
-          contextId: this.isolatedWorldId,
-        });
-        return; // World exists, we're good
-      } catch {
-        // World is gone, need to find new one
-        this.isolatedWorldId = null;
-      }
-    }
-
-    // Wait for isolated world to appear
-    const maxRetries = 50; // 5 seconds max
-    let retries = 0;
-    
-    while (retries < maxRetries) {
-      try {
-        const { contexts } = await cdpSession.send('Runtime.getExecutionContexts');
-        const isolatedContext = contexts.find(
-          (ctx: any) => ctx.name === this.worldName
-        );
-        
-        if (isolatedContext) {
-          this.isolatedWorldId = isolatedContext.id;
-          console.log(`✅ Isolated world ready: ${this.worldName} (contextId: ${isolatedContext.id})`);
-          return;
-        }
-      } catch (error) {
-        console.warn('Failed to get execution contexts:', error);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-      retries++;
-    }
-    
-    throw new Error(
-      `Isolated world '${this.worldName}' not ready after ${maxRetries * 100}ms. ` +
-      'This may indicate addScriptToEvaluateOnNewDocument failed.'
-    );
-  }
-
-  /**
-   * Create bridge instance by calling factory
-   */
-  private async createBridgeInstance(cdpSession: CDPSession): Promise<string> {
-    if (!this.isolatedWorldId) {
-      throw new Error('Bridge not injected - call setupAutoInjection first');
-    }
-
-    // Verify factory is available before creating instance
-    const { result: factoryCheck } = await cdpSession.send('Runtime.evaluate', {
+    // Verify factory exists and version matches
+    const { result: factoryType } = await cdp.send('Runtime.evaluate', {
       expression: 'typeof globalThis.__VerdexBridgeFactory__',
-      contextId: this.isolatedWorldId,
+      contextId: this.contextId,
+      returnByValue: true,
+    });
+    if (factoryType.value !== 'object') {
+      throw new Error(`Bridge factory not available in context (got: ${factoryType.value})`);
+    }
+
+    const { result: versionCheck } = await cdp.send('Runtime.evaluate', {
+      expression: 'globalThis.__VerdexBridgeFactory__?.version',
+      contextId: this.contextId,
+      returnByValue: true,
+    });
+    if (versionCheck.value !== BRIDGE_VERSION) {
+      throw new Error(`Bridge version mismatch in context: got ${versionCheck.value}, expected ${BRIDGE_VERSION}`);
+    }
+
+    // Create bridge instance
+    const { result } = await cdp.send('Runtime.evaluate', {
+      expression: `(function(config){ return globalThis.__VerdexBridgeFactory__.create(config); })(${JSON.stringify(this.config)})`,
+      contextId: this.contextId,
+      returnByValue: false,
+    });
+    if (!result.objectId) throw new Error('Failed to create bridge instance (no objectId)');
+
+    this.bridgeObjectId = result.objectId;
+    return this.bridgeObjectId;
+  }
+
+  async callBridgeMethod<T = any>(cdp: CDPSession, method: string, args: any[] = []): Promise<T> {
+    await this.waitForNavToClear();
+    const objectId = await this.getBridgeHandle(cdp);
+
+    const response = await cdp.send('Runtime.callFunctionOn', {
+      functionDeclaration: `
+        function(...args) {
+          const fn = this?.[${JSON.stringify(method)}];
+          if (typeof fn !== 'function') throw new Error('Bridge method not found: ' + ${JSON.stringify(method)});
+          return fn.apply(this, args);
+        }
+      `,
+      objectId,
+      arguments: args.map((v) => ({ value: v })),
       returnByValue: true,
     });
 
-    if (factoryCheck.value !== 'object') {
-      throw new Error(
-        `Bridge factory not available (got: ${factoryCheck.value}). ` +
-        'Bundle may not have executed in isolated world.'
-      );
+    if ((response as any).exceptionDetails) {
+      const d = (response as any).exceptionDetails;
+      throw new Error(d.exception?.description || d.text || 'Bridge method call failed');
     }
 
-    const { result } = await cdpSession.send('Runtime.evaluate', {
-      expression: `
-        (function(config) {
-          if (!globalThis.__VerdexBridgeFactory__) {
-            throw new Error('Bridge factory not found');
-          }
-          return globalThis.__VerdexBridgeFactory__.create(config);
-        })(${JSON.stringify(this.config)})
-      `,
-      contextId: this.isolatedWorldId,
-      returnByValue: false,
-    });
-
-    if (!result.objectId) {
-      throw new Error('Failed to create bridge instance - no objectId returned');
-    }
-
-    this.bridgeObjectId = result.objectId;
-    console.log(`✅ Bridge instance created (v${BRIDGE_VERSION})`);
-    return result.objectId;
+    return (response as any).result.value as T;
   }
 
-  /**
-   * Health check: verify bridge is loaded and functional
-   */
-  async healthCheck(cdpSession: CDPSession): Promise<boolean> {
+  async healthCheck(cdp: CDPSession): Promise<boolean> {
     try {
-      if (!this.isolatedWorldId) {
-        return false;
-      }
-
-      const { result } = await cdpSession.send('Runtime.evaluate', {
-        expression: `
-          (function() {
-            return globalThis.__VerdexBridgeFactory__?.version === '${BRIDGE_VERSION}';
-          })()
-        `,
-        contextId: this.isolatedWorldId,
+      if (!this.contextId) return false;
+      const { result } = await cdp.send('Runtime.evaluate', {
+        expression: `(function(){ return globalThis.__VerdexBridgeFactory__?.version === ${JSON.stringify(BRIDGE_VERSION)}; })()`,
+        contextId: this.contextId,
         returnByValue: true,
       });
-
       return result.value === true;
     } catch {
       return false;
     }
   }
 
-  /**
-   * Call bridge method
-   * Handles navigation race conditions by waiting for bridge to be ready
-   */
-  async callBridgeMethod(
-    cdpSession: CDPSession,
-    method: string,
-    args: any[] = []
-  ): Promise<any> {
-    // Wait for any in-progress navigation to complete
-    const maxWait = 100; // 10 seconds max
-    let waited = 0;
-    while (this.navigationInProgress && waited < maxWait) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      waited++;
-    }
-    
-    if (this.navigationInProgress) {
-      throw new Error('Bridge unavailable: navigation taking too long');
-    }
-
-    // Get bridge handle (will wait for isolated world if needed)
-    const bridgeObjectId = await this.getBridgeHandle(cdpSession);
-
-    const response = await cdpSession.send('Runtime.callFunctionOn', {
-      functionDeclaration: `
-        function(...args) {
-          return this.${method}(...args);
-        }
-      `,
-      objectId: bridgeObjectId,
-      arguments: args.map((arg) => ({ value: arg })),
-      returnByValue: true,
-    });
-
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          'Bridge method call failed'
-      );
-    }
-
-    return response.result.value;
-  }
-
-  /**
-   * Reset injector state (for navigation)
-   * Sets navigation flag to prevent race conditions with in-flight bridge calls
-   */
   reset(): void {
     this.navigationInProgress = true;
-    this.isolatedWorldId = null;
+    this.contextId = null;
     this.bridgeObjectId = null;
+  }
+
+  async dispose(cdp: CDPSession): Promise<void> {
+    if (this.scriptId) {
+      try {
+        await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: this.scriptId });
+      } catch { /* ignore */ }
+      this.scriptId = null;
+    }
   }
 }
 ```
 
-**Validation**:
-- [ ] Injector creates isolated world
-- [ ] Auto-injection survives page navigation
-- [ ] Health check returns correct version
-- [ ] Bridge methods callable via callBridgeMethod
-- [ ] **CRITICAL**: Version replacement works (check bundle contains actual version)
-- [ ] **CRITICAL**: Navigation race condition handled (rapid navigate + click doesn't crash)
-- [ ] **CRITICAL**: `waitForIsolatedWorld()` succeeds after navigation
-- [ ] **CRITICAL**: `navigationInProgress` flag prevents concurrent calls during navigation
+**Validation**
+
+* [ ] Injector observes `Runtime.executionContextCreated` for `worldName`
+* [ ] Auto-injection survives navigation and SPA transitions
+* [ ] Health check returns correct version
+* [ ] Bridge methods callable via `callBridgeMethod`
+* [ ] **CRITICAL**: `runImmediately` used, with **fallback** implemented
+* [ ] **CRITICAL**: Listeners registered before `Runtime.enable`/`Page.enable`
+
+**Security validation**
+
+```ts
+// In page main world (not the named isolated world)
+const factoryAccessible = await page.evaluate(() => {
+  return typeof (globalThis as any).__VerdexBridgeFactory__;
+});
+if (factoryAccessible !== 'undefined') {
+  throw new Error('Bridge factory leaked into main context - isolation broken');
+}
+```
 
 ---
 
-### **Phase 3: Integration (Update MultiContextBrowser)**
-**Estimated Time**: 60 minutes  
-**Goal**: Replace toString approach with BridgeInjector
+## Phase 3: Integration (Update MultiContextBrowser)
 
-#### Step 3.1: Update RoleContext Type
+### Step 3.1: Update `RoleContext` type
+
 **File**: `src/types.ts`
 
-```typescript
+```ts
 import type { BridgeInjector } from './injection/BridgeInjector.js';
 
-export interface RoleContext {
+export type RoleContext = {
   role: string;
   browserContext: BrowserContext;
   page: Page;
   cdpSession: CDPSession;
-  bridgeInjector: BridgeInjector; // NEW: Replace isolatedWorldId/bridgeObjectId
+  bridgeInjector: BridgeInjector; // NEW
   mainFrameId: string;
   defaultUrl?: string;
   createdAt: number;
   lastUsed: number;
   hasNavigated: boolean;
-}
+};
 ```
 
-#### Step 3.2: Update MultiContextBrowser
+> Uses `type` (not `interface`), matching codebase style.
+
+### Step 3.2: Wire the injector
+
 **File**: `src/multi-context-browser.ts`
 
-**Changes**:
+**Changes**
 
-1. **Remove old injection imports**:
-```typescript
+1. **Remove old injection:**
+
+```ts
 // DELETE
-import { injectedCode } from "./injected/index.js";
+import { injectedCode } from './injected/index.js';
 ```
 
-2. **Add new injection import**:
-```typescript
-// ADD
+2. **Add injector:**
+
+```ts
 import { BridgeInjector } from './injection/BridgeInjector.js';
 ```
 
-3. **Update _setupRoleContext** (lines 126-174):
-```typescript
+3. **Setup role context:**
+
+```ts
 private async _setupRoleContext(
   role: string,
   browserContext: BrowserContext,
   page: Page
 ): Promise<RoleContext> {
-  // Get CDP session for this specific page
   const cdpSession = await page.createCDPSession();
 
-  // Enable required CDP domains for this session
-  await cdpSession.send("Runtime.enable");
-  await cdpSession.send("Page.enable");
-  await cdpSession.send("Network.enable");
-
   // Get main frame ID
-  const { frameTree } = await cdpSession.send("Page.getFrameTree");
+  const { frameTree } = await cdpSession.send('Page.getFrameTree');
   const mainFrameId = frameTree.frame.id;
 
-  // Create bridge injector with config
   const bridgeInjector = new BridgeInjector({
     worldName: `verdex_${role}`,
     config: this.bridgeConfig,
+    mainFrameId,
   });
 
-  // Setup auto-injection (survives navigation)
   await bridgeInjector.setupAutoInjection(cdpSession, mainFrameId);
 
-  // Get default URL from configuration if available
   const defaultUrl = this.rolesConfig?.roles[role]?.defaultUrl;
 
-  // Create the context object
   const context: RoleContext = {
     role,
     browserContext,
     page,
     cdpSession,
-    bridgeInjector, // NEW: Single injector instance
+    bridgeInjector,
     mainFrameId,
     defaultUrl,
     createdAt: Date.now(),
@@ -606,14 +603,10 @@ private async _setupRoleContext(
     hasNavigated: false,
   };
 
-  // Set up navigation listener (reset injector on navigation)
-  cdpSession.on("Page.frameNavigated", (event: any) => {
+  // Optional: belt-and-braces
+  cdpSession.on('Page.frameNavigated', (event: any) => {
     if (event.frame.id === mainFrameId && !event.frame.parentId) {
-      // Reset injector state, but auto-injection keeps it alive
       context.bridgeInjector.reset();
-      console.log(
-        `🔄 Bridge reset for role ${role} (auto-injection will restore)`
-      );
     }
   });
 
@@ -621,225 +614,218 @@ private async _setupRoleContext(
 }
 ```
 
-4. **DELETE _setupIsolatedWorldForContext** (lines 262-293):
-```typescript
-// DELETE ENTIRE METHOD - No longer needed
-```
+Note (CDP teardown): cdpSession.detach() closes the DevTools Protocol session (no further Page.*/Runtime.* commands or events). Because BridgeInjector.dispose() sends Page.removeScriptToEvaluateOnNewDocument, always call dispose() before cdpSession.detach() to ensure the injected script is removed cleanly.
 
-5. **REPLACE ensureBridgeForContext** (lines 295-332):
-```typescript
-/**
- * Ensure bridge is ready (simplified - injector handles this)
- */
+4. **Delete legacy `_setupIsolatedWorldForContext`** (entire method)
+
+5. **Replace `ensureBridgeForContext`:**
+
+```ts
 private async ensureBridgeForContext(context: RoleContext): Promise<void> {
   try {
-    // Verify bridge health
-    const isHealthy = await context.bridgeInjector.healthCheck(context.cdpSession);
-    
-    if (!isHealthy) {
-      console.log(`⚠️ Bridge unhealthy for role ${context.role}, recreating...`);
-      // Injector will handle recreation
+    const healthy = await context.bridgeInjector.healthCheck(context.cdpSession);
+    if (!healthy) {
+      // injector will recreate on demand
     }
-    
-    // Ensure bridge handle exists (injector handles lazy creation)
     await context.bridgeInjector.getBridgeHandle(context.cdpSession);
-  } catch (error) {
+  } catch (err) {
     throw new Error(
       `Failed to ensure bridge for role '${context.role}': ${
-        error instanceof Error ? error.message : String(error)
+        err instanceof Error ? err.message : String(err)
       }`
     );
   }
 }
 ```
 
-6. **Update all bridge method calls** (snapshot, click, type, inspect, etc.):
+6. **Route all bridge calls through the injector:**
 
-```typescript
-// BEFORE (lines 449-471):
+```ts
 async snapshot(): Promise<Snapshot> {
-  try {
-    const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const { result } = await context.cdpSession.send(
-      "Runtime.callFunctionOn",
-      {
-        functionDeclaration: "function() { return this.snapshot(); }",
-        objectId: context.bridgeObjectId!,
-        returnByValue: true,
-      }
-    );
-
-    return result.value;
-  } catch (error) {
-    throw new Error(
-      `Snapshot failed for role '${this.currentRole}': ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  }
+  const context = await this.ensureCurrentRoleContext();
+  return await context.bridgeInjector.callBridgeMethod<Snapshot>(
+    context.cdpSession,
+    'snapshot'
+  );
 }
-
-// AFTER:
-async snapshot(): Promise<Snapshot> {
-  try {
-    const context = await this.ensureCurrentRoleContext();
-    return await context.bridgeInjector.callBridgeMethod(
-      context.cdpSession,
-      'snapshot'
-    );
-  } catch (error) {
-    throw new Error(
-      `Snapshot failed for role '${this.currentRole}': ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  }
-}
+// Apply same pattern to: click, type, inspect, get_ancestors, get_siblings, get_descendants
 ```
 
-**Apply same pattern to**:
-- `click(ref: string)` → `callBridgeMethod('click', [ref])`
-- `type(ref, text)` → `callBridgeMethod('type', [ref, text])`
-- `inspect(ref)` → `callBridgeMethod('inspect', [ref])`
-- `get_ancestors(ref)` → `callBridgeMethod('get_ancestors', [ref])`
-- `get_siblings(ref, level)` → `callBridgeMethod('get_siblings', [ref, level])`
-- `get_descendants(ref, level)` → `callBridgeMethod('get_descendants', [ref, level])`
+7. **Update navigation**: remove manual invalidations (injector handles lifecycle).
+   **Delete** any lines that set `isolatedWorldId = null` or `bridgeObjectId = null`.
+// Injector now handles nav via events.
 
-7. **Update navigate** (lines 376-378 - remove manual invalidation):
-```typescript
-// DELETE these lines (auto-injection handles it):
-context.isolatedWorldId = null;
-context.bridgeObjectId = null;
-```
+8. **Update _closeRoleContext**: cleanup order
 
-**Validation**:
-- [ ] All browser methods work correctly
-- [ ] Bridge survives navigation
-- [ ] Multi-role contexts remain isolated
-- [ ] No TypeScript errors
-- [ ] All tests pass
+Add `dispose()` before detaching the CDP session.
+
+Before:
+
+// Cleanup order matters: CDP -> Page -> Context
+if (context.cdpSession) {
+  await context.cdpSession.detach();
+}
+if (context.page && !context.page.isClosed()) {
+  await context.page.close();
+}
+if (context.browserContext) {
+  await context.browserContext.close();
+}
+
+
+After:
+
+// Cleanup order matters: Injector -> CDP -> Page -> Context
+if (context.bridgeInjector) {
+  await context.bridgeInjector.dispose(context.cdpSession);
+}
+if (context.cdpSession) {
+  await context.cdpSession.detach();
+}
+if (context.page && !context.page.isClosed()) {
+  await context.page.close();
+}
+if (context.browserContext) {
+  await context.browserContext.close();
+}
+
+
+Validation:
+
+ - All browser methods work
+
+ - Bridge survives navigation / SPA transitions
+
+ - Multi-role contexts remain isolated
+
+ - dispose() runs before cdpSession.detach()
+
+ - No TS errors
+
+ - Tests pass
 
 ---
 
-### **Phase 4: Cleanup (Remove Old Code)**
-**Estimated Time**: 15 minutes  
-**Goal**: Remove toString serialization approach
+## Phase 4: Cleanup
 
-#### Step 4.1: Delete Old Injection Code
+* Remove old injection path:
+
 ```bash
-# Delete old injection approach
 rm src/injected/index.ts
-
-# Update src/injected/README.md
 ```
 
-#### Step 4.2: Update Comments and Documentation
-- Update README.md with new architecture
-- Update any inline comments referencing old approach
-- Add JSDoc comments to BridgeInjector
+* Docs:
 
-**Validation**:
-- [ ] No references to `injectedCode()` remain
-- [ ] No references to `toString()` serialization
-- [ ] Build completes without warnings
-- [ ] All tests pass
+  * Update README with new architecture
+  * Remove references to `toString()` serialization
+  * Add JSDoc to `BridgeInjector`
+
+**Validation**
+
+* [ ] No references to `injectedCode()` or string-eval remain
+* [ ] Build is clean
+* [ ] Tests pass
 
 ---
 
-### **Phase 5: Testing & Validation**
-**Estimated Time**: 30 minutes  
-**Goal**: Comprehensive testing of new approach
+## Phase 5: Testing & Validation
 
-#### Step 5.1: Update Existing Tests
-**File**: `tests/snapshot-generator.spec.ts`
+### 5.1: Unit/E2E test example (Puppeteer)
 
-Add test for bundle injection:
-```typescript
-test('bundle injection with source maps', async ({ page }) => {
-  // Verify bridge is available
-  const version = await page.evaluate(() => {
-    return (window as any).__VerdexBridgeFactory__?.version;
+```ts
+test('bundle injection with version check', async ({ /* your harness */ }) => {
+  const page = /* get puppeteer page */;
+  const cdp = await page.createCDPSession();
+
+  // Listeners first
+  let ctxId: number | null = null;
+  cdp.on('Runtime.executionContextCreated', (evt: any) => {
+    if (evt.context?.name === 'verdex_default') ctxId = evt.context.id;
   });
-  
-  expect(version).toBe(BRIDGE_VERSION);
+
+  await cdp.send('Runtime.enable');
+
+  // Initialize your injector as your app does
+  await setupVerdexInjectorSomehow(page);
+
+  // Wait up to 5s for the named world
+  const start = Date.now();
+  while (!ctxId && Date.now() - start < 5000) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  expect(ctxId).toBeTruthy();
+
+  const { result } = await cdp.send('Runtime.evaluate', {
+    expression: 'globalThis.__VerdexBridgeFactory__?.version',
+    contextId: ctxId!,
+    returnByValue: true,
+  });
+  expect(result.value).toBe(BRIDGE_VERSION);
 });
 ```
 
-#### Step 5.2: Manual Testing Checklist
+### 5.2: Manual checklist
 
-**Basic Functionality**:
-- [ ] Navigate to multiple pages
-- [ ] Switch between roles
-- [ ] Verify bridge survives page reload
-- [ ] Test all bridge methods (snapshot, click, type, etc.)
+**Basics**
 
-**Debugging & Source Maps**:
-- [ ] Verify source maps in DevTools
-- [ ] Set breakpoint in original source file
-- [ ] Check error stack traces point to source
-- [ ] Open DevTools Sources → see `verdex-bridge.js` with original structure
+* [ ] Navigate to multiple pages (hard + SPA)
+* [ ] Switch roles; verify isolation
+* [ ] Reload page; bridge survives
+* [ ] All bridge methods work
+* [ ] Teardown: Verified that BridgeInjector.dispose() runs before cdpSession.detach(); subsequent navigations in other roles don’t inherit the auto-injected script.
 
-**Critical Race Condition Tests**:
-- [ ] **Rapid navigation test**: Navigate → immediately call snapshot (should not crash)
-- [ ] **Mid-flight navigation**: Start long operation → navigate away → verify graceful handling
-- [ ] **Concurrent calls during navigation**: Multiple snapshot() calls during page load
-- [ ] **Version verification**: Check bundle contains actual version (not `__VERSION__` placeholder)
-- [ ] **World creation timeout**: Navigate to slow-loading page → verify wait succeeds
-- [ ] **Bridge resurrection**: Kill bridge → next method call should auto-recreate
+**Debuggability**
 
-#### Step 5.3: Performance Testing
-- [ ] Measure bundle injection time vs toString
-- [ ] Verify memory usage similar or better
-- [ ] Confirm no performance regressions
+* [ ] Inline source maps in dev
+* [ ] Breakpoints hit original TS
+* [ ] Stack traces mapped
+
+**Races**
+
+* [ ] Rapid navigation + immediate calls → no crash
+* [ ] Long ops during nav → guarded
+* [ ] Concurrent calls during nav → guarded
+* [ ] Version check enforced
+
+**Security**
+
+* [ ] Factory **not** visible in main world
+
+**Perf**
+
+* [ ] Latency and memory stable vs old approach
 
 ---
 
 ## Rollback Plan
 
-If migration fails:
-
 ```bash
-# Return to main branch
 git checkout main
-
-# Delete migration branch
 git branch -D feature/bundled-bridge-injection
 ```
 
-All changes are isolated to the feature branch. No impact on main.
+All changes isolated to feature branch.
 
 ---
 
 ## Success Criteria
 
-- [ ] All tests pass
-- [ ] Bundle size < 100KB
-- [ ] Source maps work in DevTools
-- [ ] Bridge survives navigation
-- [ ] Health checks verify bridge version
-- [ ] No toString() references remain
-- [ ] Documentation updated
-- [ ] Performance equal or better
+* [ ] All tests pass
+* [ ] Bundle size < 100KB (prod)
+* [ ] Source maps work (dev)
+* [ ] Bridge survives navigation
+* [ ] Health checks verify version
+* [ ] No `toString()`/string-eval
+* [ ] Docs updated
+* [ ] No use of nonexistent CDP APIs
+* [ ] Equal or better performance
 
 ---
 
-## Estimated Total Time
+## Notes & Rationale
 
-**2.5 - 3 hours** for complete migration with testing
-
----
-
-## Next Steps
-
-1. Review this migration plan
-2. Execute Phase 1 (Foundation)
-3. Validate bundle generation
-4. Proceed to Phase 2 (Injector)
-5. Continue through remaining phases
-
----
-
-**Questions or concerns?** Review each phase and adjust as needed before starting implementation.
+* **Event-driven correctness**: `Runtime.executionContextCreated` is the canonical signal; no polling or private APIs.
+* **Named world + `runImmediately`**: guarantees the bundle runs now and on every document in that world; fallback keeps current document covered on older Chromium.
+* **Isolation**: Factory is scoped to the named isolated world; main world remains clean.
+* **Lifecycle ownership**: Injector centralizes nav/race handling and cleanup, removing ad-hoc invalidation logic elsewhere.
 
