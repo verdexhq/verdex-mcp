@@ -11,8 +11,11 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "build": "rm -rf dist && tsc",
+    "prebuild": "NODE_ENV=production tsx build/bundle-bridge.ts",
+    "prebuild:dev": "NODE_ENV=development tsx build/bundle-bridge.ts",
+    "build": "npm run prebuild && rm -rf dist && tsc",
+    "dev": "npm run prebuild:dev && tsx src/index.ts",
+    "bundle:watch": "NODE_ENV=development tsx --watch build/bundle-bridge.ts",
     "start": "node dist/index.js",
     "test": "playwright test"
   },
@@ -47,6 +50,7 @@
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.15",
+    "esbuild": "^0.25.11",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }

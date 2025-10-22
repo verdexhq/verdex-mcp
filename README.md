@@ -24,6 +24,20 @@ Verdex is an experimental Chrome/CDP MCP server that helps AI coding assistants 
 
 ---
 
+## 🏗️ Architecture
+
+Verdex uses a **bundled bridge injection** approach for maximum stability and debuggability:
+
+- **Pre-bundled Bridge**: DOM analysis code is bundled once with esbuild (not serialized on every page load)
+- **CDP Auto-Injection**: Bridge automatically injects into a named isolated world via `Page.addScriptToEvaluateOnNewDocument`
+- **Event-Driven Discovery**: Uses `Runtime.executionContextCreated` to track isolated worlds across navigations
+- **SPA-Aware**: Distinguishes full navigations from same-document transitions to minimize stalls
+- **Source Maps**: Dev builds include inline source maps for easy debugging with Chrome DevTools
+
+This architecture eliminates brittle string serialization and ensures the bridge survives page reloads, full navigations, and SPA route changes.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Install via npx (no installation required)

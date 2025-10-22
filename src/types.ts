@@ -168,21 +168,32 @@ export interface GetDescendantsResult {
   maxDepthReached: number;
 }
 
+// Bridge configuration
+export interface BridgeConfig {
+  /** Maximum depth to traverse when analyzing descendants (default: 4) */
+  maxDepth?: number;
+  /** Maximum number of siblings to analyze at each level (default: 15) */
+  maxSiblings?: number;
+  /** Maximum total number of descendants to process (default: 100) */
+  maxDescendants?: number;
+  /** Maximum number of outline items per sibling (default: 6) */
+  maxOutlineItems?: number;
+}
+
 // Multi-role interfaces
-export interface RoleContext {
+export type RoleContext = {
   role: string;
   browserContext: BrowserContext;
   page: Page;
   cdpSession: CDPSession;
-  isolatedWorldId: number | null;
-  bridgeObjectId: string | null;
+  bridgeInjector: any; // BridgeInjector from injection module (avoid circular import)
   mainFrameId: string;
   defaultUrl?: string;
   createdAt: number;
   lastUsed: number;
   hasNavigated: boolean; // Track if this context has been navigated
-  storageStatePath?: string; // NEW: Path to Playwright storage state file
-}
+  storageStatePath?: string; // Optional: Path to Playwright storage state file
+};
 
 export interface RoleConfig {
   authPath: string;
