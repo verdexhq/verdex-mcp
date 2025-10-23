@@ -153,7 +153,7 @@ export type RoleContext = {
   browserContext: BrowserContext;
   page: Page;
   cdpSession: CDPSession;
-  bridgeInjector: any; // BridgeInjector from injection module (avoid circular import)
+  bridgeInjector: any; // BridgeInjector from runtime module (avoid circular import)
   mainFrameId: string;
   defaultUrl?: string;
   createdAt: number;

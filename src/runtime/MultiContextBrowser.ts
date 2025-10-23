@@ -1,12 +1,11 @@
 import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
 import {
   Snapshot,
-  ElementInfo,
   InspectResult,
   RoleContext,
   RolesConfiguration,
-} from "./types.js";
-import { BridgeInjector } from "./injection/BridgeInjector.js";
+} from "../types.js";
+import { BridgeInjector } from "./BridgeInjector.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;

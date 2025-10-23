@@ -2,7 +2,7 @@
  * Validation test for bundled bridge injection
  */
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/multi-context-browser.js";
+import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
 
 test.describe("Bundled Bridge Injection", () => {
   let browser: MultiContextBrowser;
