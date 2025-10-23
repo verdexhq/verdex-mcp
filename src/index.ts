@@ -4,6 +4,19 @@ import { realpathSync } from "fs";
 import { fileURLToPath } from "url";
 import { VerdexMCPServer } from "./server/VerdexMCPServer.js";
 
+// Export server class for testing and advanced programmatic usage
+// Primary use: MCP hosts spawn as CLI process via stdio
+//   {
+//     "mcpServers": {
+//       "verdex": { "command": "npx", "args": ["@verdex/mcp@latest"] }
+//     }
+//   }
+export { VerdexMCPServer };
+
+// Export global type - this automatically loads the global augmentation
+// Consumers get globalThis.__VerdexBridgeFactory__ types when they import from this package
+export type { VerdexBridgeFactory } from "./browser/types/global.js";
+
 // Start the server if this module is executed as the entrypoint (npx/cli)
 const isDirectExecution = (() => {
   if (typeof process === "undefined" || !Array.isArray(process.argv))
@@ -22,10 +35,3 @@ if (isDirectExecution) {
   const server = new VerdexMCPServer();
   server.run().catch(console.error);
 }
-
-// Export main server class
-export { VerdexMCPServer } from "./server/VerdexMCPServer.js";
-
-// Export global type - this automatically loads the global augmentation
-// Consumers get globalThis.__VerdexBridgeFactory__ types when they import from this package
-export type { VerdexBridgeFactory } from "./browser/types/global.js";

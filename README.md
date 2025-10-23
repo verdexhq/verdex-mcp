@@ -43,7 +43,7 @@ This architecture eliminates brittle string serialization and ensures the bridge
 ### 1. Install via npx (no installation required)
 
 ```bash
-npx @verdex/mcp
+npx @verdex/mcp@latest
 ```
 
 ### 2. Add to your MCP settings
@@ -53,7 +53,7 @@ npx @verdex/mcp
   "mcpServers": {
     "verdex": {
       "command": "npx",
-      "args": ["@verdex/mcp"]
+      "args": ["@verdex/mcp@latest"]
     }
   }
 }
@@ -94,7 +94,7 @@ await page.getByRole('button', { name: 'Add to Cart' }).nth(8); // 😱 Fragile!
 Run directly without installation:
 
 ```bash
-npx @verdex/mcp
+npx @verdex/mcp@latest
 ```
 
 ### Option 2: Global Installation
@@ -127,7 +127,7 @@ Add to your MCP settings file (e.g., `~/Library/Application Support/Code/User/gl
   "mcpServers": {
     "verdex": {
       "command": "npx",
-      "args": ["@verdex/mcp"]
+      "args": ["@verdex/mcp@latest"]
     }
   }
 }
@@ -143,7 +143,7 @@ Test different user roles in isolated browser contexts:
     "verdex": {
       "command": "npx",
       "args": [
-        "@verdex/mcp",
+        "@verdex/mcp@latest",
         "--role", "admin", "/path/to/admin-auth.json", "https://admin.example.com",
         "--role", "user", "/path/to/user-auth.json", "https://app.example.com"
       ]
