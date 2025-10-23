@@ -1,9 +1,10 @@
-<h1>
-  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="60" align="left"/>
-  &nbsp;Verdex MCP
-</h1>
+<p align="center">
+  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="80"/>
+</p>
 
-> **AI-First Browser Automation for Building Robust Playwright Tests**
+<h1 align="center">Verdex MCP</h1>
+
+<p align="center"><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></p>
 
 [![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
