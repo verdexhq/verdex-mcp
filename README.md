@@ -28,7 +28,7 @@ Verdex is an experimental Chrome/CDP MCP server that helps AI coding assistants 
 
 > **👉 [Try the 60-Second Demo](QUICKSTART.md)** - See Verdex in action with a realistic demo page (no test infrastructure required!)
 
-### 1. Install via npx (no installation required)
+### 1. Run via npx (no installation required)
 
 ```bash
 npx @verdex/mcp@latest
@@ -273,7 +273,7 @@ Child 2 (button) [ref=e3]:
 | A11y tree only | 1,000-3,000 | Limited to interactive elements |
 | **Verdex exploration** | **100-1,000 per call** | **Surgical, on-demand** |
 
-**Verdict**: Verdex uses ~10-50x fewer tokens while providing richer structural context.
+**Verdict**: Verdex uses ~10-50x fewer tokens than DOM dumps while providing richer structural context than an a11y tree only view.
 
 ---
 
@@ -463,7 +463,7 @@ npm run dev
 
 ## 🙏 Acknowledgments
 
-Huge respect to the [Playwright MCP](https://github.com/microsoft/playwright) team and the [Model Context Protocol](https://modelcontextprotocol.io) creators. Verdex explores adjacent ideas inspired by their excellent work. 🚀
+Huge respect to the [Playwright](https://github.com/microsoft/playwright) team and the [Model Context Protocol](https://modelcontextprotocol.io) creators. Verdex explores ideas inspired by their badass work. 🚀
 
 ---
 
@@ -478,7 +478,7 @@ Apache 2.0 - see [LICENSE](LICENSE) for details.
 This is an experimental project. If you're building AI-assisted testing workflows, we'd love to hear:
 
 - Do you care about token efficiency? What benchmarks matter to you?
-- What other DOM exploration tools would be useful?
+- What other DOM exploration or other primitives would be useful?
 - What multi-role testing patterns do you need?
 
 **[Share your thoughts in Discussions →](https://github.com/verdexhq/verdex-mcp/discussions)**
