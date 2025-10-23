@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="80"/>
+  <img src="./verdex_logo.png" alt="Verdex Logo" width="80"/>
 </p>
-
-<h1 align="center">Verdex MCP</h1>
 
 <p align="center"><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></p>
 
