@@ -11,7 +11,7 @@ import type {
   DescendantsResult,
 } from "./elements.js";
 
-export interface IBridge {
+export type IBridge = {
   elements: Map<string, ElementInfo>;
   counter: number;
 
@@ -28,9 +28,9 @@ export interface IBridge {
 
   // Utility methods
   getAttributes(element: Element): Record<string, string>;
-}
+};
 
-export interface BridgeConfig {
+export type BridgeConfig = {
   /** Maximum depth to traverse when analyzing descendants (default: 4) */
   maxDepth?: number;
   /** Maximum number of siblings to analyze at each level (default: 15) */
@@ -39,4 +39,10 @@ export interface BridgeConfig {
   maxDescendants?: number;
   /** Maximum number of outline items per sibling (default: 6) */
   maxOutlineItems?: number;
-}
+};
+
+export type InjectorOptions = {
+  worldName?: string;
+  config?: BridgeConfig;
+  mainFrameId?: string;
+};

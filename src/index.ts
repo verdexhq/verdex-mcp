@@ -959,4 +959,9 @@ if (isDirectExecution) {
   server.run().catch(console.error);
 }
 
+// Export main server class
 export { VerdexMCPServer };
+
+// Export global type - this automatically loads the global augmentation
+// Consumers get globalThis.__VerdexBridgeFactory__ types when they import from this package
+export type { VerdexBridgeFactory } from "./injected/types/global.js";

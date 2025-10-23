@@ -6,7 +6,7 @@ import {
   RoleContext,
   RolesConfiguration,
 } from "./types.js";
-import { injectedCode } from "./injected/index.js";
+import { BridgeInjector } from "./injection/BridgeInjector.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;
@@ -131,14 +131,20 @@ export class MultiContextBrowser {
     // Get CDP session for this specific page
     const cdpSession = await page.createCDPSession();
 
-    // Enable required CDP domains for this session
-    await cdpSession.send("Runtime.enable");
-    await cdpSession.send("Page.enable");
-    await cdpSession.send("Network.enable");
-
     // Get main frame ID (needed for isolated world creation)
     const { frameTree } = await cdpSession.send("Page.getFrameTree");
     const mainFrameId = frameTree.frame.id;
+
+    // Create bridge injector with salted world name
+    const salt = (process.pid ?? Math.floor(Math.random() * 100000)) % 1000;
+    const bridgeInjector = new BridgeInjector({
+      worldName: `verdex_${role}_${salt}`,
+      config: this.bridgeConfig,
+      mainFrameId,
+    });
+
+    // Setup auto-injection (registers listeners, enables domains, injects bundle)
+    await bridgeInjector.setupAutoInjection(cdpSession, mainFrameId);
 
     // Get default URL from configuration if available
     const defaultUrl = this.rolesConfig?.roles[role]?.defaultUrl;
@@ -149,26 +155,13 @@ export class MultiContextBrowser {
       browserContext,
       page,
       cdpSession,
-      isolatedWorldId: null, // Will be set during bridge injection
-      bridgeObjectId: null, // Will be set during bridge injection
+      bridgeInjector,
       mainFrameId,
       defaultUrl,
       createdAt: Date.now(),
       lastUsed: Date.now(),
       hasNavigated: false, // Track if this context has been navigated
     };
-
-    // Set up navigation listener for this specific context
-    cdpSession.on("Page.frameNavigated", (event: any) => {
-      if (event.frame.id === mainFrameId && !event.frame.parentId) {
-        // Only invalidate for main frame navigation (not subframes/iframes)
-        context.isolatedWorldId = null;
-        context.bridgeObjectId = null;
-        console.log(
-          `🔄 Bridge invalidated for role ${role} due to main frame navigation`
-        );
-      }
-    });
 
     return context;
   }
@@ -259,69 +252,18 @@ export class MultiContextBrowser {
   }
 
   /**
-   * Setup isolated world for a specific context
-   */
-  private async _setupIsolatedWorldForContext(
-    context: RoleContext
-  ): Promise<void> {
-    const { cdpSession, mainFrameId, role } = context;
-
-    // Create isolated world for this specific context
-    const { executionContextId } = await cdpSession.send(
-      "Page.createIsolatedWorld",
-      {
-        frameId: mainFrameId,
-        worldName: `bridge_world_${role}_${Date.now()}`, // Unique name per role
-        grantUniveralAccess: false,
-      }
-    );
-
-    context.isolatedWorldId = executionContextId;
-
-    // Create bridge code using injected script with config
-    const bridgeCode = injectedCode(this.bridgeConfig);
-
-    const { result } = await cdpSession.send("Runtime.evaluate", {
-      expression: bridgeCode,
-      contextId: executionContextId,
-      returnByValue: false,
-    });
-
-    context.bridgeObjectId = result.objectId || null;
-
-    console.log(`🔧 Bridge injected for role: ${role}`);
-  }
-
-  /**
    * CRITICAL: Ensure bridge is alive for a specific role context
    * This handles bridge resurrection after navigation or context destruction
    */
   private async ensureBridgeForContext(context: RoleContext): Promise<void> {
     try {
-      // If we don't have a bridge object, create one
-      if (!context.bridgeObjectId) {
-        await this._setupIsolatedWorldForContext(context);
-        return;
+      const healthy = await context.bridgeInjector.healthCheck(
+        context.cdpSession
+      );
+      if (!healthy) {
+        // injector will recreate on demand
       }
-
-      try {
-        // Test if the bridge object is still alive
-        await context.cdpSession.send("Runtime.callFunctionOn", {
-          functionDeclaration: 'function() { return "alive"; }',
-          objectId: context.bridgeObjectId,
-          returnByValue: true,
-        });
-
-        // Bridge is alive, we're good
-      } catch (error) {
-        // Bridge is dead (navigation, context destroyed, etc.)
-        // Clear invalid references
-        context.isolatedWorldId = null;
-        context.bridgeObjectId = null;
-
-        // Recreate the bridge
-        await this._setupIsolatedWorldForContext(context);
-      }
+      await context.bridgeInjector.getBridgeHandle(context.cdpSession);
     } catch (error) {
       throw new Error(
         `Failed to ensure bridge for role '${context.role}': ${
@@ -372,10 +314,8 @@ export class MultiContextBrowser {
         const statusCode = finalResponse?.status();
         const contentType = finalResponse?.headers()["content-type"];
 
-        // Mark context as navigated and clear bridge state
+        // Mark context as navigated (injector handles bridge lifecycle)
         context.hasNavigated = true;
-        context.isolatedWorldId = null;
-        context.bridgeObjectId = null;
 
         // Get snapshot
         const snapshot = await this.snapshot();
@@ -449,18 +389,10 @@ export class MultiContextBrowser {
   async snapshot(): Promise<Snapshot> {
     try {
       const context = await this.ensureCurrentRoleContext();
-      await this.ensureBridgeForContext(context);
-
-      const { result } = await context.cdpSession.send(
-        "Runtime.callFunctionOn",
-        {
-          functionDeclaration: "function() { return this.snapshot(); }",
-          objectId: context.bridgeObjectId!,
-          returnByValue: true,
-        }
+      return await context.bridgeInjector.callBridgeMethod(
+        context.cdpSession,
+        "snapshot"
       );
-
-      return result.value;
     } catch (error) {
       throw new Error(
         `Snapshot failed for role '${this.currentRole}': ${
@@ -472,140 +404,54 @@ export class MultiContextBrowser {
 
   async click(ref: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration: "function(ref) { this.click(ref); }",
-      objectId: context.bridgeObjectId!,
-      arguments: [{ value: ref }],
-      returnByValue: false,
-    });
-
-    // Check for exceptions thrown by the bridge function
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          "Element not found"
-      );
-    }
-
+    await context.bridgeInjector.callBridgeMethod(context.cdpSession, "click", [
+      ref,
+    ]);
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   async type(ref: string, text: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration: "function(ref, text) { this.type(ref, text); }",
-      objectId: context.bridgeObjectId!,
-      arguments: [{ value: ref }, { value: text }],
-      returnByValue: false,
-    });
-
-    // Check for exceptions thrown by the bridge function
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          "Element not found"
-      );
-    }
+    await context.bridgeInjector.callBridgeMethod(context.cdpSession, "type", [
+      ref,
+      text,
+    ]);
   }
 
   async inspect(ref: string): Promise<InspectResult | null> {
     const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration: "function(ref) { return this.inspect(ref); }",
-      objectId: context.bridgeObjectId!,
-      arguments: [{ value: ref }],
-      returnByValue: true,
-    });
-
-    // Check for exceptions thrown by the bridge function
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          "Element not found"
-      );
-    }
-
-    return response.result.value;
+    return await context.bridgeInjector.callBridgeMethod(
+      context.cdpSession,
+      "inspect",
+      [ref]
+    );
   }
 
   async get_ancestors(ref: string): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration: "function(ref) { return this.get_ancestors(ref); }",
-      objectId: context.bridgeObjectId!,
-      arguments: [{ value: ref }],
-      returnByValue: true,
-    });
-
-    // Check for exceptions thrown by the bridge function
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          "Element not found"
-      );
-    }
-
-    return response.result.value;
+    return await context.bridgeInjector.callBridgeMethod(
+      context.cdpSession,
+      "get_ancestors",
+      [ref]
+    );
   }
 
   async get_siblings(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration:
-        "function(ref, level) { return this.get_siblings(ref, level); }",
-      objectId: context.bridgeObjectId!,
-      arguments: [{ value: ref }, { value: ancestorLevel }],
-      returnByValue: true,
-    });
-
-    // Check for exceptions thrown by the bridge function
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          "Element not found"
-      );
-    }
-
-    return response.result.value;
+    return await context.bridgeInjector.callBridgeMethod(
+      context.cdpSession,
+      "get_siblings",
+      [ref, ancestorLevel]
+    );
   }
 
   async get_descendants(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
-    await this.ensureBridgeForContext(context);
-
-    const response = await context.cdpSession.send("Runtime.callFunctionOn", {
-      functionDeclaration:
-        "function(ref, level) { return this.get_descendants(ref, level); }",
-      objectId: context.bridgeObjectId!,
-      arguments: [{ value: ref }, { value: ancestorLevel }],
-      returnByValue: true,
-    });
-
-    // Check for exceptions thrown by the bridge function
-    if (response.exceptionDetails) {
-      throw new Error(
-        response.exceptionDetails.exception?.description ||
-          response.exceptionDetails.text ||
-          "Element not found"
-      );
-    }
-
-    return response.result.value;
+    return await context.bridgeInjector.callBridgeMethod(
+      context.cdpSession,
+      "get_descendants",
+      [ref, ancestorLevel]
+    );
   }
 
   // Role management API (kept for compatibility)
@@ -659,10 +505,8 @@ export class MultiContextBrowser {
             waitUntil: "networkidle0",
           });
 
-          // Mark as navigated and clear bridge state
+          // Mark as navigated (injector handles bridge lifecycle)
           context.hasNavigated = true;
-          context.isolatedWorldId = null;
-          context.bridgeObjectId = null;
         }
       }
 
@@ -719,14 +563,19 @@ export class MultiContextBrowser {
     try {
       const context = await contextPromise;
 
-      // Cleanup order matters: CDP -> Page -> Context
+      // Cleanup order matters: Injector -> CDP -> Page -> Context
+      if (context.bridgeInjector) {
+        await context.bridgeInjector.dispose(context.cdpSession);
+      }
       if (context.cdpSession) {
         await context.cdpSession.detach();
       }
       if (context.page && !context.page.isClosed()) {
         await context.page.close();
       }
-      if (context.browserContext) {
+      // Only close browser context for non-default roles
+      // Default role uses defaultBrowserContext() which cannot be closed
+      if (context.browserContext && role !== "default") {
         await context.browserContext.close();
       }
 
