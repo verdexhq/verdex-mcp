@@ -49,21 +49,25 @@ This survives reordering, refactoring, and DOM changes.
 
 The demo page is located at: `tests/demo-page.html`
 
-### Step 2: Start Verdex
+### Step 2: Start Verdex MCP
 
-In your terminal:
-```bash
-npx @verdex/mcp@latest
+```json
+{
+  "mcpServers": {
+    "verdex": {
+      "command": "npx",
+      "args": ["@verdex/mcp@latest"]
+    }
+  }
+}
 ```
-
-Or if you have it configured in your MCP settings, it should auto-start.
 
 ### Step 3: Navigate to the Demo
 
 **Copy-paste this prompt to your AI assistant:**
 
 ```
-Navigate to file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/tests/demo-page.html
+Navigate to file:/verdex-mcp/tests/demo-page.html
 ```
 
 > 💡 **Note**: Update the path above to match your actual workspace location
@@ -74,8 +78,7 @@ Navigate to file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verd
 
 ```
 Help me write a Playwright selector to click the "Add to Cart" button 
-for the iPhone 15 Pro product. Use Verdex tools to explore the page 
-structure and generate a stable, container-scoped selector.
+for the iPhone 15 Pro product. Use Verdex MCP tools to explore the page structure and generate a stable, container-scoped selector.
 ```
 
 ### Step 5: Watch the Magic ✨
@@ -246,18 +249,6 @@ page.locator('section > div')
 
 ---
 
-## 🔬 Token Efficiency
-
-| Approach | Tokens | Coverage | Accuracy |
-|----------|--------|----------|----------|
-| Full DOM dump | 50,000+ | Complete | Low (signal/noise) |
-| A11y tree only | 1,000-3,000 | Limited | Medium (no structure) |
-| **Verdex exploration** | **1,000-2,000** | **Surgical** | **High (context-aware)** |
-
-**Verdict**: Verdex uses ~25-50x fewer tokens than DOM dumps while providing richer structural context than accessibility trees alone.
-
----
-
 ## 💡 Key Takeaways
 
 ### 1. **No Test Infrastructure Required**
@@ -316,8 +307,8 @@ page.getByTestId('product-card')
     .getByRole('button', { name: 'Add to Cart' })
 ```
 
-### **Q: Does this replace Playwright MCP?**
-**A:** No. Verdex is complementary. Playwright MCP is a mature, cross-browser test runner. Verdex is a Chrome-only authoring assistant focused on selector generation. Use both!
+### **Q: Does this replace Playwright?**
+**A:** No. Verdex is complementary. Playwright is a mature, cross-browser test runner. Verdex is a Chrome-only authoring assistant focused on selector generation. Use both!
 
 ### **Q: What if my DOM is really complex?**
 **A:** That's exactly when Verdex shines. Complex DOMs with deep nesting are where structural exploration tools provide the most value.
