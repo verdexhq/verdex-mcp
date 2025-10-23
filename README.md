@@ -1,15 +1,10 @@
-<table border="0" cellspacing="0" cellpadding="0">
-<tbody>
-<tr>
-<td width="80" valign="middle">
-  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="60"/>
-</td>
-<td valign="middle" style="padding-left: 15px;">
-  <h1 style="border-bottom: none;">Verdex MCP</h1>
-</td>
-</tr>
-</tbody>
-</table>
+<p align="left">
+  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="60" align="left" style="margin-right: 15px;"/>
+</p>
+
+# Verdex MCP
+
+<br clear="left"/>
 
 > **AI-First Browser Automation for Building Robust Playwright Tests**
 
