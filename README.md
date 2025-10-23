@@ -279,7 +279,7 @@ Child 2 (button) [ref=e3]:
 
 **🎯 Purpose**: Discover text content, buttons, and ARIA roles for semantic targeting.
 
-#### **Demo of the 3 Steps Working in Sequence:**
+#### **Demo of the 3 Steps Working in Sequence (With Zero Test Infrastructure Setup - No `data-testid` or Class Names):**
 
 <p align="left">
   <img src="./verdex.gif" alt="Verdex in Action" width="800"/>
