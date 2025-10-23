@@ -21,7 +21,7 @@
 
 ### Package
 - **Package name**: `@verdex/mcp` (scoped package, professional branding)
-- **CLI command**: `npx @verdex/mcp`
+- **CLI command**: `npx @verdex/mcp@latest`
 - Repository migrated to `verdexhq/verdex-mcp`
 
 ### Added (P0 Correctness Fixes)

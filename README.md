@@ -1,6 +1,12 @@
-# Verdex MCP
+<div align="left">
+  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="80" align="left" style="margin-right: 20px;"/>
+  <div>
+    <h1>Verdex MCP</h1>
+    <blockquote><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></blockquote>
+  </div>
+</div>
 
-> **AI-First Browser Automation for Building Robust Playwright Tests**
+<br clear="left"/>
 
 [![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -28,13 +34,9 @@ Verdex is an experimental Chrome/CDP MCP server that helps AI coding assistants 
 
 > **👉 [Try the 60-Second Demo](QUICKSTART.md)** - See Verdex in action with a realistic demo page (no test infrastructure required!)
 
-### 1. Run via npx (no installation required)
+### 1. Add to your MCP settings
 
-```bash
-npx @verdex/mcp@latest
-```
-
-### 2. Add to your MCP settings
+Add this configuration to your MCP settings file:
 
 ```json
 {
@@ -47,7 +49,9 @@ npx @verdex/mcp@latest
 }
 ```
 
-### 3. Use with your AI coding assistant
+The `npx` command will automatically download and run the latest version—no installation required!
+
+### 2. Use with your AI coding assistant
 
 ```
 User: "Help me write a Playwright test that adds an iPhone to the cart"
@@ -75,28 +79,42 @@ await page.getByRole('button', { name: 'Add to Cart' }).nth(8); // 😱 Fragile!
 
 ---
 
-## 📦 Usage & Installation
+## 📦 Installation Options
 
-### Option 1: npx (Recommended - No Installation Required)
+### For MCP Users (Recommended)
 
-Run on-demand without installing:
+**No installation needed!** Just add the configuration from the [Quick Start](#-quick-start) section above. The MCP client will automatically fetch and run the package via npx.
+
+### For Testing/Verification
+
+To test the MCP server manually (outside of an MCP client):
 
 ```bash
 npx @verdex/mcp@latest
 ```
 
-This fetches and runs the latest version automatically. Perfect for MCP configurations.
+### Global Installation
 
-### Option 2: Global Installation
-
-Install once, run anywhere:
+If you prefer to install once and avoid npx overhead:
 
 ```bash
 npm install -g @verdex/mcp
 verdex-mcp
 ```
 
-### Option 3: Local Development
+Then update your MCP config to use `verdex-mcp` instead of `npx`:
+
+```json
+{
+  "mcpServers": {
+    "verdex": {
+      "command": "verdex-mcp"
+    }
+  }
+}
+```
+
+### Local Development
 
 For contributing or customization:
 
