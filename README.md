@@ -26,15 +26,36 @@ Verdex is an experimental Chrome/CDP MCP server that helps AI coding assistants 
 
 ## 🏗️ Architecture
 
-Verdex uses a **bundled bridge injection** approach for maximum stability and debuggability:
+Verdex combines **multi-context isolation**, **bundled bridge injection**, and **token-efficient DOM exploration** for robust AI-assisted testing:
 
-- **Pre-bundled Bridge**: DOM analysis code is bundled once with esbuild (not serialized on every page load)
-- **CDP Auto-Injection**: Bridge automatically injects into a named isolated world via `Page.addScriptToEvaluateOnNewDocument`
-- **Event-Driven Discovery**: Uses `Runtime.executionContextCreated` to track isolated worlds across navigations
-- **SPA-Aware**: Distinguishes full navigations from same-document transitions to minimize stalls
-- **Source Maps**: Dev builds include inline source maps for easy debugging with Chrome DevTools
+### Core Pillars
 
-This architecture eliminates brittle string serialization and ensures the bridge survives page reloads, full navigations, and SPA route changes.
+**1. Multi-Context Isolation**
+- Each role runs in isolated browser contexts with pre-loaded authentication
+- Complete session isolation (cookies, localStorage, cache)
+- Enables parallel multi-user scenarios in one test session
+
+**2. Bundled Bridge Injection**
+- DOM analysis code is pre-bundled with esbuild (not serialized on every page load)
+- Auto-injected into isolated JavaScript worlds via CDP's `Page.addScriptToEvaluateOnNewDocument`
+- Bridge code never interferes with application JavaScript
+
+**3. Event-Driven Lifecycle**
+- Uses `Runtime.executionContextCreated` to track isolated worlds across navigations
+- Distinguishes full navigations from SPA route changes to minimize stalls
+- Automatic bridge resurrection after page reloads
+
+**4. Token-Efficient Exploration**
+- Surgical 3-step DOM exploration (ancestors → siblings → descendants)
+- 100-1K tokens per call vs. 10K+ for raw DOM dumps
+- On-demand structural discovery instead of overwhelming context
+
+**5. CDP-Powered Runtime**
+- Built on Puppeteer + Chrome DevTools Protocol for low-level control
+- Persistent DOM refs remain stable across interactions
+- Inline source maps for easy debugging with Chrome DevTools
+
+This architecture enables AI assistants to understand page structure efficiently while maintaining complete isolation for multi-user test scenarios.
 
 ---
 
