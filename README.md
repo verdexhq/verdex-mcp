@@ -1,6 +1,4 @@
-<p align="left">
-  <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="60" align="left" style="margin-right: 15px;"/>
-</p>
+<img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="60" align="left" style="margin-right: 15px; margin-top: 8px;"/>
 
 # Verdex MCP
 
