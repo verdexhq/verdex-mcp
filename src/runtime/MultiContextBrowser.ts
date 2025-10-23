@@ -1,7 +1,6 @@
 import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
 import {
   Snapshot,
-  ElementInfo,
   InspectResult,
   RoleContext,
   RolesConfiguration,
