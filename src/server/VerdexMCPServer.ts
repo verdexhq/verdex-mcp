@@ -5,7 +5,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { RolesConfiguration } from "../types.js";
-import { MultiContextBrowser } from "../multi-context-browser.js";
+import { MultiContextBrowser } from "../runtime/MultiContextBrowser.js";
 import { RolesConfigParser } from "./config/RolesConfigParser.js";
 import { TOOL_DEFINITIONS } from "./tools/ToolDefinitions.js";
 import { BrowserHandlers } from "./handlers/BrowserHandlers.js";

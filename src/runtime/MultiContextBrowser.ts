@@ -5,8 +5,8 @@ import {
   InspectResult,
   RoleContext,
   RolesConfiguration,
-} from "./types.js";
-import { BridgeInjector } from "./runtime/BridgeInjector.js";
+} from "../types.js";
+import { BridgeInjector } from "./BridgeInjector.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;
