@@ -1,12 +1,14 @@
-<table style="border-collapse: collapse; border: none;">
-<tr style="border: none;">
-<td width="80" style="border: none; padding: 0;">
+<table border="0" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td width="80" valign="middle">
   <img src="./verdex_inverse_avatar.png" alt="Verdex Logo" width="60"/>
 </td>
-<td style="border: none; padding: 0 0 0 15px;">
-  <h1 style="margin: 0; padding: 0; border: none;">Verdex MCP</h1>
+<td valign="middle" style="padding-left: 15px;">
+  <h1 style="border-bottom: none;">Verdex MCP</h1>
 </td>
 </tr>
+</tbody>
 </table>
 
 > **AI-First Browser Automation for Building Robust Playwright Tests**
