@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./verdex_logo.png" alt="Verdex Logo" width="250"/>
+  <img src="./verdex_logo.png" alt="Verdex Logo" width="350"/>
 </p>
 
 <p align="center"><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></p>
