@@ -391,34 +391,6 @@ Browser Instance
 
 ---
 
-## 📊 Comparison with Playwright MCP
-
-| Feature | Playwright MCP | Verdex MCP |
-|---------|---------------|------------|
-| **Selector Strategy** | Inspector/codegen + a11y tree | AI-guided structural exploration |
-| **Multi-User Testing** | Manual context management | Built-in role isolation |
-| **DOM Surface** | A11y-only abstraction | Reconcilable DOM refs for exploration |
-| **Debug Loop** | Frequent GUI context switches | Stay in IDE with low-token probes |
-| **Browser Support** | Chrome, Firefox, Safari | Chrome-only (CDP) |
-| **Scope** | Full test runner + authoring | Authoring assistant only |
-| **Maturity** | Production-ready, battle-tested | Experimental, niche use cases |
-
-**When to use Verdex:**
-- ✅ You're using AI assistants to write Playwright tests
-- ✅ You need multi-role testing with pre-loaded auth
-- ✅ You want semantic, component-scoped selectors
-- ✅ Chrome-only is acceptable
-
-**When to use Playwright MCP:**
-- ✅ You need cross-browser support
-- ✅ You want a complete test runner
-- ✅ You prefer GUI-based debugging
-- ✅ You need production-ready stability
-
-**Verdict**: Playwright MCP is broad, stable, and battle-tested. Verdex explores a narrow, agent-first niche that may help AI-driven authoring workflows.
-
----
-
 ## ⚠️ Current Limitations
 
 - **Chrome-only**: Uses Puppeteer/CDP (no Firefox/Safari)
