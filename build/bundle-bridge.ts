@@ -12,7 +12,7 @@ async function bundleBridge() {
   const version = getVersion();
 
   const result = await esbuild.build({
-    entryPoints: [path.join(__dirname, "../src/injected/bridge-entry.ts")],
+    entryPoints: [path.join(__dirname, "../src/browser/bridge-entry.ts")],
     bundle: true,
     format: "iife",
     platform: "browser",
@@ -51,7 +51,7 @@ export const BRIDGE_BUNDLE = ${JSON.stringify(bundleCode)};
 export const BRIDGE_VERSION = ${JSON.stringify(version)};
 `;
 
-  const outputPath = path.join(__dirname, "../src/injection/bridge-bundle.ts");
+  const outputPath = path.join(__dirname, "../src/runtime/bridge-bundle.ts");
 
   // Ensure directory exists
   const outputDir = path.dirname(outputPath);

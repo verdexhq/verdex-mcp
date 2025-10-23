@@ -6,7 +6,7 @@ import { BRIDGE_BUNDLE, BRIDGE_VERSION } from "./bridge-bundle.js";
 import type {
   BridgeConfig,
   InjectorOptions,
-} from "../injected/types/bridge.js";
+} from "../browser/types/bridge.js";
 
 export class BridgeInjector {
   private worldName: string;

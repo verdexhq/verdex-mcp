@@ -964,4 +964,4 @@ export { VerdexMCPServer };
 
 // Export global type - this automatically loads the global augmentation
 // Consumers get globalThis.__VerdexBridgeFactory__ types when they import from this package
-export type { VerdexBridgeFactory } from "./injected/types/global.js";
+export type { VerdexBridgeFactory } from "./browser/types/global.js";
