@@ -24,41 +24,6 @@ Verdex is an experimental Chrome/CDP MCP server that helps AI coding assistants 
 
 ---
 
-## 🏗️ Architecture
-
-Verdex combines **multi-context isolation**, **bundled bridge injection**, and **token-efficient DOM exploration** for robust AI-assisted testing:
-
-### Core Pillars
-
-**1. Multi-Context Isolation**
-- Each role runs in isolated browser contexts with pre-loaded authentication
-- Complete session isolation (cookies, localStorage, cache)
-- Enables parallel multi-user scenarios in one test session
-
-**2. Bundled Bridge Injection**
-- DOM analysis code is pre-bundled with esbuild (not serialized on every page load)
-- Auto-injected into isolated JavaScript worlds via CDP's `Page.addScriptToEvaluateOnNewDocument`
-- Bridge code never interferes with application JavaScript
-
-**3. Event-Driven Lifecycle**
-- Uses `Runtime.executionContextCreated` to track isolated worlds across navigations
-- Distinguishes full navigations from SPA route changes to minimize stalls
-- Automatic bridge resurrection after page reloads
-
-**4. Token-Efficient Exploration**
-- Surgical 3-step DOM exploration (ancestors → siblings → descendants)
-- 100-1K tokens per call vs. 10K+ for raw DOM dumps
-- On-demand structural discovery instead of overwhelming context
-
-**5. CDP-Powered Runtime**
-- Built on Puppeteer + Chrome DevTools Protocol for low-level control
-- Persistent DOM refs remain stable across interactions
-- Inline source maps for easy debugging with Chrome DevTools
-
-This architecture enables AI assistants to understand page structure efficiently while maintaining complete isolation for multi-user test scenarios.
-
----
-
 ## 🚀 Quick Start
 
 > **👉 [Try the 60-Second Demo](QUICKSTART.md)** - See Verdex in action with a realistic demo page (no test infrastructure required!)
