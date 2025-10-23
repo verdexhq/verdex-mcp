@@ -2,20 +2,20 @@
  * Element-related types for the injected bridge
  */
 
-export interface ElementInfo {
+export type ElementInfo = {
   element: Element;
   tagName: string;
   role: string;
   name: string;
   attributes: Record<string, string>;
-}
+};
 
-export interface SnapshotResult {
+export type SnapshotResult = {
   text: string;
   elementCount: number;
-}
+};
 
-export interface InspectResult {
+export type InspectResult = {
   ref: string;
   tagName: string;
   role: string;
@@ -31,26 +31,26 @@ export interface InspectResult {
   };
   siblingIndex: number;
   parentRef: string | null;
-}
+};
 
-export interface AncestorInfo {
+export type AncestorInfo = {
   level: number;
   tagName: string;
   attributes: Record<string, string>;
   childElements: number;
   containsRefs: string[];
-}
+};
 
-export interface AncestorsResult {
+export type AncestorsResult = {
   target: {
     ref: string;
     tagName: string;
     text: string;
   };
   ancestors: AncestorInfo[];
-}
+};
 
-export interface OutlineItem {
+export type OutlineItem = {
   /** Either ARIA role (preferred) or HTML tag */
   role?: string;
   tag?: string;
@@ -58,18 +58,18 @@ export interface OutlineItem {
   text?: string;
   /** data-testid if present */
   testid?: string;
-}
+};
 
-export interface SiblingInfo {
+export type SiblingInfo = {
   index: number;
   tagName: string;
   attributes: Record<string, string>;
   containsText: string[];
   /** Shallow, typed cues for quick uniqueness checks (e.g., headings, buttons, testids) */
   outline?: OutlineItem[];
-}
+};
 
-export interface SiblingsResult {
+export type SiblingsResult = {
   ancestorLevel: number;
   containerAt: {
     tagName: string;
@@ -83,9 +83,9 @@ export interface SiblingsResult {
    */
   targetSiblingIndex: number | null;
   siblings: SiblingInfo[];
-}
+};
 
-export interface DescendantInfo {
+export type DescendantInfo = {
   depth: number;
   index: number;
   tagName: string;
@@ -97,9 +97,9 @@ export interface DescendantInfo {
   fullText?: string;
   childCount?: number;
   descendants?: DescendantInfo[];
-}
+};
 
-export interface DescendantsResult {
+export type DescendantsResult = {
   error?: string;
   ancestorAt: {
     level: number;
@@ -109,4 +109,4 @@ export interface DescendantsResult {
   descendants: DescendantInfo[];
   totalDescendants: number;
   maxDepthReached: number;
-}
+};

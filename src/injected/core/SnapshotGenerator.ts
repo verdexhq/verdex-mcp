@@ -10,7 +10,7 @@ import type {
   BridgeConfig,
 } from "../types/index.js";
 
-export interface AriaNode {
+export type AriaNode = {
   role: string;
   name: string;
   ref?: string;
@@ -25,7 +25,7 @@ export interface AriaNode {
   selected?: boolean;
   active?: boolean;
   props?: Record<string, string>;
-}
+};
 
 export class SnapshotGenerator {
   private bridge: IBridge;

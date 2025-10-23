@@ -16,3 +16,4 @@ export type {
 } from "./elements.js";
 
 export type { IBridge, BridgeConfig } from "./bridge.js";
+export type { VerdexBridgeFactory } from "./global.js";

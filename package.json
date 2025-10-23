@@ -4,8 +4,18 @@
   "version": "0.1.3",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "verdex-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -13,7 +23,8 @@
   "scripts": {
     "prebuild": "NODE_ENV=production tsx build/bundle-bridge.ts",
     "prebuild:dev": "NODE_ENV=development tsx build/bundle-bridge.ts",
-    "build": "npm run prebuild && rm -rf dist && tsc",
+    "build": "npm run prebuild && rm -rf dist && tsc && npm run postbuild",
+    "postbuild": "cp src/injected/types/global.d.ts dist/injected/types/global.d.ts",
     "dev": "npm run prebuild:dev && tsx src/index.ts",
     "bundle:watch": "NODE_ENV=development tsx --watch build/bundle-bridge.ts",
     "start": "node dist/index.js",

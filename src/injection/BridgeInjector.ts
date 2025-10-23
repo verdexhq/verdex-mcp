@@ -3,13 +3,10 @@
  */
 import type { CDPSession } from "puppeteer";
 import { BRIDGE_BUNDLE, BRIDGE_VERSION } from "./bridge-bundle.js";
-import type { BridgeConfig } from "../types.js";
-
-export type InjectorOptions = {
-  worldName?: string;
-  config?: BridgeConfig;
-  mainFrameId?: string;
-};
+import type {
+  BridgeConfig,
+  InjectorOptions,
+} from "../injected/types/bridge.js";
 
 export class BridgeInjector {
   private worldName: string;
