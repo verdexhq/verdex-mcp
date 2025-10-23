@@ -40,6 +40,8 @@ This architecture eliminates brittle string serialization and ensures the bridge
 
 ## 🚀 Quick Start
 
+> **👉 [Try the 60-Second Demo](QUICKSTART.md)** - See Verdex in action with a realistic demo page (no test infrastructure required!)
+
 ### 1. Install via npx (no installation required)
 
 ```bash
@@ -66,7 +68,7 @@ User: "Help me write a Playwright test that adds an iPhone to the cart"
 
 AI: Let me explore the page structure first...
   → get_ancestors(ref="e3") 
-  → Finds [data-testid="product-card"] container
+  → Finds container hierarchy
   → get_siblings() 
   → Sees 12 product cards
   → get_descendants() 
@@ -74,7 +76,7 @@ AI: Let me explore the page structure first...
 
 AI generates:
   await page
-    .getByTestId("product-card")
+    .locator('section > div')
     .filter({ hasText: "iPhone 15 Pro" })
     .getByRole("button", { name: "Add to Cart" })
     .click();
@@ -87,17 +89,21 @@ await page.getByRole('button', { name: 'Add to Cart' }).nth(8); // 😱 Fragile!
 
 ---
 
-## 📦 Installation
+## 📦 Usage & Installation
 
-### Option 1: npx (Recommended)
+### Option 1: npx (Recommended - No Installation Required)
 
-Run directly without installation:
+Run on-demand without installing:
 
 ```bash
 npx @verdex/mcp@latest
 ```
 
+This fetches and runs the latest version automatically. Perfect for MCP configurations.
+
 ### Option 2: Global Installation
+
+Install once, run anywhere:
 
 ```bash
 npm install -g @verdex/mcp
@@ -105,6 +111,8 @@ verdex-mcp
 ```
 
 ### Option 3: Local Development
+
+For contributing or customization:
 
 ```bash
 git clone https://github.com/verdexhq/verdex-mcp.git
@@ -209,6 +217,8 @@ See the [Playwright Authentication Guide](https://playwright.dev/docs/auth) for 
 ---
 
 ## 🎯 How It Works
+
+> **Want to see this in action?** Check out the [60-Second Demo](QUICKSTART.md) with a realistic e-commerce page.
 
 ### The 3-Step Exploration Workflow
 
@@ -474,11 +484,22 @@ npm run dev
 
 ## 📚 Resources
 
+### Getting Started
+- **[60-Second Quick Start](QUICKSTART.md)** - Hands-on demo with realistic examples
+- **[Cheat Sheet](examples/CHEAT_SHEET.md)** - Quick reference for tools and patterns
+- **[Example Tests](tests/demo-quickstart.spec.ts)** - Working Playwright test examples
+- **[Demo Page](tests/demo-page.html)** - Realistic e-commerce page for testing
+
+### Links
 - **GitHub**: https://github.com/verdexhq/verdex-mcp
 - **npm Package**: https://www.npmjs.com/package/@verdex/mcp
 - **Issues**: https://github.com/verdexhq/verdex-mcp/issues
+- **Discussions**: https://github.com/verdexhq/verdex-mcp/discussions
+
+### Related Resources
 - **MCP Documentation**: https://modelcontextprotocol.io
 - **Playwright Best Practices**: https://playwright.dev/docs/best-practices
+- **Playwright Authentication Guide**: https://playwright.dev/docs/auth
 
 ---
 
