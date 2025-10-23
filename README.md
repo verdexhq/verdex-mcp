@@ -242,10 +242,6 @@ Level 2 (section):
 
 **🎯 Purpose**: Find containers with `data-testid`, `id`, or semantic structure to scope selectors.
 
-<p align="center">
-  <img src="./verdex.gif" alt="Verdex in Action" width="800"/>
-</p>
-
 #### **Step 2: `get_siblings` - Understand Patterns**
 
 Analyzes sibling elements to detect repeating patterns and uniqueness.
@@ -282,6 +278,10 @@ Child 2 (button) [ref=e3]:
 ```
 
 **🎯 Purpose**: Discover text content, buttons, and ARIA roles for semantic targeting.
+
+<p align="left">
+  <img src="./verdex.gif" alt="Verdex in Action" width="800"/>
+</p>
 
 ### Token Efficiency
 
