@@ -4,11 +4,11 @@
 
 <p align="center"><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></p>
 
-[![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
+<p align="center">[![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io)</p>
 
-Verdex is an experimental Chrome/CDP MCP server that helps AI coding assistants (like Cursor, Claude, etc.) author stable, maintainable Playwright tests. Instead of generating brittle `nth()` selectors, Verdex provides structured DOM exploration tools that guide LLMs to create component-scoped selectors anchored to semantic identifiers.
+Meet Verdex, an experimental Chrome/CDP MCP server that helps AI coding assistants (like Cursor, Claude, etc.) author stable, maintainable Playwright tests. Instead of generating brittle `nth()` selectors, Verdex provides structured DOM exploration tools that guide LLMs to create component-scoped selectors anchored to semantic identifiers.
 
 **🎯 Problem**: AI-generated Playwright tests often rely on fragile positional selectors (`nth(8)`, deep locator chains) that break when DOM structure changes.
 
