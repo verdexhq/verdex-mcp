@@ -206,9 +206,9 @@ export class SnapshotGenerator {
   private buildNodeLine(ariaNode: AriaNode, indent: string): string {
     let line = `${indent}- ${ariaNode.role}`;
 
-    // Add name if present
+    // Add name if present (with YAML escaping)
     if (ariaNode.name) {
-      line += ` "${ariaNode.name}"`;
+      line += ` ${this.yamlEscapeValueIfNeeded(ariaNode.name)}`;
     }
 
     // Add ARIA properties
@@ -327,6 +327,14 @@ export class SnapshotGenerator {
   ): (AriaNode | string)[] {
     const result: (AriaNode | string)[] = [];
 
+    // Add ::before pseudo-element content
+    if (parentVisible) {
+      const beforeContent = this.getCSSContent(element, "::before");
+      if (beforeContent) {
+        result.push(beforeContent);
+      }
+    }
+
     // Handle slot elements
     if (element.nodeName === "SLOT") {
       const slot = element as HTMLSlotElement;
@@ -335,6 +343,15 @@ export class SnapshotGenerator {
         assignedNodes.forEach((child) => {
           result.push(...this.buildAriaTree(child, parentVisible));
         });
+
+        // Add ::after content for slots
+        if (parentVisible) {
+          const afterContent = this.getCSSContent(element, "::after");
+          if (afterContent) {
+            result.push(afterContent);
+          }
+        }
+
         return result;
       }
     }
@@ -351,6 +368,14 @@ export class SnapshotGenerator {
       Array.from(element.shadowRoot.childNodes).forEach((child) => {
         result.push(...this.buildAriaTree(child, parentVisible));
       });
+    }
+
+    // Add ::after pseudo-element content
+    if (parentVisible) {
+      const afterContent = this.getCSSContent(element, "::after");
+      if (afterContent) {
+        result.push(afterContent);
+      }
     }
 
     return result;
@@ -418,9 +443,10 @@ export class SnapshotGenerator {
     lines: string[],
     indent: string
   ): void {
-    // Handle text nodes
+    // Handle text nodes (with YAML escaping)
     if (typeof node === "string") {
-      lines.push(`${indent}- text: "${node}"`);
+      const escapedText = this.yamlEscapeValueIfNeeded(node);
+      lines.push(`${indent}- text: ${escapedText}`);
       return;
     }
 
@@ -450,6 +476,60 @@ export class SnapshotGenerator {
       .replace(/[\u200b\u00ad]/g, "")
       .replace(/[\r\n\s\t]+/g, " ")
       .trim();
+  }
+
+  /**
+   * Extract CSS pseudo-element content (::before or ::after)
+   */
+  private getCSSContent(
+    element: Element,
+    pseudo: "::before" | "::after"
+  ): string {
+    const style = window.getComputedStyle(element, pseudo);
+    const content = style.content;
+
+    if (!content || content === "none" || content === "normal") {
+      return "";
+    }
+
+    // Remove surrounding quotes
+    let text = content.replace(/^["']|["']$/g, "");
+
+    // Handle CSS escape sequences
+    text = text.replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    );
+
+    return text;
+  }
+
+  /**
+   * Escape YAML key if it contains special characters
+   */
+  private yamlEscapeKeyIfNeeded(key: string): string {
+    // Keys with special YAML characters need quoting
+    if (/[:\[\]{}#&*!|>'"%@`]/.test(key) || key.startsWith("-")) {
+      return JSON.stringify(key);
+    }
+    return key;
+  }
+
+  /**
+   * Escape YAML value if needed (special chars, numbers, booleans)
+   */
+  private yamlEscapeValueIfNeeded(value: string): string {
+    // Values with special characters or that look like numbers/booleans
+    if (!value) return '""';
+
+    if (
+      /^(true|false|null|~)$/i.test(value) ||
+      /^[0-9]/.test(value) ||
+      /[:\[\]{}#&*!|>'"%@`\n\r]/.test(value)
+    ) {
+      return JSON.stringify(value);
+    }
+
+    return value;
   }
 }
 
