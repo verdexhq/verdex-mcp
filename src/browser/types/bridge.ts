@@ -5,7 +5,6 @@
 import type {
   ElementInfo,
   SnapshotResult,
-  InspectResult,
   AncestorsResult,
   SiblingsResult,
   DescendantsResult,
@@ -19,7 +18,6 @@ export type IBridge = {
   snapshot(): SnapshotResult;
   click(ref: string): void;
   type(ref: string, text: string): void;
-  inspect(ref: string): InspectResult;
 
   // Structural analysis
   get_ancestors(ref: string): AncestorsResult | null;

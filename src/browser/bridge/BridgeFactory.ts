@@ -9,7 +9,6 @@ import type {
   IBridge,
   ElementInfo,
   SnapshotResult,
-  InspectResult,
   AncestorsResult,
   SiblingsResult,
   DescendantsResult,
@@ -50,34 +49,6 @@ export class BridgeFactory {
         el.value = text;
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
-      },
-
-      inspect(ref: string): InspectResult {
-        const info = this.elements.get(ref);
-        if (!info) {
-          throw new Error(`Element ${ref} not found`);
-        }
-
-        const el = info.element as HTMLElement;
-        const rect = el.getBoundingClientRect();
-
-        return {
-          ref: ref,
-          tagName: info.tagName,
-          role: info.role,
-          name: info.name,
-          attributes: info.attributes,
-          text: el.textContent?.trim() || "",
-          visible: rect.width > 0 && rect.height > 0,
-          bounds: {
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height,
-          },
-          siblingIndex: DOMAnalyzer.getSiblingIndex(el),
-          parentRef: DOMAnalyzer.findParentRef(el, this.elements),
-        };
       },
 
       // Structural analysis

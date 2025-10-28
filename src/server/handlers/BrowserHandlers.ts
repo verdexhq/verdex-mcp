@@ -1,5 +1,4 @@
 import type { MultiContextBrowser } from "../../runtime/MultiContextBrowser.js";
-import type { InspectResult } from "../../types.js";
 
 export class BrowserHandlers {
   constructor(private browser: MultiContextBrowser) {}
@@ -108,40 +107,6 @@ Found ${snapshot.elementCount} interactive elements`;
         {
           type: "text",
           text: `Typed "${text}" into element ${ref} (Role: ${this.browser.getCurrentRole()})`,
-        },
-      ],
-    };
-  }
-
-  async handleInspect(args: { ref: string }) {
-    const { ref } = args;
-    const info: InspectResult | null = await this.browser.inspect(ref);
-    if (!info) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Element ${ref} not found (Role: ${this.browser.getCurrentRole()})`,
-          },
-        ],
-      };
-    }
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Element ${ref} details (Role: ${this.browser.getCurrentRole()}):
-                  Role: ${info.role}
-                  Name: ${info.name}
-                  Tag: ${info.tagName}
-                  Text: ${info.text}
-                  Visible: ${info.visible}
-                  Sibling Index: ${info.siblingIndex}
-                  Parent Ref: ${info.parentRef || "(none)"}
-                  Bounds: x=${info.bounds.x}, y=${info.bounds.y}, width=${
-            info.bounds.width
-          }, height=${info.bounds.height}
-                  Attributes: ${JSON.stringify(info.attributes, null, 2)}`,
         },
       ],
     };

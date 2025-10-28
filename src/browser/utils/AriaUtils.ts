@@ -724,9 +724,13 @@ export class AriaUtils {
       return false;
     }
 
-    // Check aria-hidden
-    if (element.getAttribute("aria-hidden") === "true") {
-      return false;
+    // Check aria-hidden on element and ancestors (walks up the tree)
+    let current: Element | null = element;
+    while (current) {
+      if (current.getAttribute("aria-hidden") === "true") {
+        return false;
+      }
+      current = current.parentElement;
     }
 
     // Check display: none and visibility recursively

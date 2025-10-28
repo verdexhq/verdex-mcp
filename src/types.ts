@@ -15,28 +15,6 @@ export type ElementInfo = {
   parentRef: string | null; // Reference to parent interactive element
 };
 
-/**
- * Result of inspecting a specific element.
- * This is returned by the bridge's inspect() method and matches the injected InspectResult type.
- */
-export type InspectResult = {
-  ref: string;
-  tagName: string;
-  role: string;
-  name: string;
-  attributes: Record<string, string>;
-  text: string;
-  visible: boolean;
-  bounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  siblingIndex: number;
-  parentRef: string | null;
-};
-
 export type NavigationMetadata = {
   success: boolean;
   requestedUrl: string;

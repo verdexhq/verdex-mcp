@@ -1,10 +1,5 @@
 import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
-import {
-  Snapshot,
-  InspectResult,
-  RoleContext,
-  RolesConfiguration,
-} from "../types.js";
+import { Snapshot, RoleContext, RolesConfiguration } from "../types.js";
 import { BridgeInjector } from "./BridgeInjector.js";
 
 export class MultiContextBrowser {
@@ -415,15 +410,6 @@ export class MultiContextBrowser {
       ref,
       text,
     ]);
-  }
-
-  async inspect(ref: string): Promise<InspectResult | null> {
-    const context = await this.ensureCurrentRoleContext();
-    return await context.bridgeInjector.callBridgeMethod(
-      context.cdpSession,
-      "inspect",
-      [ref]
-    );
   }
 
   async get_ancestors(ref: string): Promise<any> {

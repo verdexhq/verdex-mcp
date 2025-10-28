@@ -85,11 +85,6 @@ export class VerdexMCPServer {
               args as { ref: string; text: string }
             );
 
-          case "browser_inspect":
-            return await this.browserHandlers.handleInspect(
-              args as { ref: string }
-            );
-
           case "wait_for_browser":
             return await this.browserHandlers.handleWait(
               args as { milliseconds?: number }

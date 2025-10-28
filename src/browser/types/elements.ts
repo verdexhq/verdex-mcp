@@ -15,24 +15,6 @@ export type SnapshotResult = {
   elementCount: number;
 };
 
-export type InspectResult = {
-  ref: string;
-  tagName: string;
-  role: string;
-  name: string;
-  attributes: Record<string, string>;
-  text: string;
-  visible: boolean;
-  bounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  siblingIndex: number;
-  parentRef: string | null;
-};
-
 export type AncestorInfo = {
   level: number;
   tagName: string;

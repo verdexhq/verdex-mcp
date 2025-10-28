@@ -63,21 +63,6 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
-    name: "browser_inspect",
-    description:
-      "Get complete element details including exact attributes, text content, and positioning. Use when you need to verify specific attributes for selector construction, confirm element visibility, or understand why elements behave differently. Most effective AFTER structural exploration to validate your selector strategy.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ref: {
-          type: "string",
-          description: "Element reference ID to inspect",
-        },
-      },
-      required: ["ref"],
-    },
-  },
-  {
     name: "wait_for_browser",
     description: "Wait for a specified amount of time (useful for page loads)",
     inputSchema: {

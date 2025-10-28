@@ -122,45 +122,6 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     console.log(`   - Successfully typed "${searchText}" into ${inputRef}`);
   });
 
-  test("should successfully call browser_inspect through MCP server", async () => {
-    // @ts-ignore
-    await server.browser.initialize();
-
-    const demoPagePath = `file://${process.cwd()}/tests/demo-page.html`;
-    // @ts-ignore
-    await server.browser.navigate(demoPagePath);
-
-    // @ts-ignore
-    const snapshot = await server.browser.snapshot();
-
-    // Find any button to inspect
-    const buttonMatch = snapshot.text.match(/button.*?\[ref=(e\d+)\]/i);
-    expect(buttonMatch).toBeTruthy();
-
-    const buttonRef = buttonMatch![1];
-
-    // Inspect the element through MCP server
-    // @ts-ignore
-    const inspectResult = await server.browser.inspect(buttonRef);
-
-    expect(inspectResult).toBeDefined();
-    expect(inspectResult).not.toBeNull();
-
-    // TypeScript null check
-    if (!inspectResult) throw new Error("inspectResult is null");
-
-    expect(inspectResult.ref).toBe(buttonRef);
-    expect(inspectResult.tagName).toBeTruthy();
-    expect(inspectResult.attributes).toBeDefined();
-    expect(inspectResult.bounds).toBeDefined();
-
-    console.log(`✅ browser_inspect working via MCP server`);
-    console.log(`   - Ref: ${inspectResult.ref}`);
-    console.log(`   - Tag: ${inspectResult.tagName}`);
-    console.log(`   - Role: ${inspectResult.role}`);
-    console.log(`   - Visible: ${inspectResult.visible}`);
-  });
-
   test("should successfully call get_ancestors through MCP server", async () => {
     // @ts-ignore
     await server.browser.initialize();

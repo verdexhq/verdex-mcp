@@ -5,7 +5,6 @@
 export type {
   ElementInfo,
   SnapshotResult,
-  InspectResult,
   AncestorInfo,
   AncestorsResult,
   OutlineItem,
