@@ -1,12 +1,16 @@
 import type { MultiContextBrowser } from "../../runtime/MultiContextBrowser.js";
-import type { AncestorInfo, SiblingInfo, DescendantInfo } from "../../types.js";
+import type {
+  ContainerInfo,
+  PatternInfo,
+  AnchorInfo,
+} from "../../shared-types.js";
 
 export class AnalysisHandlers {
   constructor(private browser: MultiContextBrowser) {}
 
   async handleGetAncestors(args: { ref: string }) {
     const { ref } = args;
-    const result = await this.browser.get_ancestors(ref);
+    const result = await this.browser.resolve_container(ref);
     if (!result) {
       return {
         content: [
@@ -32,7 +36,7 @@ export class AnalysisHandlers {
     } else {
       output += `📋 Ancestors (${result.ancestors.length} levels up):\n\n`;
 
-      result.ancestors.forEach((ancestor: AncestorInfo, index: number) => {
+      result.ancestors.forEach((ancestor: ContainerInfo, index: number) => {
         output += `Level ${ancestor.level} (${ancestor.tagName}):\n`;
         output += `   Children: ${ancestor.childElements}\n`;
 
@@ -64,7 +68,7 @@ export class AnalysisHandlers {
 
   async handleGetSiblings(args: { ref: string; ancestorLevel: number }) {
     const { ref, ancestorLevel } = args;
-    const result = await this.browser.get_siblings(ref, ancestorLevel);
+    const result = await this.browser.inspect_pattern(ref, ancestorLevel);
     if (!result) {
       return {
         content: [
@@ -84,7 +88,7 @@ export class AnalysisHandlers {
     } else {
       output += `👥 Found ${result.siblings.length} siblings at ancestor level ${ancestorLevel}:\n\n`;
 
-      result.siblings.forEach((sibling: SiblingInfo, index: number) => {
+      result.siblings.forEach((sibling: PatternInfo, index: number) => {
         output += `Sibling ${sibling.index + 1} (${sibling.tagName}):\n`;
 
         if (Object.keys(sibling.attributes).length > 0) {
@@ -121,7 +125,7 @@ export class AnalysisHandlers {
 
   async handleGetDescendants(args: { ref: string; ancestorLevel: number }) {
     const { ref, ancestorLevel } = args;
-    const result = await this.browser.get_descendants(ref, ancestorLevel);
+    const result = await this.browser.extract_anchors(ref, ancestorLevel);
     if (!result) {
       return {
         content: [
@@ -165,7 +169,7 @@ export class AnalysisHandlers {
 
       // Helper function to format a descendant recursively
       const formatDescendant = (
-        descendant: DescendantInfo,
+        descendant: AnchorInfo,
         indent: string = "   "
       ): string => {
         let desc = "";
@@ -211,7 +215,7 @@ export class AnalysisHandlers {
       };
 
       (result.descendants || []).forEach(
-        (descendant: DescendantInfo, index: number) => {
+        (descendant: AnchorInfo, index: number) => {
           output += `Child ${index + 1} (depth ${descendant.depth}):\n`;
 
           if (Object.keys(descendant.attributes).length > 0) {

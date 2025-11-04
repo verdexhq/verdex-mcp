@@ -86,9 +86,9 @@ for the iPhone 15 Pro product. Use Verdex MCP tools to explore the page structur
 You'll see the AI:
 
 1. **Call `browser_snapshot`** → Gets accessibility tree with refs
-2. **Call `get_ancestors(ref)`** → Discovers container hierarchy
-3. **Call `get_siblings(ref, level)`** → Finds 12 product cards
-4. **Call `get_descendants(ref, level)`** → Extracts "iPhone 15 Pro" heading
+2. **Call `resolve_container(ref)`** → Discovers container hierarchy
+3. **Call `inspect_pattern(ref, level)`** → Finds 12 product cards
+4. **Call `extract_anchors(ref, level)`** → Extracts "iPhone 15 Pro" heading
 
 Then generates:
 
@@ -105,7 +105,7 @@ await page.locator('section > div')
 
 ### The 3-Step Exploration Process
 
-#### **Step 1: `get_ancestors` - Find Containers**
+#### **Step 1: `resolve_container` - Find Containers**
 
 Discovers the containment hierarchy:
 
@@ -117,7 +117,7 @@ Level 3 (section): Main products section
 
 **Key insight**: "This button lives inside a card, inside a grid"
 
-#### **Step 2: `get_siblings` - Understand Patterns**
+#### **Step 2: `inspect_pattern` - Understand Patterns**
 
 At the grid level (Level 2), discovers:
 
@@ -130,7 +130,7 @@ Sibling 2: Contains "Samsung S24", "$1,199", "Add to Cart"
 
 **Key insight**: "Multiple similar cards need content-based filtering"
 
-#### **Step 3: `get_descendants` - Mine Unique Anchors**
+#### **Step 3: `extract_anchors` - Mine Unique Anchors**
 
 Inside the target card, finds:
 
@@ -300,7 +300,7 @@ If your app has multiple user types (admin/user/customer), check out the [Multi-
 ## 🤔 Common Questions
 
 ### **Q: What if my page has data-testids?**
-**A:** Even better! Verdex will find them via `get_ancestors` and generate cleaner selectors like:
+**A:** Even better! Verdex will find them via `resolve_container` and generate cleaner selectors like:
 ```javascript
 page.getByTestId('product-card')
     .filter({ hasText: 'iPhone 15 Pro' })

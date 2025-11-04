@@ -5,13 +5,13 @@
 import { DOMAnalyzer } from "../utils/DOMAnalyzer.js";
 import type {
   IBridge,
-  AncestorsResult,
-  SiblingsResult,
-  DescendantsResult,
-  AncestorInfo,
-  SiblingInfo,
-  DescendantInfo,
+  PatternResult,
+  AnchorInfo,
   BridgeConfig,
+  ContainerResult,
+  ContainerInfo,
+  PatternInfo,
+  AnchorsResult,
 } from "../types/index.js";
 
 export class StructuralAnalyzer {
@@ -26,16 +26,16 @@ export class StructuralAnalyzer {
   /**
    * Get ancestor information for an element
    */
-  getAncestors(ref: string): AncestorsResult | null {
+  resolveContainer(ref: string): ContainerResult | null {
     const targetInfo = this.bridge.elements.get(ref);
     if (!targetInfo) return null;
 
-    const ancestors: AncestorInfo[] = [];
+    const ancestors: ContainerInfo[] = [];
     let current = targetInfo.element.parentElement;
     let level = 1;
 
     while (current && current !== document.body) {
-      const ancestorInfo: AncestorInfo = {
+      const ancestorInfo: ContainerInfo = {
         level: level,
         tagName: current.tagName.toLowerCase(),
         attributes: DOMAnalyzer.getRelevantAttributes(current),
@@ -65,7 +65,7 @@ export class StructuralAnalyzer {
    * Get sibling information at a specific ancestor level
    * Climbs ancestorLevel ancestors to a container and returns that container's children
    */
-  getSiblings(ref: string, ancestorLevel: number): SiblingsResult | null {
+  inspectPattern(ref: string, ancestorLevel: number): PatternResult | null {
     const targetInfo = this.bridge.elements.get(ref);
     if (!targetInfo) return null;
 
@@ -108,11 +108,15 @@ export class StructuralAnalyzer {
     const targetSiblingIndex =
       unit && container ? Array.from(container.children).indexOf(unit) : null;
 
-    const siblings: SiblingInfo[] = Array.from(container.children).map(
+    const siblings: PatternInfo[] = Array.from(container.children).map(
       (sibling, index) => ({
         index: index,
         tagName: sibling.tagName.toLowerCase(),
         attributes: DOMAnalyzer.getRelevantAttributes(sibling),
+        containsRefs: DOMAnalyzer.findContainedRefs(
+          sibling,
+          this.bridge.elements
+        ),
         containsText: DOMAnalyzer.extractMeaningfulTexts(sibling),
         outline: DOMAnalyzer.buildShallowOutline(
           sibling,
@@ -136,7 +140,7 @@ export class StructuralAnalyzer {
   /**
    * Get descendant information at a specific ancestor level
    */
-  getDescendants(ref: string, ancestorLevel: number): DescendantsResult {
+  extractAnchors(ref: string, ancestorLevel: number): AnchorsResult {
     try {
       const targetInfo = this.bridge.elements.get(ref);
       if (!targetInfo) {
@@ -188,7 +192,7 @@ export class StructuralAnalyzer {
       };
     } catch (error) {
       return {
-        error: `Error in get_descendants: ${(error as Error).message}`,
+        error: `Error in extract_anchors: ${(error as Error).message}`,
         ancestorAt: null,
         descendants: [],
         totalDescendants: 0,
@@ -205,7 +209,7 @@ export class StructuralAnalyzer {
     maxDepth: number = 4,
     currentDepth: number = 0,
     totalDescendants: number = 0
-  ): DescendantInfo[] {
+  ): AnchorInfo[] {
     const maxDescendants = this.config.maxDescendants ?? 100;
 
     if (
@@ -216,13 +220,13 @@ export class StructuralAnalyzer {
       return [];
     }
 
-    const children: DescendantInfo[] = [];
+    const children: AnchorInfo[] = [];
 
     const maxSiblings = this.config.maxSiblings ?? 15;
     Array.from(element.children)
       .slice(0, maxSiblings) // Limit children for performance
       .forEach((child, index) => {
-        const childInfo: DescendantInfo = {
+        const childInfo: AnchorInfo = {
           depth: currentDepth + 1,
           index: index,
           tagName: child.tagName.toLowerCase(),

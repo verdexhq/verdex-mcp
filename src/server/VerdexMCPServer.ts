@@ -4,7 +4,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { RolesConfiguration } from "../types.js";
+import type { RolesConfiguration } from "../runtime/types.js";
 import { MultiContextBrowser } from "../runtime/MultiContextBrowser.js";
 import { RolesConfigParser } from "./config/RolesConfigParser.js";
 import { TOOL_DEFINITIONS } from "./tools/ToolDefinitions.js";
@@ -94,17 +94,17 @@ export class VerdexMCPServer {
             return await this.browserHandlers.handleClose();
 
           // Element analysis tools
-          case "get_ancestors":
+          case "resolve_container":
             return await this.analysisHandlers.handleGetAncestors(
               args as { ref: string }
             );
 
-          case "get_siblings":
+          case "inspect_pattern":
             return await this.analysisHandlers.handleGetSiblings(
               args as { ref: string; ancestorLevel: number }
             );
 
-          case "get_descendants":
+          case "extract_anchors":
             return await this.analysisHandlers.handleGetDescendants(
               args as { ref: string; ancestorLevel: number }
             );

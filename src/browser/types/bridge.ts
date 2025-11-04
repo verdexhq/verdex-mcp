@@ -5,9 +5,9 @@
 import type {
   ElementInfo,
   SnapshotResult,
-  AncestorsResult,
-  SiblingsResult,
-  DescendantsResult,
+  ContainerResult,
+  PatternResult,
+  AnchorsResult,
 } from "./elements.js";
 
 export type IBridge = {
@@ -20,9 +20,9 @@ export type IBridge = {
   type(ref: string, text: string): void;
 
   // Structural analysis
-  get_ancestors(ref: string): AncestorsResult | null;
-  get_siblings(ref: string, ancestorLevel: number): SiblingsResult | null;
-  get_descendants(ref: string, ancestorLevel: number): DescendantsResult;
+  resolve_container(ref: string): ContainerResult | null;
+  inspect_pattern(ref: string, ancestorLevel: number): PatternResult | null;
+  extract_anchors(ref: string, ancestorLevel: number): AnchorsResult;
 
   // Utility methods
   getAttributes(element: Element): Record<string, string>;

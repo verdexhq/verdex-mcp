@@ -9,9 +9,9 @@ import type {
   IBridge,
   ElementInfo,
   SnapshotResult,
-  AncestorsResult,
-  SiblingsResult,
-  DescendantsResult,
+  ContainerResult,
+  PatternResult,
+  AnchorsResult,
   BridgeConfig,
 } from "../types/index.js";
 
@@ -52,19 +52,22 @@ export class BridgeFactory {
       },
 
       // Structural analysis
-      get_ancestors(ref: string): AncestorsResult | null {
+      resolve_container(ref: string): ContainerResult | null {
         const analyzer = new StructuralAnalyzer(this, config);
-        return analyzer.getAncestors(ref);
+        return analyzer.resolveContainer(ref);
       },
 
-      get_siblings(ref: string, ancestorLevel: number): SiblingsResult | null {
+      inspect_pattern(
+        ref: string,
+        ancestorLevel: number
+      ): PatternResult | null {
         const analyzer = new StructuralAnalyzer(this, config);
-        return analyzer.getSiblings(ref, ancestorLevel);
+        return analyzer.inspectPattern(ref, ancestorLevel);
       },
 
-      get_descendants(ref: string, ancestorLevel: number): DescendantsResult {
+      extract_anchors(ref: string, ancestorLevel: number): AnchorsResult {
         const analyzer = new StructuralAnalyzer(this, config);
-        return analyzer.getDescendants(ref, ancestorLevel);
+        return analyzer.extractAnchors(ref, ancestorLevel);
       },
 
       // Utility methods

@@ -87,7 +87,7 @@ export const TOOL_DEFINITIONS = [
 
   // Element analysis tools
   {
-    name: "get_ancestors",
+    name: "resolve_container",
     description:
       "STEP 1: Find the containment hierarchy for an element to identify stable scoping containers. Returns parent elements up to body, showing which have unique identifiers (data-testid, id) that can be used for scoped selectors. Essential first step for creating non-fragile selectors that don't rely on DOM position.",
     inputSchema: {
@@ -102,9 +102,9 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
-    name: "get_siblings",
+    name: "inspect_pattern",
     description:
-      "STEP 2: After get_ancestors, analyze sibling elements at a specific ancestor level to understand repeating patterns (like product cards, list items, table rows). Reveals if elements share structure but have distinguishing content. Use the ancestor level from get_ancestors output. Critical for understanding element uniqueness within its container.",
+      "STEP 2: After resolve_container, analyze sibling elements at a specific ancestor level to understand repeating patterns (like product cards, list items, table rows). Reveals if elements share structure but have distinguishing content. Use the ancestor level from resolve_container output. Critical for understanding element uniqueness within its container.",
     inputSchema: {
       type: "object",
       properties: {
@@ -115,16 +115,16 @@ export const TOOL_DEFINITIONS = [
         ancestorLevel: {
           type: "number",
           description:
-            "Use level number from get_ancestors output (e.g., if get_ancestors shows 'Level 3' as your target container, use ancestorLevel: 3)",
+            "Use level number from resolve_container output (e.g., if resolve_container shows 'Level 3' as your target container, use ancestorLevel: 3)",
         },
       },
       required: ["ref", "ancestorLevel"],
     },
   },
   {
-    name: "get_descendants",
+    name: "extract_anchors",
     description:
-      "STEP 3: After identifying the right ancestor level from get_siblings, explore the internal structure within that container to find unique identifying elements (headings, labels, specific text). This discovers semantic identifiers that make selectors robust and human-readable. Use same ancestorLevel as get_siblings.",
+      "STEP 3: After identifying the right ancestor level from inspect_pattern, explore the internal structure within that container to find unique identifying elements (headings, labels, specific text). This discovers semantic identifiers that make selectors robust and human-readable. Use same ancestorLevel as inspect_pattern.",
     inputSchema: {
       type: "object",
       properties: {
@@ -135,7 +135,7 @@ export const TOOL_DEFINITIONS = [
         ancestorLevel: {
           type: "number",
           description:
-            "Use the same level number identified from get_siblings analysis (the ancestor level that contains your target scope)",
+            "Use the same level number identified from inspect_pattern analysis (the ancestor level that contains your target scope)",
         },
       },
       required: ["ref", "ancestorLevel"],

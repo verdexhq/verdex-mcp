@@ -3,15 +3,16 @@
  */
 
 export type {
+  Attributes,
   ElementInfo,
   SnapshotResult,
-  AncestorInfo,
-  AncestorsResult,
+  ContainerInfo,
+  ContainerResult,
   OutlineItem,
-  SiblingInfo,
-  SiblingsResult,
-  DescendantInfo,
-  DescendantsResult,
+  PatternInfo,
+  PatternResult,
+  AnchorInfo,
+  AnchorsResult,
 } from "./elements.js";
 
 export type { IBridge, BridgeConfig } from "./bridge.js";

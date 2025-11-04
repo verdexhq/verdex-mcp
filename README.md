@@ -30,7 +30,7 @@ Meet Verdex, an experimental Chrome/CDP MCP server that helps AI coding assistan
 
 ## ✨ Key Features
 
-- **🔍 Structured DOM Exploration** - Three-step workflow (`get_ancestors` → `get_siblings` → `get_descendants`) to understand page structure with minimal tokens (100-1K per call vs. 10K+ for raw DOM dumps)
+- **🔍 Structured DOM Exploration** - Three-step workflow (`resolve_container` → `inspect_pattern` → `extract_anchors`) to understand page structure with minimal tokens (100-1K per call vs. 10K+ for raw DOM dumps)
 - **👥 Multi-Role Isolation** - Test multi-user flows in isolated browser contexts with pre-loaded authentication
 - **🎯 Semantic Selector Generation** - Guide LLMs to create selectors using `data-testid`, `getByRole()`, and content filters instead of brittle positions
 - **🤖 AI-First Design** - Built for LLM consumption with compact, structured responses and clear tool descriptions
@@ -65,11 +65,11 @@ The `npx` command will automatically download and run the latest version—no in
 User: "Help me write a Playwright test that adds an iPhone to the cart"
 
 AI: Let me explore the page structure first...
-  → get_ancestors(ref="e3") 
+  → resolve_container(ref="e3") 
   → Finds container hierarchy
-  → get_siblings() 
+  → inspect_pattern() 
   → Sees 12 product cards
-  → get_descendants() 
+  → extract_anchors() 
   → Finds unique "iPhone 15 Pro" heading
 
 AI generates:
@@ -236,12 +236,12 @@ See the [Playwright Authentication Guide](https://playwright.dev/docs/auth) for 
 
 Verdex helps AI understand page structure through three complementary tools:
 
-#### **Step 1: `get_ancestors` - Find Stable Containers**
+#### **Step 1: `resolve_container` - Find Stable Containers**
 
 Discovers the containment hierarchy and identifies stable scoping containers.
 
 ```javascript
-// AI calls: get_ancestors(ref="e3")
+// AI calls: resolve_container(ref="e3")
 // Returns:
 Level 1 (div):
    Attributes: {"data-testid":"product-card"}
@@ -254,12 +254,12 @@ Level 2 (section):
 
 **🎯 Purpose**: Find containers with `data-testid`, `id`, or semantic structure to scope selectors.
 
-#### **Step 2: `get_siblings` - Understand Patterns**
+#### **Step 2: `inspect_pattern` - Understand Patterns**
 
 Analyzes sibling elements to detect repeating patterns and uniqueness.
 
 ```javascript
-// AI calls: get_siblings(ref="e3", ancestorLevel=1)
+// AI calls: inspect_pattern(ref="e3", ancestorLevel=1)
 // Returns:
 Sibling 1 (div):
    Contains text: "iPhone 15 Pro", "$999"
@@ -274,12 +274,12 @@ Sibling 2 (div):
 
 **🎯 Purpose**: Understand how to differentiate between similar elements using content.
 
-#### **Step 3: `get_descendants` - Explore Internal Structure**
+#### **Step 3: `extract_anchors` - Explore Internal Structure**
 
 Explores the internal DOM tree to find semantic identifiers.
 
 ```javascript
-// AI calls: get_descendants(ref="e3", ancestorLevel=1)
+// AI calls: extract_anchors(ref="e3", ancestorLevel=1)
 // Returns:
 Child 1 (h3):
    Direct Text: "iPhone 15 Pro"
@@ -329,9 +329,9 @@ Child 2 (button) [ref=e3]:
 
 | Tool | Purpose |
 |------|---------|
-| `get_ancestors` | Find containment hierarchy and stable containers |
-| `get_siblings` | Analyze sibling patterns at specific level |
-| `get_descendants` | Explore internal structure within container |
+| `resolve_container` | Find containment hierarchy and stable containers |
+| `inspect_pattern` | Analyze sibling patterns at specific level |
+| `extract_anchors` | Explore internal structure within container |
 
 ### Multi-Role Tools
 
@@ -355,15 +355,15 @@ await browser_navigate("https://shop.example.com");
 // Snapshot shows [ref=e3] button
 
 // 3. Understand structure
-await get_ancestors(ref="e3");
+await resolve_container(ref="e3");
 // → Finds [data-testid="product-card"] at Level 1
 
 // 4. Check siblings
-await get_siblings(ref="e3", ancestorLevel=1);
+await inspect_pattern(ref="e3", ancestorLevel=1);
 // → Multiple product cards, differentiated by product name
 
 // 5. Explore internal structure
-await get_descendants(ref="e3", ancestorLevel=1);
+await extract_anchors(ref="e3", ancestorLevel=1);
 // → h3 contains "iPhone 15 Pro", button has "Add to Cart"
 
 // 6. Generate selector

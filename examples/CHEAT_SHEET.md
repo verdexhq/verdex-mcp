@@ -8,9 +8,9 @@ Quick reference for using Verdex to generate stable Playwright selectors.
 
 ```
 1. browser_navigate(url)     → Load page, get initial snapshot
-2. get_ancestors(ref)        → Find stable containers
-3. get_siblings(ref, level)  → Understand repeating patterns
-4. get_descendants(ref, level) → Mine unique anchors
+2. resolve_container(ref)        → Find stable containers
+3. inspect_pattern(ref, level)  → Understand repeating patterns
+4. extract_anchors(ref, level) → Mine unique anchors
 5. Generate selector         → Combine structure + content
 ```
 
@@ -34,7 +34,7 @@ main
 
 ---
 
-### `get_ancestors(ref)`
+### `resolve_container(ref)`
 **Purpose**: Discover containment hierarchy and stable containers
 
 **When to use**: Always start here - find the container structure
@@ -56,10 +56,10 @@ main
 
 ---
 
-### `get_siblings(ref, level)`
+### `inspect_pattern(ref, level)`
 **Purpose**: Understand repeating patterns at a specific level
 
-**When to use**: After get_ancestors, to see if there are multiple similar elements
+**When to use**: After resolve_container, to see if there are multiple similar elements
 
 **Returns**: All siblings at the specified ancestor level
 
@@ -93,7 +93,7 @@ main
 
 ---
 
-### `get_descendants(ref, level)`
+### `extract_anchors(ref, level)`
 **Purpose**: Mine unique anchors within the target container
 
 **When to use**: To find specific text/elements to use for filtering
@@ -121,8 +121,8 @@ main
 **When ancestors reveal test IDs:**
 
 ```javascript
-page.getByTestId('product-card')        // From get_ancestors
-    .filter({ hasText: 'iPhone 15 Pro' })  // From get_descendants
+page.getByTestId('product-card')        // From resolve_container
+    .filter({ hasText: 'iPhone 15 Pro' })  // From extract_anchors
     .getByRole('button', { name: 'Add to Cart' })
 ```
 
@@ -130,8 +130,8 @@ page.getByTestId('product-card')        // From get_ancestors
 **When only structure is available:**
 
 ```javascript
-page.locator('section > div')           // From get_ancestors
-    .filter({ hasText: 'iPhone 15 Pro' })  // From get_descendants
+page.locator('section > div')           // From resolve_container
+    .filter({ hasText: 'iPhone 15 Pro' })  // From extract_anchors
     .getByRole('button', { name: 'Add to Cart' })
 ```
 
@@ -169,13 +169,13 @@ Q: Is there only ONE of this button on the page?
 Q: Are there multiple similar buttons?
   YES → Need scoping ↓
 
-Step 1: get_ancestors(ref)
+Step 1: resolve_container(ref)
   → Find stable container (data-testid, semantic tag, etc.)
   ↓
-Step 2: get_siblings(ref, level)
+Step 2: inspect_pattern(ref, level)
   → Check how many similar elements exist at this level
   ↓
-Step 3: get_descendants(ref, level)
+Step 3: extract_anchors(ref, level)
   → Find unique content to filter by
   ↓
 Result: Container + filter + semantic selector
@@ -186,7 +186,7 @@ Result: Container + filter + semantic selector
 ## 🎓 Best Practices
 
 ### ✅ DO:
-- Always start with `get_ancestors` to understand hierarchy
+- Always start with `resolve_container` to understand hierarchy
 - Use `data-testid` when available
 - Prefer content filtering over position (nth)
 - Scope selectors to logical containers
@@ -207,9 +207,9 @@ Result: Container + filter + semantic selector
 | Tool | Typical Token Cost |
 |------|-------------------|
 | `browser_snapshot` | 500-1,500 |
-| `get_ancestors` | 100-300 |
-| `get_siblings` | 500-1,000 |
-| `get_descendants` | 500-1,500 |
+| `resolve_container` | 100-300 |
+| `inspect_pattern` | 500-1,000 |
+| `extract_anchors` | 500-1,500 |
 | **Total per query** | **1,000-2,000** |
 
 Compare to:
@@ -222,9 +222,9 @@ Compare to:
 
 ### Scenario: Product card in grid
 ```javascript
-// 1. get_ancestors → find grid container
-// 2. get_siblings → see multiple cards
-// 3. get_descendants → find product name
+// 1. resolve_container → find grid container
+// 2. inspect_pattern → see multiple cards
+// 3. extract_anchors → find product name
 
 page.locator('[data-testid="product-grid"]')
     .locator('div')
@@ -234,9 +234,9 @@ page.locator('[data-testid="product-grid"]')
 
 ### Scenario: Table row
 ```javascript
-// 1. get_ancestors → find table
-// 2. get_siblings → see multiple rows
-// 3. get_descendants → find unique cell content
+// 1. resolve_container → find table
+// 2. inspect_pattern → see multiple rows
+// 3. extract_anchors → find unique cell content
 
 page.locator('table')
     .locator('tr')
@@ -246,8 +246,8 @@ page.locator('table')
 
 ### Scenario: Nested navigation
 ```javascript
-// 1. get_ancestors → find nav container
-// 2. get_descendants → map hierarchy
+// 1. resolve_container → find nav container
+// 2. extract_anchors → map hierarchy
 
 page.locator('nav[data-testid="sidebar"]')
     .getByText('Settings')
@@ -260,8 +260,8 @@ page.locator('nav[data-testid="sidebar"]')
 
 ### Scenario: Form within modal
 ```javascript
-// 1. get_ancestors → find modal container
-// 2. get_descendants → find form fields
+// 1. resolve_container → find modal container
+// 2. extract_anchors → find form fields
 
 const modal = page.locator('[role="dialog"]')
 await modal.getByLabel('Email').fill('user@example.com')

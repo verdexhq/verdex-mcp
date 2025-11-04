@@ -1,5 +1,5 @@
 import type { MultiContextBrowser } from "../../runtime/MultiContextBrowser.js";
-import type { RolesConfiguration } from "../../types.js";
+import type { RolesConfiguration } from "../../runtime/types.js";
 
 export class RoleHandlers {
   constructor(

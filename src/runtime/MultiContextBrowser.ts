@@ -1,5 +1,6 @@
 import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
-import { Snapshot, RoleContext, RolesConfiguration } from "../types.js";
+import { Snapshot } from "../shared-types.js";
+import { RoleContext, RolesConfiguration } from "./types.js";
 import { BridgeInjector } from "./BridgeInjector.js";
 
 export class MultiContextBrowser {
@@ -412,29 +413,29 @@ export class MultiContextBrowser {
     ]);
   }
 
-  async get_ancestors(ref: string): Promise<any> {
+  async resolve_container(ref: string): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
-      "get_ancestors",
+      "resolve_container",
       [ref]
     );
   }
 
-  async get_siblings(ref: string, ancestorLevel: number): Promise<any> {
+  async inspect_pattern(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
-      "get_siblings",
+      "inspect_pattern",
       [ref, ancestorLevel]
     );
   }
 
-  async get_descendants(ref: string, ancestorLevel: number): Promise<any> {
+  async extract_anchors(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
-      "get_descendants",
+      "extract_anchors",
       [ref, ancestorLevel]
     );
   }

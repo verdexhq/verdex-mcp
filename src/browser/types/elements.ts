@@ -1,94 +1,31 @@
 /**
- * Element-related types for the injected bridge
+ * Element-related types for the injected bridge.
+ *
+ * Most types are re-exported from the shared types module to ensure
+ * consistency across the browser-Node.js boundary.
  */
 
+// Re-export all shared types used by the bridge
+export type {
+  Attributes,
+  ContainerInfo,
+  ContainerResult,
+  OutlineItem,
+  PatternInfo,
+  PatternResult,
+  AnchorInfo,
+  AnchorsResult,
+  SnapshotResult,
+} from "../../shared-types.js";
+
+/**
+ * Browser-specific: Information about an interactive element in the browser context.
+ * This version uses the actual DOM Element type rather than 'any'.
+ */
 export type ElementInfo = {
-  element: Element;
+  element: Element; // Browser DOM Element (not 'any' like Node runtime version)
   tagName: string;
   role: string;
   name: string;
   attributes: Record<string, string>;
-};
-
-export type SnapshotResult = {
-  text: string;
-  elementCount: number;
-};
-
-export type AncestorInfo = {
-  level: number;
-  tagName: string;
-  attributes: Record<string, string>;
-  childElements: number;
-  containsRefs: string[];
-};
-
-export type AncestorsResult = {
-  target: {
-    ref: string;
-    tagName: string;
-    text: string;
-  };
-  ancestors: AncestorInfo[];
-};
-
-export type OutlineItem = {
-  /** Either ARIA role (preferred) or HTML tag */
-  role?: string;
-  tag?: string;
-  /** Human-visible label/text (trimmed) */
-  text?: string;
-  /** data-testid if present */
-  testid?: string;
-};
-
-export type SiblingInfo = {
-  index: number;
-  tagName: string;
-  attributes: Record<string, string>;
-  containsText: string[];
-  /** Shallow, typed cues for quick uniqueness checks (e.g., headings, buttons, testids) */
-  outline?: OutlineItem[];
-};
-
-export type SiblingsResult = {
-  ancestorLevel: number;
-  containerAt: {
-    tagName: string;
-    attributes: Record<string, string>;
-  };
-  /**
-   * Index of the container's child that lies on the path to `ref`
-   * (i.e., the "unit" sibling containing the target at this level).
-   * Null if it cannot be determined.
-   * Note: Only defined for ancestorLevel >= 1.
-   */
-  targetSiblingIndex: number | null;
-  siblings: SiblingInfo[];
-};
-
-export type DescendantInfo = {
-  depth: number;
-  index: number;
-  tagName: string;
-  attributes: Record<string, string>;
-  ref?: string;
-  role?: string;
-  name?: string;
-  directText?: string;
-  fullText?: string;
-  childCount?: number;
-  descendants?: DescendantInfo[];
-};
-
-export type DescendantsResult = {
-  error?: string;
-  ancestorAt: {
-    level: number;
-    tagName: string;
-    attributes: Record<string, string>;
-  } | null;
-  descendants: DescendantInfo[];
-  totalDescendants: number;
-  maxDepthReached: number;
 };

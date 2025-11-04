@@ -122,7 +122,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     console.log(`   - Successfully typed "${searchText}" into ${inputRef}`);
   });
 
-  test("should successfully call get_ancestors through MCP server", async () => {
+  test("should successfully call resolve_container through MCP server", async () => {
     // @ts-ignore
     await server.browser.initialize();
 
@@ -141,7 +141,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
 
     // Get ancestors through MCP server
     // @ts-ignore
-    const ancestorsResult = await server.browser.get_ancestors(buttonRef);
+    const ancestorsResult = await server.browser.resolve_container(buttonRef);
 
     expect(ancestorsResult).toBeDefined();
     expect(ancestorsResult.target).toBeDefined();
@@ -149,7 +149,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     expect(ancestorsResult.ancestors).toBeDefined();
     expect(Array.isArray(ancestorsResult.ancestors)).toBe(true);
 
-    console.log(`✅ get_ancestors working via MCP server`);
+    console.log(`✅ resolve_container working via MCP server`);
     console.log(`   - Target: ${ancestorsResult.target.tagName}`);
     console.log(`   - Ancestor levels: ${ancestorsResult.ancestors.length}`);
 
@@ -157,7 +157,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     expect(ancestorsResult.ancestors.length).toBeGreaterThan(0);
   });
 
-  test("should successfully call get_siblings through MCP server", async () => {
+  test("should successfully call inspect_pattern through MCP server", async () => {
     // @ts-ignore
     await server.browser.initialize();
 
@@ -176,14 +176,14 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
 
     // First get ancestors to find a good level
     // @ts-ignore
-    const ancestorsResult = await server.browser.get_ancestors(buttonRef);
+    const ancestorsResult = await server.browser.resolve_container(buttonRef);
 
     // Try ancestor level 3 (should be around product card level)
     const testLevel = Math.min(3, ancestorsResult.ancestors.length);
 
     // Get siblings through MCP server
     // @ts-ignore
-    const siblingsResult = await server.browser.get_siblings(
+    const siblingsResult = await server.browser.inspect_pattern(
       buttonRef,
       testLevel
     );
@@ -192,12 +192,12 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     expect(siblingsResult.siblings).toBeDefined();
     expect(Array.isArray(siblingsResult.siblings)).toBe(true);
 
-    console.log(`✅ get_siblings working via MCP server`);
+    console.log(`✅ inspect_pattern working via MCP server`);
     console.log(`   - Ancestor level: ${siblingsResult.ancestorLevel}`);
     console.log(`   - Siblings found: ${siblingsResult.siblings.length}`);
   });
 
-  test("should successfully call get_descendants through MCP server", async () => {
+  test("should successfully call extract_anchors through MCP server", async () => {
     // @ts-ignore
     await server.browser.initialize();
 
@@ -216,14 +216,14 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
 
     // First get ancestors
     // @ts-ignore
-    const ancestorsResult = await server.browser.get_ancestors(buttonRef);
+    const ancestorsResult = await server.browser.resolve_container(buttonRef);
 
     // Try ancestor level 2-3 (should show product card internals)
     const testLevel = Math.min(2, ancestorsResult.ancestors.length);
 
     // Get descendants through MCP server
     // @ts-ignore
-    const descendantsResult = await server.browser.get_descendants(
+    const descendantsResult = await server.browser.extract_anchors(
       buttonRef,
       testLevel
     );
@@ -233,7 +233,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     expect(descendantsResult.descendants).toBeDefined();
     expect(Array.isArray(descendantsResult.descendants)).toBe(true);
 
-    console.log(`✅ get_descendants working via MCP server`);
+    console.log(`✅ extract_anchors working via MCP server`);
     console.log(`   - Ancestor: ${descendantsResult.ancestorAt.tagName}`);
     console.log(
       `   - Direct descendants: ${descendantsResult.descendants.length}`

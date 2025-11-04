@@ -78,9 +78,9 @@ Keep the [Cheat Sheet](CHEAT_SHEET.md) handy as you write your own tests.
 ### Start Simple
 Begin with a single button or link on the demo page. Walk through the complete exploration workflow:
 1. Get the snapshot
-2. Call `get_ancestors`
-3. Call `get_siblings`
-4. Call `get_descendants`
+2. Call `resolve_container`
+3. Call `inspect_pattern`
+4. Call `extract_anchors`
 5. Generate the selector
 
 ### Compare Approaches

@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import type { RolesConfiguration, RoleConfig } from "../../types.js";
+import type { RolesConfiguration, RoleConfig } from "../../runtime/types.js";
 
 export class RolesConfigParser {
   static parse(): RolesConfiguration | null {
