@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario 1: Well-Structured (Best Case) - ShopFast</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .star-rating { color: #fbbf24; }
+    .badge-sale { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans">
+  
+  <!-- SCENARIO 1: Well-Structured with data-testid attributes -->
+  <!-- Tests: Fast path when stable anchors exist -->
+  <!-- Expected: resolve_container finds test IDs immediately (~800 tokens) -->
+  
+  <div class="flex min-h-screen">
+    
+    <!-- Sidebar Navigation with test IDs -->
+    <nav class="w-64 bg-gray-800 text-white h-screen overflow-y-auto flex-shrink-0" data-testid="sidebar-nav" aria-label="Product categories">
+      <div class="p-4">
+        <div class="text-2xl font-bold mb-8" data-testid="brand-logo">ShopFast</div>
+        
+        <!-- Electronics Category -->
+        <div class="mb-6" data-testid="category-electronics">
+          <div class="font-bold text-lg mb-2 cursor-pointer hover:text-blue-400">Electronics</div>
+          <div class="pl-4">
+            <div class="mb-3" data-testid="subcategory-phones">
+              <div class="font-semibold mb-1 cursor-pointer hover:text-blue-300">Phones</div>
+              <div class="pl-4 space-y-1">
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded" data-testid="link-iphone">iPhone</a>
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded" data-testid="link-android">Android</a>
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded" data-testid="link-accessories">Accessories</a>
+              </div>
+            </div>
+            <div class="mb-3" data-testid="subcategory-laptops">
+              <div class="font-semibold mb-1 cursor-pointer hover:text-blue-300">Laptops</div>
+              <div class="pl-4 space-y-1">
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">MacBook</a>
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Windows</a>
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Gaming</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Clothing Category -->
+        <div class="mb-6" data-testid="category-clothing">
+          <div class="font-bold text-lg mb-2 cursor-pointer hover:text-blue-400">Clothing</div>
+          <div class="pl-4">
+            <div class="mb-3">
+              <div class="font-semibold mb-1 cursor-pointer hover:text-blue-300">Men</div>
+              <div class="pl-4 space-y-1">
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Shirts</a>
+                <a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Pants</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col">
+      
+      <!-- Header with test IDs -->
+      <header class="bg-white shadow-sm border-b" data-testid="main-header">
+        <div class="flex items-center justify-between p-4">
+          <div class="flex items-center gap-4 flex-1">
+            <input 
+              type="text" 
+              placeholder="Search products..." 
+              aria-label="Search products"
+              data-testid="search-input"
+              class="border rounded-lg px-4 py-2 w-96 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600" data-testid="search-button">Search</button>
+          </div>
+          <div class="flex items-center gap-4" data-testid="header-actions">
+            <button class="text-gray-600 hover:text-gray-800" data-testid="button-orders">Orders</button>
+            <button class="text-gray-600 hover:text-gray-800" data-testid="button-wishlist">Wishlist</button>
+            <button class="relative" data-testid="button-cart">
+              <span class="text-gray-600 hover:text-gray-800">Cart</span>
+              <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" data-testid="cart-badge">3</span>
+            </button>
+            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white" data-testid="user-avatar">JD</div>
+          </div>
+        </div>
+      </header>
+      
+      <!-- Breadcrumb -->
+      <nav class="bg-white border-b px-6 py-3" aria-label="Breadcrumb" data-testid="breadcrumb">
+        <ol class="flex items-center gap-2 text-sm">
+          <li><a href="#" class="text-gray-600 hover:text-blue-500">Home</a></li>
+          <li class="text-gray-400">/</li>
+          <li><a href="#" class="text-gray-600 hover:text-blue-500">Electronics</a></li>
+          <li class="text-gray-400">/</li>
+          <li class="text-gray-900">All Products</li>
+        </ol>
+      </nav>
+      
+      <!-- Main Content -->
+      <main class="flex-1 overflow-y-auto">
+        <div class="p-6">
+          
+          <!-- Filters Bar -->
+          <div class="bg-white rounded-lg shadow-sm p-4 mb-6" data-testid="filters-bar">
+            <div class="flex items-center gap-4">
+              <span class="font-semibold">Filter by:</span>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50" data-testid="filter-price">Price</button>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50" data-testid="filter-brand">Brand</button>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50" data-testid="filter-rating">Rating</button>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50" data-testid="filter-availability">Availability</button>
+              <div class="ml-auto">
+                <select class="border rounded-lg px-4 py-2" data-testid="sort-select" aria-label="Sort products">
+                  <option>Sort by: Featured</option>
+                  <option>Price: Low to High</option>
+                  <option>Price: High to Low</option>
+                  <option>Newest First</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Product Grid - ALL products have test IDs -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8" data-testid="product-grid">
+            
+            <!-- Product 1 - iPhone 15 Pro -->
+            <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" data-testid="product-card">
+              <div class="relative" data-testid="product-image-wrapper">
+                <img src="https://via.placeholder.com/300x300/1e40af/ffffff?text=iPhone+15+Pro" alt="iPhone 15 Pro" class="w-full h-64 object-cover rounded-t-lg">
+                <span class="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 text-xs font-semibold rounded badge-sale" data-testid="badge-sale">Sale</span>
+              </div>
+              <div class="p-4" data-testid="product-details">
+                <div class="text-sm text-gray-500 mb-1" data-testid="product-category">Electronics</div>
+                <h3 class="font-semibold text-lg mb-2" data-testid="product-name">iPhone 15 Pro</h3>
+                <div class="flex items-center mb-2" data-testid="product-rating">
+                  <div class="star-rating text-sm" aria-label="5 stars">★★★★★</div>
+                  <span class="text-xs text-gray-500 ml-2" data-testid="review-count">(234 reviews)</span>
+                </div>
+                <div class="flex items-center justify-between" data-testid="product-pricing">
+                  <div>
+                    <span class="text-xl font-bold text-gray-900" data-testid="product-price">$999</span>
+                    <span class="text-sm text-gray-400 line-through ml-2" data-testid="product-original-price">$1099</span>
+                  </div>
+                </div>
+                <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors" data-testid="add-to-cart-button">Add to Cart</button>
+              </div>
+            </div>
+            
+            <!-- Product 2 - MacBook Pro -->
+            <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" data-testid="product-card">
+              <div class="relative" data-testid="product-image-wrapper">
+                <img src="https://via.placeholder.com/300x300/6b7280/ffffff?text=MacBook+Pro" alt="MacBook Pro 14 inch" class="w-full h-64 object-cover rounded-t-lg">
+              </div>
+              <div class="p-4" data-testid="product-details">
+                <div class="text-sm text-gray-500 mb-1" data-testid="product-category">Electronics</div>
+                <h3 class="font-semibold text-lg mb-2" data-testid="product-name">MacBook Pro 14"</h3>
+                <div class="flex items-center mb-2" data-testid="product-rating">
+                  <div class="star-rating text-sm" aria-label="5 stars">★★★★★</div>
+                  <span class="text-xs text-gray-500 ml-2" data-testid="review-count">(189 reviews)</span>
+                </div>
+                <div class="flex items-center justify-between" data-testid="product-pricing">
+                  <div>
+                    <span class="text-xl font-bold text-gray-900" data-testid="product-price">$1,999</span>
+                  </div>
+                </div>
+                <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors" data-testid="add-to-cart-button">Add to Cart</button>
+              </div>
+            </div>
+            
+            <!-- Product 3 - Samsung S24 -->
+            <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" data-testid="product-card">
+              <div class="relative" data-testid="product-image-wrapper">
+                <img src="https://via.placeholder.com/300x300/059669/ffffff?text=Samsung+S24" alt="Samsung Galaxy S24 Ultra" class="w-full h-64 object-cover rounded-t-lg">
+                <span class="absolute top-2 right-2 bg-purple-500 text-white px-3 py-1 text-xs font-semibold rounded" data-testid="badge-limited">Limited</span>
+              </div>
+              <div class="p-4" data-testid="product-details">
+                <div class="text-sm text-gray-500 mb-1" data-testid="product-category">Electronics</div>
+                <h3 class="font-semibold text-lg mb-2" data-testid="product-name">Samsung Galaxy S24 Ultra</h3>
+                <div class="flex items-center mb-2" data-testid="product-rating">
+                  <div class="star-rating text-sm" aria-label="4 stars">★★★★☆</div>
+                  <span class="text-xs text-gray-500 ml-2" data-testid="review-count">(156 reviews)</span>
+                </div>
+                <div class="flex items-center justify-between" data-testid="product-pricing">
+                  <div>
+                    <span class="text-xl font-bold text-gray-900" data-testid="product-price">$1,199</span>
+                  </div>
+                </div>
+                <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors" data-testid="add-to-cart-button">Add to Cart</button>
+              </div>
+            </div>
+            
+            <!-- Product 4 - Sony Headphones -->
+            <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" data-testid="product-card">
+              <div class="relative" data-testid="product-image-wrapper">
+                <img src="https://via.placeholder.com/300x300/7c3aed/ffffff?text=Sony+WH-1000XM5" alt="Sony WH-1000XM5 Headphones" class="w-full h-64 object-cover rounded-t-lg">
+              </div>
+              <div class="p-4" data-testid="product-details">
+                <div class="text-sm text-gray-500 mb-1" data-testid="product-category">Audio</div>
+                <h3 class="font-semibold text-lg mb-2" data-testid="product-name">Sony WH-1000XM5 Headphones</h3>
+                <div class="flex items-center mb-2" data-testid="product-rating">
+                  <div class="star-rating text-sm" aria-label="5 stars">★★★★★</div>
+                  <span class="text-xs text-gray-500 ml-2" data-testid="review-count">(412 reviews)</span>
+                </div>
+                <div class="flex items-center justify-between" data-testid="product-pricing">
+                  <div>
+                    <span class="text-xl font-bold text-gray-900" data-testid="product-price">$399</span>
+                  </div>
+                </div>
+                <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors" data-testid="add-to-cart-button">Add to Cart</button>
+              </div>
+            </div>
+            
+            <!-- Product 5 - Logitech Keyboard - OUT OF STOCK -->
+            <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow opacity-75" data-testid="product-card" data-availability="out-of-stock">
+              <div class="relative" data-testid="product-image-wrapper">
+                <img src="https://via.placeholder.com/300x300/64748b/ffffff?text=MX+Keys" alt="Logitech MX Keys Keyboard" class="w-full h-64 object-cover rounded-t-lg">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-t-lg">
+                  <span class="bg-gray-800 text-white px-4 py-2 font-semibold rounded" data-testid="out-of-stock-overlay">Out of Stock</span>
+                </div>
+              </div>
+              <div class="p-4" data-testid="product-details">
+                <div class="text-sm text-gray-500 mb-1" data-testid="product-category">Accessories</div>
+                <h3 class="font-semibold text-lg mb-2" data-testid="product-name">Logitech MX Keys Keyboard</h3>
+                <div class="flex items-center mb-2" data-testid="product-rating">
+                  <div class="star-rating text-sm" aria-label="5 stars">★★★★★</div>
+                  <span class="text-xs text-gray-500 ml-2" data-testid="review-count">(523 reviews)</span>
+                </div>
+                <div class="flex items-center justify-between" data-testid="product-pricing">
+                  <div>
+                    <span class="text-xl font-bold text-gray-900" data-testid="product-price">$149</span>
+                  </div>
+                </div>
+                <button disabled class="w-full mt-3 bg-gray-300 text-gray-500 py-2 rounded-lg cursor-not-allowed" data-testid="add-to-cart-button">Out of Stock</button>
+              </div>
+            </div>
+            
+            <!-- Product 6 - Apple Watch -->
+            <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" data-testid="product-card">
+              <div class="relative" data-testid="product-image-wrapper">
+                <img src="https://via.placeholder.com/300x300/8b5cf6/ffffff?text=Apple+Watch" alt="Apple Watch Series 9" class="w-full h-64 object-cover rounded-t-lg">
+                <span class="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 text-xs font-semibold rounded" data-testid="badge-new">New</span>
+              </div>
+              <div class="p-4" data-testid="product-details">
+                <div class="text-sm text-gray-500 mb-1" data-testid="product-category">Wearables</div>
+                <h3 class="font-semibold text-lg mb-2" data-testid="product-name">Apple Watch Series 9</h3>
+                <div class="flex items-center mb-2" data-testid="product-rating">
+                  <div class="star-rating text-sm" aria-label="5 stars">★★★★★</div>
+                  <span class="text-xs text-gray-500 ml-2" data-testid="review-count">(198 reviews)</span>
+                </div>
+                <div class="flex items-center justify-between" data-testid="product-pricing">
+                  <div>
+                    <span class="text-xl font-bold text-gray-900" data-testid="product-price">$429</span>
+                  </div>
+                </div>
+                <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors" data-testid="add-to-cart-button">Add to Cart</button>
+              </div>
+            </div>
+            
+          </div>
+          
+        </div>
+      </main>
+    </div>
+  </div>
+  
+  <!-- Shopping Cart Drawer -->
+  <aside class="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl border-l flex flex-col" style="z-index: 1000;" data-testid="cart-drawer" aria-label="Shopping cart">
+    <div class="p-4 border-b flex justify-between items-center" data-testid="cart-header">
+      <h3 class="text-xl font-bold">Shopping Cart (<span data-testid="cart-count">3</span>)</h3>
+      <button class="text-gray-500 hover:text-gray-700 text-2xl" data-testid="close-cart" aria-label="Close cart">✕</button>
+    </div>
+    
+    <div class="flex-1 overflow-y-auto p-4 space-y-4" data-testid="cart-items">
+      
+      <!-- Cart Item 1 -->
+      <div class="flex gap-4 pb-4 border-b" data-testid="cart-item">
+        <img src="https://via.placeholder.com/80x80/1e40af/ffffff?text=iPhone" alt="iPhone 15 Pro" class="w-20 h-20 object-cover rounded">
+        <div class="flex-1">
+          <div class="font-semibold mb-1" data-testid="item-name">iPhone 15 Pro</div>
+          <div class="text-sm text-gray-600 mb-2" data-testid="item-variant">256GB, Blue</div>
+          <div class="text-lg font-bold text-gray-900 mb-2" data-testid="item-price">$999.00</div>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center border rounded" data-testid="quantity-control">
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" data-testid="decrease-quantity" aria-label="Decrease quantity">−</button>
+              <span class="w-12 text-center" data-testid="item-quantity">1</span>
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" data-testid="increase-quantity" aria-label="Increase quantity">+</button>
+            </div>
+            <button class="text-red-500 text-sm hover:text-red-600 font-semibold" data-testid="remove-item">Remove</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Cart Item 2 -->
+      <div class="flex gap-4 pb-4 border-b" data-testid="cart-item">
+        <img src="https://via.placeholder.com/80x80/6b7280/ffffff?text=MacBook" alt="MacBook Pro 14 inch" class="w-20 h-20 object-cover rounded">
+        <div class="flex-1">
+          <div class="font-semibold mb-1" data-testid="item-name">MacBook Pro 14"</div>
+          <div class="text-sm text-gray-600 mb-2" data-testid="item-variant">M2, 16GB RAM</div>
+          <div class="text-lg font-bold text-gray-900 mb-2" data-testid="item-price">$1,999.00</div>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center border rounded" data-testid="quantity-control">
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" data-testid="decrease-quantity" aria-label="Decrease quantity">−</button>
+              <span class="w-12 text-center" data-testid="item-quantity">1</span>
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" data-testid="increase-quantity" aria-label="Increase quantity">+</button>
+            </div>
+            <button class="text-red-500 text-sm hover:text-red-600 font-semibold" data-testid="remove-item">Remove</button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+    
+    <!-- Cart Footer -->
+    <div class="p-4 border-t bg-gray-50" data-testid="cart-footer">
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-600">Subtotal</span>
+        <span class="font-semibold" data-testid="cart-subtotal">$2,998.00</span>
+      </div>
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-600">Tax</span>
+        <span class="font-semibold" data-testid="cart-tax">$299.80</span>
+      </div>
+      <div class="flex justify-between mb-4 text-lg">
+        <span class="font-bold">Total</span>
+        <span class="font-bold text-blue-600" data-testid="cart-total">$3,297.80</span>
+      </div>
+      <button class="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 mb-2" data-testid="checkout-button">Proceed to Checkout</button>
+      <button class="w-full border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50" data-testid="continue-shopping-button">Continue Shopping</button>
+    </div>
+  </aside>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('✅ SCENARIO 1: Well-Structured (Best Case)');
+      console.log('✅ All elements have data-testid attributes');
+      console.log('✅ Expected: resolve_container finds test IDs immediately (~800 tokens)');
+      console.log('✅ Test: Fast path when stable anchors exist');
+    });
+  </script>
+  
+</body>
+</html>
+

@@ -478,8 +478,8 @@ npm run dev
 ### Getting Started
 - **[60-Second Quick Start](QUICKSTART.md)** - Hands-on demo with realistic examples
 - **[Cheat Sheet](examples/CHEAT_SHEET.md)** - Quick reference for tools and patterns
-- **[Example Tests](tests/demo-quickstart.spec.ts)** - Working Playwright test examples
-- **[Demo Page](tests/demo-page.html)** - Realistic e-commerce page for testing
+- **[Example Tests](demo/demo-quickstart.spec.ts)** - Working Playwright test examples
+- **[Demo Page](demo/worst-case/demo-page.html)** - Realistic e-commerce page for testing
 
 ### Links
 - **GitHub**: https://github.com/verdexhq/verdex-mcp

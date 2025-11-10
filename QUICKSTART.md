@@ -278,7 +278,7 @@ See the full working Playwright tests generated with Verdex:
 npx playwright test tests/demo-quickstart.spec.ts
 ```
 
-Check out [`tests/demo-quickstart.spec.ts`](tests/demo-quickstart.spec.ts) to see 10+ examples of stable selectors generated using Verdex exploration.
+Check out [`tests/demo-quickstart.spec.ts`](demo/demo-quickstart.spec.ts) to see 10+ examples of stable selectors generated using Verdex exploration.
 
 ### Try It on Your Own Application
 
@@ -322,7 +322,7 @@ page.getByTestId('product-card')
 
 - **[Cheat Sheet](examples/CHEAT_SHEET.md)** - Quick reference for tools and selector patterns
 - **[Full Documentation](README.md)** - Architecture, installation, advanced usage
-- **[Example Tests](tests/demo-quickstart.spec.ts)** - 10+ working Playwright test examples
+- **[Example Tests](demo/demo-quickstart.spec.ts)** - 10+ working Playwright test examples
 - **[GitHub Issues](https://github.com/verdexhq/verdex-mcp/issues)** - Report bugs or request features
 - **[Discussions](https://github.com/verdexhq/verdex-mcp/discussions)** - Share workflows and ask questions
 

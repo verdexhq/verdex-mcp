@@ -23,7 +23,7 @@ Quick reference guide covering:
 Start with the [60-Second Quick Start](../QUICKSTART.md) guide that walks you through a complete example using the demo page.
 
 ### 2. Explore the Demo Page
-The demo page ([`tests/demo-page.html`](../tests/demo-page.html)) is a realistic e-commerce site with:
+The demo page ([`tests/demo-page.html`](../demo/worst-case/demo-page.html)) is a realistic e-commerce site with:
 - 12 product cards (demonstrates content filtering)
 - Comparison table (demonstrates table navigation)
 - Order history (demonstrates list filtering)
@@ -33,7 +33,7 @@ The demo page ([`tests/demo-page.html`](../tests/demo-page.html)) is a realistic
 **Important**: The demo page has **zero test infrastructure** (no `data-testid` attributes) to demonstrate how Verdex works with pure HTML structure.
 
 ### 3. Run the Example Tests
-The example test suite ([`tests/demo-quickstart.spec.ts`](../tests/demo-quickstart.spec.ts)) contains 10+ working Playwright tests demonstrating:
+The example test suite ([`tests/demo-quickstart.spec.ts`](../demo/demo-quickstart.spec.ts)) contains 10+ working Playwright tests demonstrating:
 - Product selection with content filtering
 - State-based filtering (in-stock vs out-of-stock)
 - Table navigation

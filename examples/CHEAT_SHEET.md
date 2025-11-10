@@ -310,8 +310,8 @@ page.locator('div')
 
 - [60-Second Quick Start](../QUICKSTART.md)
 - [Full Documentation](../README.md)
-- [Example Tests](../tests/demo-quickstart.spec.ts)
-- [Demo Page](../tests/demo-page.html)
+- [Example Tests](../demo/demo-quickstart.spec.ts)
+- [Demo Page](../demo/worst-case/demo-page.html)
 
 ---
 

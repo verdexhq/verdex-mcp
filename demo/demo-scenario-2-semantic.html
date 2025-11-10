@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario 2: Semantic HTML (Middle Case) - ShopFast</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .star-rating { color: #fbbf24; }
+    .badge-sale { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans">
+  
+  <!-- SCENARIO 2: Semantic HTML without test IDs -->
+  <!-- Tests: Using semantic landmarks and ARIA when test IDs don't exist -->
+  <!-- Expected: resolve_container finds <nav>, <article>, <section> (~1.2k tokens) -->
+  
+  <div class="flex min-h-screen">
+    
+    <!-- Semantic Navigation -->
+    <nav class="w-64 bg-gray-800 text-white h-screen overflow-y-auto flex-shrink-0" aria-label="Product categories">
+      <div class="p-4">
+        <h1 class="text-2xl font-bold mb-8">ShopFast</h1>
+        
+        <!-- Electronics Category -->
+        <section class="mb-6" aria-labelledby="nav-electronics">
+          <h2 id="nav-electronics" class="font-bold text-lg mb-2 cursor-pointer hover:text-blue-400">Electronics</h2>
+          <div class="pl-4">
+            <section class="mb-3" aria-labelledby="nav-phones">
+              <h3 id="nav-phones" class="font-semibold mb-1 cursor-pointer hover:text-blue-300">Phones</h3>
+              <ul class="pl-4 space-y-1">
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">iPhone</a></li>
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Android</a></li>
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Accessories</a></li>
+              </ul>
+            </section>
+            <section class="mb-3" aria-labelledby="nav-laptops">
+              <h3 id="nav-laptops" class="font-semibold mb-1 cursor-pointer hover:text-blue-300">Laptops</h3>
+              <ul class="pl-4 space-y-1">
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">MacBook</a></li>
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Windows</a></li>
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Gaming</a></li>
+              </ul>
+            </section>
+          </div>
+        </section>
+        
+        <!-- Clothing Category -->
+        <section class="mb-6" aria-labelledby="nav-clothing">
+          <h2 id="nav-clothing" class="font-bold text-lg mb-2 cursor-pointer hover:text-blue-400">Clothing</h2>
+          <div class="pl-4">
+            <section class="mb-3">
+              <h3 class="font-semibold mb-1 cursor-pointer hover:text-blue-300">Men</h3>
+              <ul class="pl-4 space-y-1">
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Shirts</a></li>
+                <li><a href="#" class="block py-1 text-sm cursor-pointer hover:text-blue-200 hover:bg-gray-700 px-2 rounded">Pants</a></li>
+              </ul>
+            </section>
+          </div>
+        </section>
+      </div>
+    </nav>
+    
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col">
+      
+      <!-- Semantic Header -->
+      <header class="bg-white shadow-sm border-b">
+        <div class="flex items-center justify-between p-4">
+          <div class="flex items-center gap-4 flex-1" role="search">
+            <label for="product-search" class="sr-only">Search products</label>
+            <input 
+              id="product-search"
+              type="search" 
+              placeholder="Search products..." 
+              aria-label="Search products"
+              class="border rounded-lg px-4 py-2 w-96 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">Search</button>
+          </div>
+          <nav aria-label="User actions">
+            <ul class="flex items-center gap-4">
+              <li><a href="#" class="text-gray-600 hover:text-gray-800">Orders</a></li>
+              <li><a href="#" class="text-gray-600 hover:text-gray-800">Wishlist</a></li>
+              <li>
+                <a href="#" class="relative block">
+                  <span class="text-gray-600 hover:text-gray-800">Cart</span>
+                  <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" aria-label="3 items in cart">3</span>
+                </a>
+              </li>
+              <li>
+                <button class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white" aria-label="User profile: JD">JD</button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+      
+      <!-- Breadcrumb Navigation -->
+      <nav class="bg-white border-b px-6 py-3" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2 text-sm">
+          <li><a href="#" class="text-gray-600 hover:text-blue-500">Home</a></li>
+          <li class="text-gray-400" aria-hidden="true">/</li>
+          <li><a href="#" class="text-gray-600 hover:text-blue-500">Electronics</a></li>
+          <li class="text-gray-400" aria-hidden="true">/</li>
+          <li aria-current="page" class="text-gray-900">All Products</li>
+        </ol>
+      </nav>
+      
+      <!-- Main Content -->
+      <main class="flex-1 overflow-y-auto">
+        <div class="p-6">
+          
+          <!-- Filters Section -->
+          <section class="bg-white rounded-lg shadow-sm p-4 mb-6" aria-labelledby="filters-heading">
+            <h2 id="filters-heading" class="sr-only">Product Filters</h2>
+            <div class="flex items-center gap-4">
+              <span class="font-semibold" aria-hidden="true">Filter by:</span>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50">Price</button>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50">Brand</button>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50">Rating</button>
+              <button class="px-4 py-2 border rounded-lg hover:bg-gray-50">Availability</button>
+              <div class="ml-auto">
+                <label for="sort-products" class="sr-only">Sort products</label>
+                <select id="sort-products" class="border rounded-lg px-4 py-2">
+                  <option>Sort by: Featured</option>
+                  <option>Price: Low to High</option>
+                  <option>Price: High to Low</option>
+                  <option>Newest First</option>
+                </select>
+              </div>
+            </div>
+          </section>
+          
+          <!-- Product Grid - Using semantic article elements -->
+          <section aria-labelledby="products-heading">
+            <h2 id="products-heading" class="sr-only">Products</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+              
+              <!-- Product 1 - iPhone 15 Pro -->
+              <article class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" aria-labelledby="product-1-name">
+                <figure class="relative">
+                  <img src="https://via.placeholder.com/300x300/1e40af/ffffff?text=iPhone+15+Pro" alt="" class="w-full h-64 object-cover rounded-t-lg">
+                  <figcaption class="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 text-xs font-semibold rounded badge-sale">Sale</figcaption>
+                </figure>
+                <div class="p-4">
+                  <p class="text-sm text-gray-500 mb-1">Electronics</p>
+                  <h3 id="product-1-name" class="font-semibold text-lg mb-2">iPhone 15 Pro</h3>
+                  <div class="flex items-center mb-2">
+                    <div class="star-rating text-sm" role="img" aria-label="Rating: 5 out of 5 stars">★★★★★</div>
+                    <span class="text-xs text-gray-500 ml-2">(234 reviews)</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-xl font-bold text-gray-900">$999</span>
+                      <span class="text-sm text-gray-400 line-through ml-2">$1099</span>
+                    </div>
+                  </div>
+                  <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors">Add to Cart</button>
+                </div>
+              </article>
+              
+              <!-- Product 2 - MacBook Pro -->
+              <article class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" aria-labelledby="product-2-name">
+                <figure class="relative">
+                  <img src="https://via.placeholder.com/300x300/6b7280/ffffff?text=MacBook+Pro" alt="" class="w-full h-64 object-cover rounded-t-lg">
+                </figure>
+                <div class="p-4">
+                  <p class="text-sm text-gray-500 mb-1">Electronics</p>
+                  <h3 id="product-2-name" class="font-semibold text-lg mb-2">MacBook Pro 14"</h3>
+                  <div class="flex items-center mb-2">
+                    <div class="star-rating text-sm" role="img" aria-label="Rating: 5 out of 5 stars">★★★★★</div>
+                    <span class="text-xs text-gray-500 ml-2">(189 reviews)</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-xl font-bold text-gray-900">$1,999</span>
+                    </div>
+                  </div>
+                  <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors">Add to Cart</button>
+                </div>
+              </article>
+              
+              <!-- Product 3 - Samsung S24 -->
+              <article class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" aria-labelledby="product-3-name">
+                <figure class="relative">
+                  <img src="https://via.placeholder.com/300x300/059669/ffffff?text=Samsung+S24" alt="" class="w-full h-64 object-cover rounded-t-lg">
+                  <figcaption class="absolute top-2 right-2 bg-purple-500 text-white px-3 py-1 text-xs font-semibold rounded">Limited</figcaption>
+                </figure>
+                <div class="p-4">
+                  <p class="text-sm text-gray-500 mb-1">Electronics</p>
+                  <h3 id="product-3-name" class="font-semibold text-lg mb-2">Samsung Galaxy S24 Ultra</h3>
+                  <div class="flex items-center mb-2">
+                    <div class="star-rating text-sm" role="img" aria-label="Rating: 4 out of 5 stars">★★★★☆</div>
+                    <span class="text-xs text-gray-500 ml-2">(156 reviews)</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-xl font-bold text-gray-900">$1,199</span>
+                    </div>
+                  </div>
+                  <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors">Add to Cart</button>
+                </div>
+              </article>
+              
+              <!-- Product 4 - Sony Headphones -->
+              <article class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" aria-labelledby="product-4-name">
+                <figure class="relative">
+                  <img src="https://via.placeholder.com/300x300/7c3aed/ffffff?text=Sony+WH-1000XM5" alt="" class="w-full h-64 object-cover rounded-t-lg">
+                </figure>
+                <div class="p-4">
+                  <p class="text-sm text-gray-500 mb-1">Audio</p>
+                  <h3 id="product-4-name" class="font-semibold text-lg mb-2">Sony WH-1000XM5 Headphones</h3>
+                  <div class="flex items-center mb-2">
+                    <div class="star-rating text-sm" role="img" aria-label="Rating: 5 out of 5 stars">★★★★★</div>
+                    <span class="text-xs text-gray-500 ml-2">(412 reviews)</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-xl font-bold text-gray-900">$399</span>
+                    </div>
+                  </div>
+                  <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors">Add to Cart</button>
+                </div>
+              </article>
+              
+              <!-- Product 5 - Logitech Keyboard - OUT OF STOCK -->
+              <article class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow opacity-75" aria-labelledby="product-5-name" aria-describedby="product-5-availability">
+                <figure class="relative">
+                  <img src="https://via.placeholder.com/300x300/64748b/ffffff?text=MX+Keys" alt="" class="w-full h-64 object-cover rounded-t-lg">
+                  <figcaption class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-t-lg">
+                    <span id="product-5-availability" class="bg-gray-800 text-white px-4 py-2 font-semibold rounded">Out of Stock</span>
+                  </figcaption>
+                </figure>
+                <div class="p-4">
+                  <p class="text-sm text-gray-500 mb-1">Accessories</p>
+                  <h3 id="product-5-name" class="font-semibold text-lg mb-2">Logitech MX Keys Keyboard</h3>
+                  <div class="flex items-center mb-2">
+                    <div class="star-rating text-sm" role="img" aria-label="Rating: 5 out of 5 stars">★★★★★</div>
+                    <span class="text-xs text-gray-500 ml-2">(523 reviews)</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-xl font-bold text-gray-900">$149</span>
+                    </div>
+                  </div>
+                  <button disabled class="w-full mt-3 bg-gray-300 text-gray-500 py-2 rounded-lg cursor-not-allowed" aria-disabled="true">Out of Stock</button>
+                </div>
+              </article>
+              
+              <!-- Product 6 - Apple Watch -->
+              <article class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow" aria-labelledby="product-6-name">
+                <figure class="relative">
+                  <img src="https://via.placeholder.com/300x300/8b5cf6/ffffff?text=Apple+Watch" alt="" class="w-full h-64 object-cover rounded-t-lg">
+                  <figcaption class="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 text-xs font-semibold rounded">New</figcaption>
+                </figure>
+                <div class="p-4">
+                  <p class="text-sm text-gray-500 mb-1">Wearables</p>
+                  <h3 id="product-6-name" class="font-semibold text-lg mb-2">Apple Watch Series 9</h3>
+                  <div class="flex items-center mb-2">
+                    <div class="star-rating text-sm" role="img" aria-label="Rating: 5 out of 5 stars">★★★★★</div>
+                    <span class="text-xs text-gray-500 ml-2">(198 reviews)</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <span class="text-xl font-bold text-gray-900">$429</span>
+                    </div>
+                  </div>
+                  <button class="w-full mt-3 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors">Add to Cart</button>
+                </div>
+              </article>
+              
+            </div>
+          </section>
+          
+          <!-- Customer Reviews Section with Semantic HTML -->
+          <section class="bg-white rounded-lg shadow-sm p-6 mb-8" aria-labelledby="reviews-heading">
+            <header class="flex items-center justify-between mb-6">
+              <h2 id="reviews-heading" class="text-2xl font-bold">Customer Reviews</h2>
+              <a href="#" class="text-blue-500 hover:text-blue-600 text-sm">Write a Review</a>
+            </header>
+            
+            <div class="space-y-4">
+              
+              <!-- Review 1 -->
+              <article class="border rounded-lg p-4" aria-labelledby="review-1-author">
+                <header class="flex items-start">
+                  <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" aria-hidden="true">JD</div>
+                  <div class="ml-4 flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 id="review-1-author" class="font-semibold text-gray-900">John Doe</h3>
+                        <div class="star-rating text-sm" role="img" aria-label="Rating: 5 out of 5 stars">★★★★★</div>
+                      </div>
+                      <time datetime="2024-01-13" class="text-sm text-gray-500">2 days ago</time>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2">Purchased: iPhone 15 Pro</p>
+                    <p class="text-gray-700 mb-3">Amazing phone! The camera quality is outstanding and the battery lasts all day. Highly recommend for anyone looking to upgrade.</p>
+                    <footer class="flex gap-4">
+                      <button class="text-sm text-gray-600 hover:text-blue-500" aria-label="Mark review as helpful (currently 23 people found this helpful)">Helpful (23)</button>
+                      <button class="text-sm text-gray-600 hover:text-red-500">Report</button>
+                    </footer>
+                  </div>
+                </header>
+              </article>
+              
+              <!-- Review 2 -->
+              <article class="border rounded-lg p-4" aria-labelledby="review-2-author">
+                <header class="flex items-start">
+                  <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" aria-hidden="true">SM</div>
+                  <div class="ml-4 flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 id="review-2-author" class="font-semibold text-gray-900">Sarah Martinez</h3>
+                        <div class="star-rating text-sm" role="img" aria-label="Rating: 4 out of 5 stars">★★★★☆</div>
+                      </div>
+                      <time datetime="2024-01-10" class="text-sm text-gray-500">5 days ago</time>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2">Purchased: MacBook Pro 14"</p>
+                    <p class="text-gray-700 mb-3">Great laptop for development work. The M2 chip is incredibly fast. Only downside is the price, but you get what you pay for.</p>
+                    <footer class="flex gap-4">
+                      <button class="text-sm text-gray-600 hover:text-blue-500" aria-label="Mark review as helpful (currently 45 people found this helpful)">Helpful (45)</button>
+                      <button class="text-sm text-gray-600 hover:text-red-500">Report</button>
+                    </footer>
+                  </div>
+                </header>
+              </article>
+              
+            </div>
+            
+            <footer class="mt-6 text-center">
+              <button class="text-blue-500 hover:text-blue-600 font-semibold">Load More Reviews</button>
+            </footer>
+          </section>
+          
+        </div>
+      </main>
+    </div>
+  </div>
+  
+  <!-- Shopping Cart Drawer with Semantic HTML -->
+  <aside class="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl border-l flex flex-col" style="z-index: 1000;" role="region" aria-labelledby="cart-heading">
+    <header class="p-4 border-b flex justify-between items-center">
+      <h2 id="cart-heading" class="text-xl font-bold">Shopping Cart (<span>2</span>)</h2>
+      <button class="text-gray-500 hover:text-gray-700 text-2xl" aria-label="Close shopping cart">✕</button>
+    </header>
+    
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      
+      <!-- Cart Item 1 -->
+      <article class="flex gap-4 pb-4 border-b" aria-labelledby="cart-item-1-name">
+        <img src="https://via.placeholder.com/80x80/1e40af/ffffff?text=iPhone" alt="" class="w-20 h-20 object-cover rounded">
+        <div class="flex-1">
+          <h3 id="cart-item-1-name" class="font-semibold mb-1">iPhone 15 Pro</h3>
+          <p class="text-sm text-gray-600 mb-2">256GB, Blue</p>
+          <p class="text-lg font-bold text-gray-900 mb-2">$999.00</p>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center border rounded" role="group" aria-label="Quantity controls">
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" aria-label="Decrease quantity">−</button>
+              <span class="w-12 text-center" aria-label="Current quantity">1</span>
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" aria-label="Increase quantity">+</button>
+            </div>
+            <button class="text-red-500 text-sm hover:text-red-600 font-semibold">Remove</button>
+          </div>
+        </div>
+      </article>
+      
+      <!-- Cart Item 2 -->
+      <article class="flex gap-4 pb-4 border-b" aria-labelledby="cart-item-2-name">
+        <img src="https://via.placeholder.com/80x80/6b7280/ffffff?text=MacBook" alt="" class="w-20 h-20 object-cover rounded">
+        <div class="flex-1">
+          <h3 id="cart-item-2-name" class="font-semibold mb-1">MacBook Pro 14"</h3>
+          <p class="text-sm text-gray-600 mb-2">M2, 16GB RAM</p>
+          <p class="text-lg font-bold text-gray-900 mb-2">$1,999.00</p>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center border rounded" role="group" aria-label="Quantity controls">
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" aria-label="Decrease quantity">−</button>
+              <span class="w-12 text-center" aria-label="Current quantity">1</span>
+              <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100" aria-label="Increase quantity">+</button>
+            </div>
+            <button class="text-red-500 text-sm hover:text-red-600 font-semibold">Remove</button>
+          </div>
+        </div>
+      </article>
+      
+    </div>
+    
+    <!-- Cart Footer -->
+    <footer class="p-4 border-t bg-gray-50">
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-600">Subtotal</span>
+        <span class="font-semibold">$2,998.00</span>
+      </div>
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-600">Tax</span>
+        <span class="font-semibold">$299.80</span>
+      </div>
+      <div class="flex justify-between mb-4 text-lg">
+        <span class="font-bold">Total</span>
+        <span class="font-bold text-blue-600">$3,297.80</span>
+      </div>
+      <button class="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 mb-2">Proceed to Checkout</button>
+      <button class="w-full border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50">Continue Shopping</button>
+    </footer>
+  </aside>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('✅ SCENARIO 2: Semantic HTML (Middle Case)');
+      console.log('✅ Uses <nav>, <article>, <section>, <header>, <footer>, semantic roles');
+      console.log('✅ NO data-testid attributes - relies on semantic structure');
+      console.log('✅ Expected: resolve_container finds semantic landmarks (~1.2k tokens)');
+      console.log('✅ Test: Graceful fallback to semantic HTML when test IDs unavailable');
+    });
+  </script>
+  
+</body>
+</html>
+

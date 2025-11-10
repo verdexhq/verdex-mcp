@@ -1,318 +1,196 @@
 ---
 name: verdex-playwright-authoring
-description: Write robust, container-scoped Playwright selectors using progressive DOM exploration with Verdex MCP tools (resolve_container, inspect_pattern, extract_anchors). Use when authoring Playwright tests, creating selectors, exploring page structure, or debugging test failures. Essential for avoiding brittle nth() selectors.
+description: Write stable, role-first Playwright selectors using progressive DOM exploration. Check uniqueness first, then use resolve_container → inspect_pattern → extract_anchors only when needed. Essential for avoiding brittle nth() selectors and over-scoped locators.
 ---
 
 # Verdex Playwright Authoring
 
-## Overview
+## Core Principle
 
-Verdex provides three DOM exploration primitives that help you write stable, semantic Playwright selectors. These tools reveal structural information that accessibility trees omit (like `data-testid` attributes and container boundaries).
+**Check uniqueness FIRST**—many elements need only simple selectors.
 
-**Core principle**: Start with minimal context, progressively explore structure only as needed.
+**The Winning Pattern**: `Container → Content Filter → Role`
 
----
-
-## The 3-Step Exploration Workflow
-
-Always follow this sequence when writing selectors for elements that might have multiple instances on the page:
-
-### Step 1: Find Stable Containers (`resolve_container`)
-
-**When to use**: First step for any element exploration — find the containment hierarchy.
-
-**What it reveals**:
-- Parent elements from target up to `document.body`
-- Attributes like `data-testid`, `id`, semantic roles
-- Level numbers for subsequent sibling/descendant queries
-
-**Example call**:
-```javascript
-resolve_container(ref="e3")
-```
-
-**What to look for**:
-- `data-testid` attributes on containers (best anchor)
-- Semantic tags (`main`, `section`, `nav`, `article`)
-- Unique `id` attributes
-- Note the level number of the most stable container
-
-**Selector insight**: The stable container becomes your scoping anchor.
-
----
-
-### Step 2: Understand Patterns (`inspect_pattern`)
-
-**When to use**: After `resolve_container`, to check if there are multiple similar elements.
-
-**What it reveals**:
-- All sibling elements at the specified ancestor level
-- Repeating patterns (product cards, table rows, list items)
-- What makes each sibling unique (text content, attributes)
-
-**Example call**:
-```javascript
-inspect_pattern(ref="e3", ancestorLevel=2)
-// Use the level number from resolve_container output
-```
-
-**What to look for**:
-- How many similar siblings exist?
-- What unique text distinguishes each sibling?
-- Are there state differences (active, disabled, out of stock)?
-
-**Selector insight**: Multiple siblings → need content-based filtering with `.filter({ hasText: ... })`.
-
----
-
-### Step 3: Mine Unique Anchors (`extract_anchors`)
-
-**When to use**: To find specific text or elements within the target container for filtering.
-
-**What it reveals**:
-- Internal structure of the container
-- Headings, labels, unique text
-- Button text and ARIA roles
-- Elements with `data-testid` within the container
-
-**Example call**:
-```javascript
-extract_anchors(ref="e3", ancestorLevel=1)
-// Use the level that represents your target container
-```
-
-**What to look for**:
-- Unique text content (product names, headings, prices)
-- Button labels and `aria-label` attributes
-- Elements that can differentiate this container from siblings
-
-**Selector insight**: Use unique content for `.filter({ hasText: "Unique Text" })`.
-
----
-
-## Selector Composition Patterns
-
-Once exploration is complete, compose selectors using this priority order:
-
-### Priority Order (Most Stable → Least Stable)
-
-1. **Test IDs**: `getByTestId()`, `data-testid`, `id`
-2. **Semantic Roles**: `getByRole()`, `getByLabel()`
-3. **Content-Based**: `getByText()`, `.filter({ hasText })`
-4. **Attributes**: `[aria-label]`, `[name]`
-5. **CSS Selectors**: Only as last resort
-
-### Pattern 1: With data-testid (Best)
-
-```javascript
-page.getByTestId("product-card")        // From resolve_container
-    .filter({ hasText: "iPhone 15 Pro" })  // From extract_anchors
-    .getByRole("button", { name: "Add to Cart" })
-```
-
-### Pattern 2: Without data-testid
-
-```javascript
-page.locator("section > div")           // From resolve_container structure
-    .filter({ hasText: "iPhone 15 Pro" })  // From extract_anchors
-    .getByRole("button", { name: "Add to Cart" })
-```
-
-### Pattern 3: List/Grid Items
-
-```javascript
-page.getByTestId("products-grid")  // Level 3 container
-    .locator("div")                             // Level 2 card container
-    .filter({ hasText: "Unique Item Name" })    // From extract_anchors
-    .getByRole("button", { name: "Action" })
-```
-
-### Pattern 4: Forms & Inputs
-
-```javascript
-page.locator('[data-testid="login-form"]')
-    .getByLabel("Username")  // Semantic selector
-
-page.locator('[data-testid="search-section"]')
-    .getByRole("textbox", { name: /search/i })
-```
-
-### Pattern 5: Tables & Data
-
-```javascript
-page.locator('[data-testid="users-table"]')
-    .locator("tr")
-    .filter({ hasText: "john@example.com" })
-    .getByRole("button", { name: "Edit" })
+```typescript
+page
+  .getByTestId("container")            // 1. Scope
+  .filter({ hasText: "unique-content" }) // 2. Filter
+  .getByRole("button", { name: "Action" }) // 3. Target
 ```
 
 ---
 
-## Complete Example Workflow
+## Quick Workflow
 
-**Scenario**: Click "Add to Cart" for iPhone 15 Pro when there are 12 products on the page.
+### 1. Navigate & Check Uniqueness
+```typescript
+await browser_navigate(url)
+// Snapshot shows interactive elements with refs
 
-**Step 1 - Navigate and identify target**:
-```javascript
-browser_navigate(url)
-// Snapshot shows: button "Add to Cart" [ref=e3]
+// Is element unique? If YES → use simple selector
+page.getByRole("button", { name: "Checkout" })
+
+// If NO → explore further
 ```
 
-**Step 2 - Discover container hierarchy**:
-```javascript
-resolve_container(ref="e3")
-// Returns:
-// Level 1: div with data-testid="product-card"
-// Level 2: div with data-testid="product-grid"
-// Level 3: section with class="products"
+### 2. Discover Containers: `resolve_container(ref)`
+**When**: Element is NOT unique
+
+```typescript
+resolve_container("e25")
+// Look for: data-testid, semantic tags, ARIA landmarks
 ```
 
-**Step 3 - Check for repeating patterns**:
-```javascript
-inspect_pattern(ref="e3", ancestorLevel=2)
-// Returns: 12 product cards, each with unique product names
+### 3. Analyze Patterns: `inspect_pattern(ref, level)`
+**When**: Found stable container, need to understand siblings
+
+```typescript
+inspect_pattern("e25", 2) // Level from resolve_container
+// Find: Unique text differentiators
 ```
 
-**Step 4 - Find unique content**:
-```javascript
-extract_anchors(ref="e3", ancestorLevel=1)
-// Returns:
-// - h3: "iPhone 15 Pro" (unique!)
-// - button: "Add to Cart"
+### 4. Mine Content: `extract_anchors(ref, level)` (Optional)
+**When**: Need deeper content analysis
+
+**Skip if**: `inspect_pattern` already shows unique identifying text
+
+---
+
+## Common Selector Patterns
+
+### Pattern 1: Unique Element
+```typescript
+page.getByRole("button", { name: "Proceed to Checkout" })
 ```
 
-**Step 5 - Generate selector**:
-```javascript
-await page
+### Pattern 2: Test ID Container Scoping
+```typescript
+page
   .getByTestId("product-card")
   .filter({ hasText: "iPhone 15 Pro" })
   .getByRole("button", { name: "Add to Cart" })
-  .click();
 ```
 
-**Token cost**: ~1,500 tokens (vs 50,000+ for full DOM dump)
-
----
-
-## Best Practices
-
-### ✅ DO:
-- Always start with `resolve_container` to find containers
-- Use `data-testid` when available
-- Prefer content filtering over position (`.nth()`)
-- Scope to logical container boundaries
-- Use semantic selectors (`getByRole`, `getByLabel`)
-- Chain filters for specificity when needed
-
-### ❌ DON'T:
-- Use `.nth()` unless absolutely necessary
-- Skip container exploration for repeated elements
-- Rely on fragile CSS class names
-- Use XPath unless required for legacy systems
-- Assume accessibility tree shows all structural attributes
-
----
-
-## Common Pitfalls
-
-### Problem: "Too many matching elements"
-**Solution**: Add content-based filtering
-```javascript
-// Before
-page.locator("div").getByRole("button")
-
-// After
-page.locator("div")
-    .filter({ hasText: "Unique Product Name" })
-    .getByRole("button", { name: "Add to Cart" })
+### Pattern 3: Semantic Container
+```typescript
+page
+  .getByRole("article", { name: /John Doe/ })
+  .getByRole("button", { name: "Helpful" })
 ```
 
-### Problem: "Selector breaks when order changes"
-**Solution**: Use content filtering instead of `.nth()`
-```javascript
-// ❌ Fragile
-page.getByRole("button").nth(3)
-
-// ✅ Stable
-page.locator("div")
-    .filter({ hasText: "Product Name" })
-    .getByRole("button")
-```
-
-### Problem: "Can't find the right container"
-**Solution**: Check all ancestor levels
-```javascript
-// Try different levels to find the right scoping container
-inspect_pattern(ref="e3", ancestorLevel=1)  // Card level
-inspect_pattern(ref="e3", ancestorLevel=2)  // Grid level
-inspect_pattern(ref="e3", ancestorLevel=3)  // Section level
+### Pattern 4: Generic Container (Last Resort)
+```typescript
+page
+  .locator("div")
+  .filter({ hasText: "Order #ORD-2024-1234" })
+  .getByRole("button", { name: "Track" })
 ```
 
 ---
 
-## Working Without Test Infrastructure
+## Critical Anti-Patterns
 
-**Verdex works on pure HTML structure** — no `data-testid` required.
+### ❌ Filter in Wrong Place
+```typescript
+// WRONG: Filter looks for text INSIDE button
+page.getByRole("button").filter({ hasText: "iPhone 15 Pro" })
 
-When `resolve_container` reveals no test IDs, use structural selectors:
-
-```javascript
-// Level 1: div (no attributes)
-// Level 2: section (no attributes)
-
-page.locator("section > div")
-    .filter({ hasText: "iPhone 15 Pro" })
-    .getByRole("button", { name: "Add to Cart" })
+// CORRECT: Filter the container that has both elements
+page
+  .getByTestId("product-card")
+  .filter({ hasText: "iPhone 15 Pro" })
+  .getByRole("button", { name: "Add to Cart" })
 ```
 
-**Trade-off**: Structure-based selectors are less resilient than test ID-based selectors, but far better than positional `.nth()` selectors.
+### ❌ Positional Selectors
+```typescript
+// WRONG: page.getByRole("button").nth(5)
+// CORRECT: Use content-based filtering
+```
+
+### ❌ Over-Scope Unique Elements
+```typescript
+// Check uniqueness first—don't add unnecessary scoping
+await page.getByRole("button", { name: "..." }).count() === 1
+```
+
+### ❌ Parent Traversal
+```typescript
+// WRONG: page.getByText("text").locator("..")
+// CORRECT: Find container that contains both
+```
 
 ---
 
 ## Token Efficiency
 
-Each Verdex tool returns minimal structural facts:
+| Scenario | Tools | Cost | When |
+|----------|-------|------|------|
+| Unique element | Snapshot only | ~800 | Element appears once |
+| Test ID scoped | + resolve + inspect | ~1,200 | Well-structured apps |
+| Semantic scoped | + resolve + inspect | ~1,500 | Accessible markup |
+| Structure-based | All three tools | ~2,500 | Legacy code |
 
-| Tool | Typical Tokens | What It Reveals |
-|------|----------------|-----------------|
-| `resolve_container` | 100-300 | Container hierarchy + attributes |
-| `inspect_pattern` | 500-1,000 | Repeating patterns + unique content |
-| `extract_anchors` | 500-1,500 | Internal structure + semantic elements |
-| **Total per selector** | **~1,000-2,000** | Complete structural understanding |
-
-Compare to:
-- Full DOM dump: 50,000-100,000+ tokens
-- A11y tree only: 1,000-3,000 tokens (but no structural attributes)
+**Optimize**: Skip `extract_anchors` if `inspect_pattern` shows clear unique text
 
 ---
 
-## Multi-Role Testing
+## Quick Reference
 
-For complex E2E flows requiring multiple authenticated users, see [MULTI_ROLE.md](MULTI_ROLE.md).
+```typescript
+// 1. Initialize
+await browser_initialize()
+await browser_navigate(url)
+
+// 2. Check uniqueness in snapshot FIRST
+
+// 3. If not unique:
+resolve_container("e25")
+// → Look for: data-testid, semantic tags, ARIA
+
+// 4. If repeating elements:
+inspect_pattern("e25", 2)
+// → Look for: Unique text differentiators
+
+// 5. If needed:
+extract_anchors("e25", 1)
+// → Only if inspect_pattern insufficient
+
+// 6. Generate selector:
+page.getByTestId("container")
+  .filter({ hasText: "differentiator" })
+  .getByRole("button", { name: "Action" })
+```
 
 ---
 
-## Advanced Patterns
+## Selector Quality Checklist
 
-For detailed examples including:
-- Dynamic content handling
-- Complex form workflows
-- State-based filtering
-- Multiple filter chaining
-
-See [EXAMPLES.md](EXAMPLES.md).
+- [ ] Returns exactly 1 element
+- [ ] Uses test IDs or semantic elements (not classes)
+- [ ] Ends with `getByRole()` or equivalent
+- [ ] Chain is ≤ 3 levels deep
+- [ ] No `.nth()`, no `locator('..')`, no wrong filter placement
+- [ ] Survives DOM reordering
 
 ---
 
 ## Key Takeaway
 
-**Structure + Content > Position**
+**Container → Content → Role beats positional selectors every time.**
 
-Container-scoped selectors with content filters beat positional selectors every time.
+Workflow:
+1. Check uniqueness first
+2. Find stable container (`resolve_container`)
+3. Understand patterns (`inspect_pattern`)
+4. Extract content if needed (`extract_anchors` - optional)
+5. Compose stable selector
 
-The pattern is always:
-1. Find stable container (`resolve_container`)
-2. Check for repeating elements (`inspect_pattern`)
-3. Extract unique content (`extract_anchors`)
-4. Compose: `container.filter(content).getByRole()`
+**Don't dump the entire DOM. Ask targeted questions.**
+
+---
+
+## Additional Resources
+
+- **[VERDEX_SELECTOR_GUIDE.md](VERDEX_SELECTOR_GUIDE.md)**: Complete methodology with real-world examples
 

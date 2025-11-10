@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Verdex MCP Fixture – Complex App Shell</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #141a2e;
+            --muted: #7f8bb3;
+            --text: #e9ecff;
+            --accent: #4f8cff;
+            --accent-2: #22c55e;
+            --warn: #ef4444;
+            --border: #253056;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .app {
+            display: grid;
+            grid-template-rows: 56px 1fr 40px;
+            min-height: 100vh;
+        }
+
+        header,
+        footer,
+        nav,
+        main,
+        aside,
+        section {
+            border-color: var(--border);
+        }
+
+        header {
+            display: grid;
+            grid-template-columns: 220px 1fr 320px;
+            gap: 12px;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+        }
+
+        header .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header .brand .logo {
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        header .search {
+            position: relative;
+        }
+
+        header .search input {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #0f1530;
+            color: var(--text);
+        }
+
+        header .user {
+            text-align: right;
+            color: var(--muted);
+        }
+
+        .shell {
+            display: grid;
+            grid-template-columns: 240px 1fr 320px;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        nav.sidebar,
+        aside.rightbar,
+        main {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        nav.sidebar h2 {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 10px 8px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .nav-item {
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-item[aria-current="page"] {
+            background: #0d1330;
+        }
+
+        .badge {
+            font-size: 11px;
+            color: #dbe3ff;
+            background: #243060;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+
+        main .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .card {
+            background: #0f1530;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .card .title {
+            font-weight: 600;
+        }
+
+        .price {
+            color: var(--accent-2);
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            background: #0c1230;
+            color: var(--text);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #081021;
+        }
+
+        .btn.warn {
+            background: #2a0d10;
+            border-color: #5c1a20;
+            color: #ffb4b4;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .hr {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 0;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .tab[aria-selected="true"] {
+            background: #0d1330;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover {
+            background: #0d1330;
+        }
+
+        /* Accordion */
+        .accordion button {
+            width: 100%;
+            text-align: left;
+            padding: 8px;
+            border: 1px solid var(--border);
+            background: #0c1230;
+            color: var(--text);
+            border-radius: 8px;
+        }
+
+        .accordion .panel {
+            padding: 8px 8px 0;
+        }
+
+        /* Rightbar widgets */
+        .widget {
+            background: #0f1530;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        /* Dialog & toast */
+        dialog[open] {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #0c1230;
+            color: var(--text);
+            padding: 0;
+        }
+
+        dialog .dialog-header {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        dialog .dialog-body {
+            padding: 12px;
+        }
+
+        .toast {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #0f1530;
+            border: 1px solid var(--border);
+            display: none;
+        }
+
+        .visually-hidden {
+            position: absolute !important;
+            height: 1px;
+            width: 1px;
+            overflow: hidden;
+            clip: rect(1px, 1px, 1px, 1px);
+            white-space: nowrap;
+        }
+
+        /* Hidden/disabled regions for testing */
+        [hidden] {
+            display: none !important;
+        }
+
+        .island {
+            border: 1px dashed #2b375e;
+            padding: 8px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+
+        <!-- Top App Bar -->
+        <header role="banner">
+            <div class="brand">
+                <span class="logo" aria-hidden="true"></span>
+                <strong>Acme Commerce</strong>
+            </div>
+            <div class="search">
+                <label class="visually-hidden" for="q">Search</label>
+                <input id="q" type="search" placeholder="Search products, orders, customers…"
+                    data-testid="global-search" />
+            </div>
+            <div class="user" aria-live="polite">
+                Signed in as <strong>alex@acme.io</strong>
+            </div>
+        </header>
+
+        <div class="shell" role="presentation">
+            <!-- Left Navigation -->
+            <nav class="sidebar" aria-label="Primary">
+                <h2>Navigation</h2>
+                <div class="stack" role="list">
+                    <div class="nav-item" role="listitem"><a href="#dash">Dashboard</a></div>
+                    <div class="nav-item" role="listitem" aria-current="page">
+                        <a href="#catalog">Catalog</a>
+                        <span class="badge">12</span>
+                    </div>
+                    <div class="nav-item" role="listitem"><a href="#orders">Orders</a></div>
+                    <div class="nav-item" role="listitem"><a href="#customers">Customers</a></div>
+                    <div class="nav-item" role="listitem"><a href="#settings">Settings</a></div>
+                </div>
+
+                <div class="hr"></div>
+
+                <!-- Accordion (non-semantic wrapper + buttons) -->
+                <div class="accordion" data-testid="help-accordion">
+                    <button aria-expanded="false" aria-controls="acc-panel-1" id="acc-1">Help & Resources</button>
+                    <div id="acc-panel-1" class="panel" role="region" aria-labelledby="acc-1" hidden>
+                        <ul>
+                            <li><a href="#docs">Documentation</a></li>
+                            <li><a href="#kb">Knowledge Base</a></li>
+                            <li><a href="#community">Community</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main id="main" role="main" aria-labelledby="page-title">
+                <h1 id="page-title">Catalog</h1>
+
+                <!-- Tabs (same-named buttons across sections) -->
+                <div class="tabs" role="tablist" aria-label="Catalog Sections">
+                    <button class="tab" role="tab" aria-selected="true" aria-controls="tab-products"
+                        id="tab-products-btn">Products</button>
+                    <button class="tab" role="tab" aria-selected="false" aria-controls="tab-collections"
+                        id="tab-collections-btn">Collections</button>
+                    <button class="tab" role="tab" aria-selected="false" aria-controls="tab-discounts"
+                        id="tab-discounts-btn">Discounts</button>
+                </div>
+
+                <!-- Tab Panels -->
+                <section id="tab-products" role="tabpanel" aria-labelledby="tab-products-btn">
+                    <div class="row" style="justify-content:space-between; align-items:center;">
+                        <div class="row">
+                            <label class="visually-hidden" for="filter-q">Filter</label>
+                            <input id="filter-q" placeholder="Filter products…" />
+                            <button class="btn" data-testid="filter-apply">Apply</button>
+                        </div>
+                        <div class="row">
+                            <button class="btn" data-testid="bulk-edit">Bulk Edit</button>
+                            <button class="btn primary" data-testid="add-product">Add Product</button>
+                        </div>
+                    </div>
+
+                    <div class="hr"></div>
+
+                    <!-- Product Grid (repeated cards) -->
+                    <section class="grid" aria-label="Featured Products" data-testid="product-grid">
+                        <!-- Card 1 -->
+                        <article class="card" data-testid="product-card">
+                            <div class="title">
+                                <h3>iPhone 15 Pro</h3>
+                            </div>
+                            <div class="muted">SKU: IP15-PRO / In stock</div>
+                            <div class="row">
+                                <span class="price" data-testid="price">$999</span>
+                                <span class="muted"> · Free shipping</span>
+                            </div>
+
+                            <!-- Nested variant cards (inner repeat unit) -->
+                            <div class="island variants" aria-label="Memory Options">
+                                <div class="card" data-testid="variant-card">
+                                    <h4>8GB / 256GB</h4>
+                                    <div class="row">
+                                        <button class="btn" aria-label="Select 8GB 256GB">Select</button>
+                                    </div>
+                                </div>
+                                <div class="card" data-testid="variant-card">
+                                    <h4>16GB / 512GB</h4>
+                                    <div class="row">
+                                        <button class="btn" aria-label="Select 16GB 512GB">Select</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row" style="justify-content: space-between;">
+                                <button class="btn" data-testid="favorite">Add to Wishlist</button>
+                                <button class="btn primary" aria-label="Add to Cart">Add to Cart</button>
+                            </div>
+                        </article>
+
+                        <!-- Card 2 -->
+                        <article class="card" data-testid="product-card">
+                            <div class="title">
+                                <h3>MacBook Pro</h3>
+                            </div>
+                            <div class="muted">SKU: MBP-14-2024 / Low stock</div>
+                            <div class="row">
+                                <span class="price" data-testid="price">$1,999</span>
+                                <span class="muted"> · Ships in 3–5 days</span>
+                            </div>
+                            <div class="row" style="justify-content: space-between;">
+                                <button class="btn" data-testid="favorite">Add to Wishlist</button>
+                                <button class="btn primary" aria-label="Add to Cart">Add to Cart</button>
+                            </div>
+                        </article>
+
+                        <!-- Card 3 -->
+                        <article class="card" data-testid="product-card">
+                            <div class="title">
+                                <h3>AirPods Pro</h3>
+                            </div>
+                            <div class="muted">SKU: APP-2 / In stock</div>
+                            <div class="row">
+                                <span class="price" data-testid="price">$249</span>
+                                <span class="muted"> · Free returns</span>
+                            </div>
+                            <div class="row" style="justify-content: space-between;">
+                                <button class="btn" data-testid="favorite">Add to Wishlist</button>
+                                <button class="btn primary" aria-label="Add to Cart">Add to Cart</button>
+                            </div>
+                        </article>
+                    </section>
+                </section>
+
+                <section id="tab-collections" role="tabpanel" aria-labelledby="tab-collections-btn" hidden>
+                    <h2>Collections</h2>
+                    <div class="grid" data-testid="collection-grid">
+                        <div class="card" data-testid="collection-card">
+                            <h3>Summer Essentials</h3>
+                            <button class="btn">Save</button>
+                        </div>
+                        <div class="card" data-testid="collection-card">
+                            <h3>Work From Anywhere</h3>
+                            <button class="btn">Save</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tab-discounts" role="tabpanel" aria-labelledby="tab-discounts-btn" hidden>
+                    <!-- Sectioned page with duplicated button names -->
+                    <section class="island" role="region" aria-labelledby="billing-h">
+                        <h2 id="billing-h">Billing</h2>
+                        <div class="row">
+                            <label>Default tax rate</label>
+                            <input value="10%" />
+                        </div>
+                        <div class="row" style="justify-content:flex-end">
+                            <button class="btn">Save</button>
+                        </div>
+                    </section>
+
+                    <section class="island" role="region" aria-labelledby="security-h">
+                        <h2 id="security-h">Security</h2>
+                        <div class="row">
+                            <label>Require 2FA</label>
+                            <input type="checkbox" aria-label="Require two factor authentication" checked />
+                        </div>
+                        <div class="row" style="justify-content:flex-end">
+                            <button class="btn">Save</button>
+                        </div>
+                    </section>
+                </section>
+
+                <div class="hr"></div>
+
+                <!-- Orders Table with per-row action buttons -->
+                <section aria-label="Recent Invoices">
+                    <h2>Invoices</h2>
+                    <table data-testid="invoice-table" role="table" aria-describedby="inv-help">
+                        <caption id="inv-help" class="visually-hidden">Use Pay buttons in each row to settle invoices.
+                        </caption>
+                        <thead>
+                            <tr role="row">
+                                <th scope="col">Invoice</th>
+                                <th scope="col">Customer</th>
+                                <th scope="col">Amount</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody role="rowgroup">
+                            <tr role="row">
+                                <th scope="row">#1001</th>
+                                <td>Jane Cooper</td>
+                                <td>$299.00</td>
+                                <td>Due</td>
+                                <td><button class="btn primary" aria-label="Pay invoice 1001">Pay</button></td>
+                            </tr>
+                            <tr role="row">
+                                <th scope="row">#1002</th>
+                                <td>Wade Warren</td>
+                                <td>$1,240.00</td>
+                                <td>Overdue</td>
+                                <td><button class="btn primary" aria-label="Pay invoice 1002">Pay</button></td>
+                            </tr>
+                            <tr role="row">
+                                <th scope="row">#1003</th>
+                                <td>Jenny Wilson</td>
+                                <td>$89.00</td>
+                                <td>Paid</td>
+                                <td><button class="btn" disabled aria-label="Pay invoice 1003">Pay</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- Non-semantic wrapper with duplicated control names -->
+                <section class="island" aria-label="Bulk Operations">
+                    <div class="row" style="justify-content:space-between;">
+                        <div>
+                            <label class="visually-hidden" for="bulk-q">Bulk Filter</label>
+                            <input id="bulk-q" placeholder="Filter selection…" />
+                        </div>
+                        <div class="row">
+                            <button class="btn">Save</button>
+                            <button class="btn warn">Delete</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Hidden region to test visibility handling -->
+                <section aria-label="Hidden Experiments" hidden>
+                    <button class="btn">This is hidden</button>
+                </section>
+
+            </main>
+
+            <!-- Right Sidebar -->
+            <aside class="rightbar" aria-label="Context Panel">
+                <div class="widget" data-testid="stats-widget">
+                    <h3>Today’s Stats</h3>
+                    <div class="row" style="justify-content:space-between;">
+                        <div class="stack">
+                            <span class="muted">Orders</span>
+                            <strong>128</strong>
+                        </div>
+                        <div class="stack">
+                            <span class="muted">Revenue</span>
+                            <strong>$14,230</strong>
+                        </div>
+                        <div class="stack">
+                            <span class="muted">Refunds</span>
+                            <strong>3</strong>
+                        </div>
+                    </div>
+                    <div class="hr"></div>
+                    <button class="btn" data-testid="export-csv">Export CSV</button>
+                </div>
+
+                <div class="widget" aria-labelledby="promo-h">
+                    <h3 id="promo-h">Active Promotion</h3>
+                    <p class="muted">Back to school 10% sitewide</p>
+                    <div class="row" style="gap:6px;">
+                        <button class="btn">Pause</button>
+                        <button class="btn primary">Edit</button>
+                    </div>
+                </div>
+
+                <!-- A form with label associations and aria-describedby -->
+                <div class="widget" data-testid="quick-add">
+                    <h3>Quick Add Product</h3>
+                    <form>
+                        <div class="stack">
+                            <label for="qa-title">Title</label>
+                            <input id="qa-title" placeholder="e.g., Wireless Charger" />
+                            <label for="qa-price">Price</label>
+                            <input id="qa-price" type="number" min="0" step="1" aria-describedby="qa-currency" />
+                            <span id="qa-currency" class="muted">USD</span>
+                            <button class="btn primary" aria-label="Create quick product">Create</button>
+                        </div>
+                    </form>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Footer -->
+        <footer role="contentinfo" class="row" style="justify-content:space-between; padding:0 16px;">
+            <span class="muted">© 2025 Acme Inc.</span>
+            <div class="row" role="group" aria-label="Footer Actions">
+                <button class="btn">Save</button>
+                <button class="btn">Cancel</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Dialog + toast to test dynamic regions and aria-controls -->
+    <dialog id="product-dialog" aria-labelledby="pd-title" aria-modal="true">
+        <div class="dialog-header">
+            <h3 id="pd-title">Create Product</h3>
+            <button class="btn" formnovalidate aria-label="Close dialog" data-close-dialog>✕</button>
+        </div>
+        <div class="dialog-body">
+            <div class="stack">
+                <label for="pd-name">Name</label>
+                <input id="pd-name" />
+                <label for="pd-price">Price</label>
+                <input id="pd-price" type="number" />
+                <div class="row" style="justify-content:flex-end; gap:8px;">
+                    <button class="btn">Save</button>
+                    <button class="btn primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <div class="toast" role="status" aria-live="polite" id="toast">Saved changes</div>
+
+    <script>
+        // Tabs
+        const tabButtons = document.querySelectorAll('[role="tab"]');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabButtons.forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+                document.querySelectorAll('[role="tabpanel"]').forEach(p => p.hidden = true);
+                const id = btn.getAttribute('aria-controls');
+                const panel = document.getElementById(id);
+                if (panel) panel.hidden = false;
+            });
+        });
+
+        // Accordion
+        const accBtn = document.getElementById('acc-1');
+        const accPanel = document.getElementById('acc-panel-1');
+        accBtn?.addEventListener('click', () => {
+            const expanded = accBtn.getAttribute('aria-expanded') === 'true';
+            accBtn.setAttribute('aria-expanded', String(!expanded));
+            if (accPanel) accPanel.hidden = expanded;
+        });
+
+        // Dialog open from "Add Product"
+        document.querySelector('[data-testid="add-product"]')?.addEventListener('click', () => {
+            const d = document.getElementById('product-dialog');
+            if (d && typeof d.showModal === 'function') d.showModal();
+        });
+        document.querySelector('[data-close-dialog]')?.addEventListener('click', () => {
+            const d = document.getElementById('product-dialog');
+            if (d && typeof d.close === 'function') d.close();
+        });
+
+        // Toast on any "Save" click inside main (to create duplicated action names)
+        document.querySelector('main')?.addEventListener('click', (e) => {
+            const t = e.target;
+            if (t instanceof HTMLElement && t.tagName === 'BUTTON' && t.textContent?.trim() === 'Save') {
+                const toast = document.getElementById('toast');
+                toast.style.display = 'block';
+                setTimeout(() => { toast.style.display = 'none'; }, 1200);
+            }
+        });
+
+        // Simulate a visually hidden element that is still in the accessibility tree
+        const srOnlyBtn = document.createElement('button');
+        srOnlyBtn.className = 'visually-hidden';
+        srOnlyBtn.setAttribute('aria-label', 'Hidden SR button');
+        srOnlyBtn.textContent = 'Hidden';
+        document.body.appendChild(srOnlyBtn);
+
+        // (Optional) create a few more product cards programmatically to simulate larger lists
+        const grid = document.querySelector('[data-testid="product-grid"]');
+        if (grid) {
+            const names = ['iPad Air', 'Magic Keyboard', 'Studio Display', 'Apple TV', 'HomePod'];
+            names.forEach((n, i) => {
+                const card = document.createElement('article');
+                card.className = 'card';
+                card.setAttribute('data-testid', 'product-card');
+                card.innerHTML = `
+        <div class="title"><h3>${n}</h3></div>
+        <div class="muted">SKU: GEN-${100 + i}</div>
+        <div class="row"><span class="price" data-testid="price">$${(199 + i * 50).toFixed(0)}</span></div>
+        <div class="row" style="justify-content: space-between;">
+          <button class="btn" data-testid="favorite">Add to Wishlist</button>
+          <button class="btn primary" aria-label="Add to Cart">Add to Cart</button>
+        </div>
+      `;
+                grid.appendChild(card);
+            });
+        }
+    </script>
+</body>
+
+</html>
