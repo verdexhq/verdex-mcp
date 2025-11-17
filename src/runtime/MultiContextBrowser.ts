@@ -399,10 +399,42 @@ export class MultiContextBrowser {
 
   async click(ref: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
+
+    // Set up navigation listener BEFORE clicking
+    // This will resolve if navigation happens, or reject on timeout
+    const navigationPromise = context.page
+      .waitForNavigation({
+        waitUntil: "networkidle0",
+        timeout: 30000,
+      })
+      .catch(() => null); // Resolve to null if no navigation (timeout is expected)
+
+    // Execute the click
     await context.bridgeInjector.callBridgeMethod(context.cdpSession, "click", [
       ref,
     ]);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Wait for navigation to complete (if it happens)
+    const navigationResult = await navigationPromise;
+
+    // If navigation occurred, ensure the bridge is ready by getting a bridge handle
+    // getBridgeHandle() properly waits for the isolated world context to be created
+    if (navigationResult !== null) {
+      try {
+        // This will wait for waitForNavToClear() and waitForContextReady() internally
+        await context.bridgeInjector.getBridgeHandle(context.cdpSession);
+      } catch (error) {
+        // Bridge initialization failed - this is a real error, rethrow
+        throw new Error(
+          `Bridge failed to initialize after navigation: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    } else {
+      // No navigation detected - short wait for any dynamic content
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
   }
 
   async type(ref: string, text: string): Promise<void> {

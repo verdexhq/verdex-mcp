@@ -403,7 +403,7 @@ export class SnapshotGenerator {
 
   /**
    * Normalize generic roles using Playwright's approach
-   * Removes unnecessary generic containers that only wrap a single interactive element
+   * Removes unnecessary generic containers that don't add semantic value
    */
   private normalizeGenericRoles(node: AriaNode): (AriaNode | string)[] {
     const result: (AriaNode | string)[] = [];
@@ -420,12 +420,12 @@ export class SnapshotGenerator {
       result.push(...normalized);
     }
 
-    // Only remove generic that encloses one element
-    // Logical grouping still makes sense, even if it is not ref-able
+    // Remove generic containers that don't add semantic value:
+    // 1. Has no name (no accessible label)
+    // 2. Has exactly one child (no grouping happening)
+    // 3. Is not interactive (no ref)
     const removeSelf =
-      node.role === "generic" &&
-      result.length <= 1 &&
-      result.every((c) => typeof c !== "string" && !!c.ref);
+      node.role === "generic" && !node.name && !node.ref && result.length === 1;
 
     if (removeSelf) {
       return result; // Hoist children up

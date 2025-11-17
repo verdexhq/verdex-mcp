@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "verdex": {
-      "command": "npx",
-      "args": ["@verdex/mcp@latest"]
-    }
-  }
-}

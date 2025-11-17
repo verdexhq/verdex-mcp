@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "verdex": {
-      "command": "node",
-      "args": ["/Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/dist/index.js"]
-    }
-  }
-}
