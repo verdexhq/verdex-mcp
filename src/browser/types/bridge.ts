@@ -19,9 +19,9 @@ export type IBridge = {
   click(ref: string): void;
   type(ref: string, text: string): void;
 
-  // Structural analysis
-  resolve_container(ref: string): ContainerResult | null;
-  inspect_pattern(ref: string, ancestorLevel: number): PatternResult | null;
+  // Structural analysis (all throw on error, never return null)
+  resolve_container(ref: string): ContainerResult;
+  inspect_pattern(ref: string, ancestorLevel: number): PatternResult;
   extract_anchors(ref: string, ancestorLevel: number): AnchorsResult;
 
   // Utility methods

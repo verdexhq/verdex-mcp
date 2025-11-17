@@ -121,14 +121,14 @@ export type AnchorInfo = {
 /**
  * Result of extracting descendant anchors within a specific container.
  * Returned by the extract_anchors tool/method.
+ * Note: Throws exceptions on errors (e.g., invalid ref, ancestor level too high).
  */
 export type AnchorsResult = {
-  error?: string;
   ancestorAt: {
     level: number; // Which ancestor level was analyzed
     tagName: string;
     attributes: Attributes;
-  } | null;
+  };
   descendants: AnchorInfo[]; // Tree of descendant elements
   totalDescendants: number;
   maxDepthReached: number;

@@ -25,10 +25,14 @@ export class StructuralAnalyzer {
 
   /**
    * Get ancestor information for an element
+   * Assumes validation has already been done in bridge layer
    */
-  resolveContainer(ref: string): ContainerResult | null {
+  resolveContainer(ref: string): ContainerResult {
     const targetInfo = this.bridge.elements.get(ref);
-    if (!targetInfo) return null;
+    // Note: validation should be done in bridge layer, but double-check for safety
+    if (!targetInfo) {
+      throw new Error(`Element ${ref} not found in bridge elements map`);
+    }
 
     const ancestors: ContainerInfo[] = [];
     let current = targetInfo.element.parentElement;
@@ -65,9 +69,12 @@ export class StructuralAnalyzer {
    * Get sibling information at a specific ancestor level
    * Climbs ancestorLevel ancestors to a container and returns that container's children
    */
-  inspectPattern(ref: string, ancestorLevel: number): PatternResult | null {
+  inspectPattern(ref: string, ancestorLevel: number): PatternResult {
     const targetInfo = this.bridge.elements.get(ref);
-    if (!targetInfo) return null;
+    // Note: validation should be done in bridge layer, but double-check for safety
+    if (!targetInfo) {
+      throw new Error(`Element ${ref} not found in bridge elements map`);
+    }
 
     let container: Element | null = targetInfo.element;
     for (let i = 0; i < ancestorLevel; i++) {
@@ -75,12 +82,20 @@ export class StructuralAnalyzer {
         !container?.parentElement ||
         container.parentElement === document.body
       ) {
-        return null;
+        throw new Error(
+          `Ancestor level ${ancestorLevel} is too high - reached document.body at level ${
+            i + 1
+          }`
+        );
       }
       container = container.parentElement;
     }
 
-    if (!container) return null;
+    if (!container) {
+      throw new Error(
+        `Failed to find container at ancestor level ${ancestorLevel}`
+      );
+    }
 
     /**
      * Compute targetSiblingIndex: which direct child of `container` contains the target element?
@@ -141,64 +156,44 @@ export class StructuralAnalyzer {
    * Get descendant information at a specific ancestor level
    */
   extractAnchors(ref: string, ancestorLevel: number): AnchorsResult {
-    try {
-      const targetInfo = this.bridge.elements.get(ref);
-      if (!targetInfo) {
-        return {
-          error: `Element ${ref} not found`,
-          ancestorAt: null,
-          descendants: [],
-          totalDescendants: 0,
-          maxDepthReached: 0,
-        };
-      }
-
-      let ancestor = targetInfo.element;
-      for (let i = 0; i < ancestorLevel; i++) {
-        if (
-          !ancestor.parentElement ||
-          ancestor.parentElement === document.body
-        ) {
-          return {
-            error: `Ancestor level ${ancestorLevel} is too high - reached document.body`,
-            ancestorAt: null,
-            descendants: [],
-            totalDescendants: 0,
-            maxDepthReached: 0,
-          };
-        }
-        ancestor = ancestor.parentElement;
-      }
-
-      const maxDepth = this.config.maxDepth ?? 4;
-      const descendants = this.traverseDescendants(ancestor, maxDepth, 0, 0);
-
-      // Calculate max depth safely
-      let maxDepthReached = 0;
-      if (descendants && descendants.length > 0) {
-        const depths = descendants.map((d) => d?.depth || 1);
-        maxDepthReached = Math.max(...depths);
-      }
-
-      return {
-        ancestorAt: {
-          level: ancestorLevel,
-          tagName: ancestor.tagName.toLowerCase(),
-          attributes: DOMAnalyzer.getRelevantAttributes(ancestor),
-        },
-        descendants: descendants || [],
-        totalDescendants: descendants ? descendants.length : 0,
-        maxDepthReached: maxDepthReached,
-      };
-    } catch (error) {
-      return {
-        error: `Error in extract_anchors: ${(error as Error).message}`,
-        ancestorAt: null,
-        descendants: [],
-        totalDescendants: 0,
-        maxDepthReached: 0,
-      };
+    const targetInfo = this.bridge.elements.get(ref);
+    // Note: validation should be done in bridge layer, but double-check for safety
+    if (!targetInfo) {
+      throw new Error(`Element ${ref} not found in bridge elements map`);
     }
+
+    let ancestor = targetInfo.element;
+    for (let i = 0; i < ancestorLevel; i++) {
+      if (!ancestor.parentElement || ancestor.parentElement === document.body) {
+        throw new Error(
+          `Ancestor level ${ancestorLevel} is too high - reached document.body at level ${
+            i + 1
+          }`
+        );
+      }
+      ancestor = ancestor.parentElement;
+    }
+
+    const maxDepth = this.config.maxDepth ?? 4;
+    const descendants = this.traverseDescendants(ancestor, maxDepth, 0, 0);
+
+    // Calculate max depth safely
+    let maxDepthReached = 0;
+    if (descendants && descendants.length > 0) {
+      const depths = descendants.map((d) => d?.depth || 1);
+      maxDepthReached = Math.max(...depths);
+    }
+
+    return {
+      ancestorAt: {
+        level: ancestorLevel,
+        tagName: ancestor.tagName.toLowerCase(),
+        attributes: DOMAnalyzer.getRelevantAttributes(ancestor),
+      },
+      descendants: descendants || [],
+      totalDescendants: descendants ? descendants.length : 0,
+      maxDepthReached: maxDepthReached,
+    };
   }
 
   /**

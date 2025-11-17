@@ -20,6 +20,30 @@ export class BridgeFactory {
    * Create a complete bridge object with all functionality
    */
   static create(config: BridgeConfig = {}): IBridge {
+    /**
+     * Validation helper - throws clear errors for missing or stale elements
+     */
+    const validateElement = (ref: string): Element => {
+      const info = bridge.elements.get(ref);
+
+      if (!info) {
+        throw new Error(
+          `Element ${ref} not found. Try browser_snapshot() to refresh refs.`
+        );
+      }
+
+      if (!info.element.isConnected) {
+        // Auto-cleanup stale ref
+        bridge.elements.delete(ref);
+        throw new Error(
+          `Element ${ref} (${info.role} "${info.name}") was removed from DOM. ` +
+            `Take a new snapshot() to refresh refs.`
+        );
+      }
+
+      return info.element;
+    };
+
     const bridge: IBridge = {
       elements: new Map<string, ElementInfo>(),
       counter: 0,
@@ -31,20 +55,13 @@ export class BridgeFactory {
       },
 
       click(ref: string): void {
-        const info = this.elements.get(ref);
-        if (!info) {
-          throw new Error(`Element ${ref} not found`);
-        }
-        (info.element as HTMLElement).click();
+        const element = validateElement(ref);
+        (element as HTMLElement).click();
       },
 
       type(ref: string, text: string): void {
-        const info = this.elements.get(ref);
-        if (!info) {
-          throw new Error(`Element ${ref} not found`);
-        }
-
-        const el = info.element as HTMLInputElement | HTMLTextAreaElement;
+        const element = validateElement(ref);
+        const el = element as HTMLInputElement | HTMLTextAreaElement;
         el.focus();
         el.value = text;
         el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -52,20 +69,20 @@ export class BridgeFactory {
       },
 
       // Structural analysis
-      resolve_container(ref: string): ContainerResult | null {
+      resolve_container(ref: string): ContainerResult {
+        validateElement(ref);
         const analyzer = new StructuralAnalyzer(this, config);
         return analyzer.resolveContainer(ref);
       },
 
-      inspect_pattern(
-        ref: string,
-        ancestorLevel: number
-      ): PatternResult | null {
+      inspect_pattern(ref: string, ancestorLevel: number): PatternResult {
+        validateElement(ref);
         const analyzer = new StructuralAnalyzer(this, config);
         return analyzer.inspectPattern(ref, ancestorLevel);
       },
 
       extract_anchors(ref: string, ancestorLevel: number): AnchorsResult {
+        validateElement(ref);
         const analyzer = new StructuralAnalyzer(this, config);
         return analyzer.extractAnchors(ref, ancestorLevel);
       },

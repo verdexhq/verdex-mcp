@@ -10,17 +10,8 @@ export class AnalysisHandlers {
 
   async handleGetAncestors(args: { ref: string }) {
     const { ref } = args;
+    // Note: Errors are thrown and caught by global MCP error handler
     const result = await this.browser.resolve_container(ref);
-    if (!result) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Element ${ref} not found (Role: ${this.browser.getCurrentRole()})`,
-          },
-        ],
-      };
-    }
 
     // Format the result for better readability
     let output = `Ancestry analysis for element ${ref} (Role: ${this.browser.getCurrentRole()}):\n\n`;
@@ -68,17 +59,8 @@ export class AnalysisHandlers {
 
   async handleGetSiblings(args: { ref: string; ancestorLevel: number }) {
     const { ref, ancestorLevel } = args;
+    // Note: Errors are thrown and caught by global MCP error handler
     const result = await this.browser.inspect_pattern(ref, ancestorLevel);
-    if (!result) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.browser.getCurrentRole()})`,
-          },
-        ],
-      };
-    }
 
     // Format the result for better readability
     let output = `Sibling analysis for element ${ref} at ancestor level ${ancestorLevel} (Role: ${this.browser.getCurrentRole()}):\n\n`;
@@ -125,33 +107,11 @@ export class AnalysisHandlers {
 
   async handleGetDescendants(args: { ref: string; ancestorLevel: number }) {
     const { ref, ancestorLevel } = args;
+    // Note: Errors are thrown and caught by global MCP error handler
     const result = await this.browser.extract_anchors(ref, ancestorLevel);
-    if (!result) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Element ${ref} not found or ancestor level ${ancestorLevel} is too high (Role: ${this.browser.getCurrentRole()})`,
-          },
-        ],
-      };
-    }
 
     // Format the result for better readability
     let output = `Descendant analysis for element ${ref} within ancestor level ${ancestorLevel} (Role: ${this.browser.getCurrentRole()}):\n\n`;
-
-    // Handle error cases
-    if (result.error) {
-      output += `❌ Error: ${result.error}\n`;
-      return {
-        content: [
-          {
-            type: "text",
-            text: output,
-          },
-        ],
-      };
-    }
 
     output += `🏗️ Analyzing within ancestor: ${result.ancestorAt.tagName}`;
     if (
