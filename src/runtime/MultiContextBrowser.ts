@@ -415,26 +415,14 @@ export class MultiContextBrowser {
     ]);
 
     // Wait for navigation to complete (if it happens)
-    const navigationResult = await navigationPromise;
+    // For cross-document navigation, this resolves when page is loaded
+    // For same-document navigation (SPA/Remix), this times out and returns null
+    await navigationPromise;
 
-    // If navigation occurred, ensure the bridge is ready by getting a bridge handle
-    // getBridgeHandle() properly waits for the isolated world context to be created
-    if (navigationResult !== null) {
-      try {
-        // This will wait for waitForNavToClear() and waitForContextReady() internally
-        await context.bridgeInjector.getBridgeHandle(context.cdpSession);
-      } catch (error) {
-        // Bridge initialization failed - this is a real error, rethrow
-        throw new Error(
-          `Bridge failed to initialize after navigation: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
-    } else {
-      // No navigation detected - short wait for any dynamic content
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
+    // Small wait for any dynamic content updates
+    // For cross-document nav: bridge is automatically re-injected via CDP events
+    // For same-document nav (Remix): bridge context stays valid, no re-injection needed
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   async type(ref: string, text: string): Promise<void> {

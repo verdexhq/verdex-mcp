@@ -12,7 +12,6 @@ export class BridgeInjector {
   private mainFrameId: string | null = null;
   private contextId: number | null = null; // executionContextId for our world
   private bridgeObjectId: string | null = null; // created instance
-  private navigationInProgress = false;
   private contextReadyResolvers: Array<() => void> = [];
   private scriptId: string | null = null; // addScriptToEvaluateOnNewDocument identifier
   private manualInjectionMode = false; // Fallback for very old Chromium
@@ -36,6 +35,8 @@ export class BridgeInjector {
     this.mainFrameId = mainFrameId;
 
     // 1) LISTENERS FIRST (Runtime emits existing contexts immediately after enable)
+
+    // Listen for isolated world context creation (cross-document navigation creates new context)
     const onCtx = (evt: any) => {
       const ctx = evt.context;
       const aux = ctx.auxData ?? {};
@@ -44,29 +45,32 @@ export class BridgeInjector {
       const matchesTop = !this.mainFrameId || aux.frameId === this.mainFrameId;
       if (matchesWorld && matchesTop) {
         this.contextId = ctx.id;
-        this.navigationInProgress = false;
         this.resolveContextReady();
       }
     };
-    const onStart = (evt: any) => {
-      if (this.isTopFrame(evt.frameId)) this.onTopFrameNavigating();
-    };
+
+    // Listen for same-document navigation (SPA routing like Remix)
+    // Context stays alive, but we invalidate the bridge instance handle
     const onSameDoc = (evt: any) => {
       if (this.isTopFrame(evt.frameId)) {
-        // SPA route change: keep context alive, just invalidate instance handle
-        // DO NOT set navigationInProgress (would stall calls for 10s)
         this.bridgeObjectId = null;
       }
     };
-    const onNav = (evt: any) => {
-      if (evt.frame && this.isTopFrame(evt.frame.id) && !evt.frame.parentId)
-        this.onTopFrameNavigating();
+
+    // Listen for cross-document navigation to reset state
+    // Puppeteer's page.waitForNavigation() handles timing, we just track state here
+    const onCrossDocNav = (evt: any) => {
+      if (evt.frame && this.isTopFrame(evt.frame.id) && !evt.frame.parentId) {
+        // Cross-document navigation destroys and recreates execution contexts
+        // Reset our state; Runtime.executionContextCreated will fire with new context
+        this.contextId = null;
+        this.bridgeObjectId = null;
+      }
     };
 
     this.addListener(cdp, "Runtime.executionContextCreated", onCtx);
-    this.addListener(cdp, "Page.frameStartedLoading", onStart);
     this.addListener(cdp, "Page.navigatedWithinDocument", onSameDoc);
-    this.addListener(cdp, "Page.frameNavigated", onNav);
+    this.addListener(cdp, "Page.frameNavigated", onCrossDocNav);
 
     // 2) ENABLE DOMAINS
     await cdp.send("Page.enable");
@@ -140,14 +144,11 @@ export class BridgeInjector {
     return !!this.mainFrameId && frameId === this.mainFrameId;
   }
 
-  private onTopFrameNavigating() {
-    this.navigationInProgress = true;
-    this.contextId = null;
-    this.bridgeObjectId = null;
-  }
-
   private async waitForContextReady(timeoutMs = 3000): Promise<void> {
-    if (this.contextId && !this.navigationInProgress) return;
+    // If we already have a context, return immediately
+    if (this.contextId) return;
+
+    // Otherwise, wait for Runtime.executionContextCreated event
     let timeoutHandle: NodeJS.Timeout | null = null;
     const p = new Promise<void>((resolve, reject) => {
       const done = () => {
@@ -171,26 +172,15 @@ export class BridgeInjector {
     resolvers.forEach((fn) => fn());
   }
 
-  private async waitForNavToClear(maxWaitMs = 10000): Promise<void> {
-    if (!this.navigationInProgress) return;
-    const start = Date.now();
-    while (this.navigationInProgress && Date.now() - start < maxWaitMs) {
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    if (this.navigationInProgress) {
-      throw new Error("Bridge unavailable: navigation taking too long");
-    }
-  }
-
   async getBridgeHandle(cdp: CDPSession): Promise<string> {
-    await this.waitForNavToClear();
-
+    // If we have a cached bridge handle, check if it's still valid
     if (this.bridgeObjectId) {
       const alive = await this.healthCheck(cdp);
       if (alive) return this.bridgeObjectId;
       this.bridgeObjectId = null;
     }
 
+    // Wait for isolated world context to be ready (if not already)
     await this.waitForContextReady();
     if (!this.contextId)
       throw new Error("No execution context available for the bridge world");
@@ -238,7 +228,6 @@ export class BridgeInjector {
     method: string,
     args: any[] = []
   ): Promise<T> {
-    await this.waitForNavToClear();
     const objectId = await this.getBridgeHandle(cdp);
 
     const response = await cdp.send("Runtime.callFunctionOn", {
@@ -284,7 +273,6 @@ export class BridgeInjector {
   }
 
   reset(): void {
-    this.navigationInProgress = true;
     this.contextId = null;
     this.bridgeObjectId = null;
   }
