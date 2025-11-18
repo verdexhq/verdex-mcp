@@ -13,7 +13,6 @@
 <div align="center">
 
 [![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
-[![Test Suite](https://github.com/verdexhq/verdex-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/verdexhq/verdex-mcp/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Playwright](https://img.shields.io/badge/Playwright-Ready-45ba4b?logo=playwright)](https://playwright.dev/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io)
@@ -291,13 +290,6 @@ Child 2 (button) [ref=e3]:
 ```
 
 **🎯 Purpose**: Discover text content, buttons, and ARIA roles for semantic targeting.
-
-#### **Demo of the 3 Steps Working in Sequence:**
-(With Zero Test Infrastructure Setup - No `data-testid` or Class Names)
-
-<p align="left">
-  <img src="./verdex.gif" alt="Verdex in Action" width="800"/>
-</p>
 
 ### Token Efficiency
 
