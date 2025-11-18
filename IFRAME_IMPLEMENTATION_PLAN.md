@@ -1,11 +1,11 @@
 # Iframe Support Implementation Plan
 
 ## Overview
-Add comprehensive iframe support to Verdex MCP to enable accessibility tree traversal and interaction with elements inside same-origin iframes, while gracefully handling cross-origin iframe limitations.
+Add iframe support to Verdex MCP to enable accessibility tree traversal and interaction with elements inside same-origin iframes, while gracefully handling cross-origin iframe limitations.
 
 ## Design Principles
-1. **Leverage Puppeteer's built-in frame APIs** - Don't reinvent what Puppeteer provides
-2. **Per-frame bridge instances** - Each frame gets its own isolated bridge context
+1. **Leverage DOM APIs** - Use `iframe.contentDocument` for same-origin iframe access
+2. **Single bridge instance** - Main frame bridge handles all elements including iframe elements
 3. **Frame-qualified refs** - Disambiguate elements across frames with `frameId_elementRef` format
 4. **Graceful degradation** - Handle cross-origin iframes without breaking
 5. **Zero breaking changes** - Existing structural analysis tools work unmodified
@@ -15,214 +15,46 @@ Add comprehensive iframe support to Verdex MCP to enable accessibility tree trav
 ```
 ┌───────────────────────────────────────────────────────┐
 │  MultiContextBrowser (Node.js)                        │
-│  - Routes calls to correct frame based on ref         │
-│  - Manages frame lifecycle (attach/detach)            │
+│  - Parses frame-qualified refs (f1_e5)                │
+│  - Routes all calls to main bridge                    │
 └───────────────────────────────────────────────────────┘
                          ↓
 ┌───────────────────────────────────────────────────────┐
 │  BridgeInjector (Node.js)                             │
-│  - Tracks frameId → contextId mappings                │
-│  - Injects bridge into each frame's isolated world    │
-│  - Handles frame attachment/detachment events         │
+│  - Injects bridge into main frame only                │
+│  - No changes needed                                  │
 └───────────────────────────────────────────────────────┘
                          ↓
 ┌───────────────────────────────────────────────────────┐
 │  Bridge Instance (Browser - Main Frame)               │
-│  - document = main page document                      │
-│  - Refs: e1, e2, e3...                                │
-│  - Snapshot captures main content + iframe elements   │
-└───────────────────────────────────────────────────────┘
-                         ↓
-┌───────────────────────────────────────────────────────┐
-│  Bridge Instance (Browser - Iframe 1)                 │
-│  - document = iframe 1's document                     │
-│  - Refs: f1_e1, f1_e2... (frame-qualified)            │
-│  - Structural tools work within iframe bounds         │
+│  - Traverses main document + iframe documents         │
+│  - Uses iframe.contentDocument for same-origin access │
+│  - Stores all element refs in single Map              │
+│  - Main refs: e1, e2, e3...                           │
+│  - Iframe refs: f1_e1, f1_e2, f2_e1...                │
 └───────────────────────────────────────────────────────┘
 ```
+
+## Key Insight
+
+For same-origin iframes, `iframe.contentDocument` provides direct DOM access from the main frame. This means:
+- ✅ No need for per-frame bridge injection
+- ✅ No CDP frame lifecycle management
+- ✅ `element.click()` works on iframe elements
+- ✅ DOM traversal (`parentElement`) works naturally
+- ✅ Single `elements` Map stores everything
 
 ## Implementation Phases
 
 ---
 
-## Phase 1: Multi-Frame Bridge Injection
-
-**File: `src/runtime/BridgeInjector.ts`**
-
-### 1.1 Add Frame Tracking State
-
-```typescript
-export class BridgeInjector {
-  // EXISTING
-  private mainFrameId: string | null = null;
-  private contextId: number | null = null;
-  
-  // NEW: Track all frames
-  private frameContexts = new Map<string, {
-    contextId: number;
-    bridgeObjectId: string | null;
-  }>();
-  
-  private frameListeners = new Map<string, boolean>(); // Track which frames are set up
-}
-```
-
-### 1.2 Listen for Frame Attachment
-
-Add to `setupAutoInjection()`:
-
-```typescript
-// Listen for iframe attachment
-const onFrameAttached = async (evt: any) => {
-  const frameId = evt.frameId;
-  console.log(`🖼️ Frame attached: ${frameId}`);
-  
-  // Inject bridge into new frame
-  await this.injectIntoFrame(cdp, frameId);
-};
-
-this.addListener(cdp, "Page.frameAttached", onFrameAttached);
-```
-
-### 1.3 Listen for Frame Detachment
-
-```typescript
-// Listen for iframe detachment (cleanup)
-const onFrameDetached = (evt: any) => {
-  const frameId = evt.frameId;
-  console.log(`🧹 Frame detached: ${frameId}`);
-  
-  // Clean up frame context
-  this.frameContexts.delete(frameId);
-  this.frameListeners.delete(frameId);
-};
-
-this.addListener(cdp, "Page.frameDetached", onFrameDetached);
-```
-
-### 1.4 Track Frame Contexts
-
-Update `onCtx` handler in `setupAutoInjection()`:
-
-```typescript
-const onCtx = (evt: any) => {
-  const ctx = evt.context;
-  const aux = ctx.auxData ?? {};
-  const matchesWorld = ctx.name === this.worldName || aux.name === this.worldName;
-  const frameId = aux.frameId;
-  
-  if (matchesWorld) {
-    if (frameId === this.mainFrameId) {
-      // Main frame context
-      this.contextId = ctx.id;
-      this.resolveContextReady();
-    } else if (frameId) {
-      // Iframe context
-      this.frameContexts.set(frameId, {
-        contextId: ctx.id,
-        bridgeObjectId: null,
-      });
-      console.log(`✅ Iframe bridge ready: ${frameId}`);
-    }
-  }
-};
-```
-
-### 1.5 Inject Into Specific Frame
-
-```typescript
-private async injectIntoFrame(cdp: CDPSession, frameId: string): Promise<void> {
-  try {
-    // Create isolated world in this frame
-    const { executionContextId } = await cdp.send("Page.createIsolatedWorld", {
-      frameId: frameId,
-      worldName: this.worldName,
-      grantUniveralAccess: false,
-    });
-    
-    // Inject bundle into this frame's isolated world
-    await cdp.send("Runtime.evaluate", {
-      expression: BRIDGE_BUNDLE,
-      contextId: executionContextId,
-      returnByValue: false,
-    });
-    
-    console.log(`🔧 Bridge injected into frame: ${frameId}`);
-  } catch (error) {
-    console.warn(`⚠️ Failed to inject into frame ${frameId}:`, error);
-  }
-}
-```
-
-### 1.6 Get Bridge Handle for Specific Frame
-
-Update `getBridgeHandle()` to accept optional frameId:
-
-```typescript
-async getBridgeHandle(cdp: CDPSession, frameId?: string): Promise<string> {
-  // Main frame (existing logic)
-  if (!frameId || frameId === this.mainFrameId) {
-    // ... existing code ...
-    return this.bridgeObjectId;
-  }
-  
-  // Iframe
-  const frameContext = this.frameContexts.get(frameId);
-  if (!frameContext) {
-    throw new Error(`No context found for frame: ${frameId}`);
-  }
-  
-  // Check if bridge is alive
-  if (frameContext.bridgeObjectId) {
-    const alive = await this.healthCheckFrame(cdp, frameId);
-    if (alive) return frameContext.bridgeObjectId;
-    frameContext.bridgeObjectId = null;
-  }
-  
-  // Create bridge instance in iframe
-  const { result } = await cdp.send("Runtime.evaluate", {
-    expression: `(function(config){ return globalThis.__VerdexBridgeFactory__.create(config); })(${JSON.stringify(this.config)})`,
-    contextId: frameContext.contextId,
-    returnByValue: false,
-  });
-  
-  if (!result.objectId) {
-    throw new Error(`Failed to create bridge in frame ${frameId}`);
-  }
-  
-  frameContext.bridgeObjectId = result.objectId;
-  return frameContext.bridgeObjectId;
-}
-```
-
-### 1.7 Frame-Aware Bridge Method Calls
-
-Update `callBridgeMethod()`:
-
-```typescript
-async callBridgeMethod<T = any>(
-  cdp: CDPSession,
-  method: string,
-  args: any[] = [],
-  frameId?: string  // NEW: optional frame parameter
-): Promise<T> {
-  const objectId = await this.getBridgeHandle(cdp, frameId);
-  
-  // ... rest of existing code (unchanged)
-}
-```
-
-**Estimated Changes:** ~150 lines
-
----
-
-## Phase 2: Multi-Frame Snapshot Generation
+## Phase 1: Snapshot Generation with Iframe Support
 
 **File: `src/browser/core/SnapshotGenerator.ts`**
 
-### 2.1 Detect and Handle Iframes
+### 1.1 Detect and Handle Iframes
 
-Add to `buildAriaTree()` after element visibility check:
+Add to `buildAriaTree()` before creating AriaNode:
 
 ```typescript
 private buildAriaTree(
@@ -231,7 +63,15 @@ private buildAriaTree(
 ): (AriaNode | string)[] {
   // ... existing code ...
   
-  // NEW: Handle iframe elements
+  if (node.nodeType !== Node.ELEMENT_NODE) return [];
+  const element = node as Element;
+  const isVisible = AriaUtils.isVisibleForAria(element);
+  
+  if (!isVisible) {
+    return this.buildChildrenTree(element, false);
+  }
+  
+  // NEW: Handle iframe elements specially
   if (element.tagName === 'IFRAME') {
     return this.buildIframeTree(element as HTMLIFrameElement, isVisible);
   }
@@ -240,7 +80,7 @@ private buildAriaTree(
 }
 ```
 
-### 2.2 Build Iframe Tree
+### 1.2 Build Iframe Tree
 
 ```typescript
 /**
@@ -252,7 +92,7 @@ private buildIframeTree(
 ): (AriaNode | string)[] {
   if (!isVisible) return [];
   
-  // Create iframe node
+  // Create iframe container node
   const iframeNode: AriaNode = {
     role: 'iframe',
     name: iframe.title || iframe.name || iframe.src || 'iframe',
@@ -265,10 +105,7 @@ private buildIframeTree(
     const iframeDoc = iframe.contentDocument;
     
     if (iframeDoc && iframeDoc.body) {
-      // Same-origin iframe - we can access content
-      console.log('📄 Accessing same-origin iframe content');
-      
-      // Recursively build tree for iframe content
+      // Same-origin iframe - recursively build tree
       const iframeChildren = this.buildAriaTree(iframeDoc.body, true);
       iframeNode.children = iframeChildren;
       
@@ -279,12 +116,11 @@ private buildIframeTree(
         src: iframe.src || 'about:blank',
       };
     } else {
-      // Iframe exists but has no body yet
+      // Iframe exists but body not ready yet
       iframeNode.children = [{ text: '[iframe loading...]' } as any];
     }
   } catch (error) {
     // Cross-origin iframe - browser security blocks access
-    console.log('🔒 Cross-origin iframe - access blocked');
     iframeNode.children = [{ text: '[cross-origin iframe]' } as any];
     iframeNode.props = {
       ...iframeNode.props,
@@ -298,25 +134,23 @@ private buildIframeTree(
 }
 ```
 
-### 2.3 Update Element Info to Track Frame
+### 1.3 Track Frame in Element Refs
 
-When creating refs, track which frame the element belongs to:
+Update `createAriaNode()` to generate frame-qualified refs:
 
 ```typescript
 private createAriaNode(element: Element): AriaNode | null {
-  // ... existing code ...
+  // ... existing code to get role, name, etc. ...
   
   // Add reference for interactive elements
   if (AriaUtils.isInteractive(element, role)) {
-    // Check if element already has a ref
     let ref = (element as any)._verdexRef;
     
     if (ref && this.bridge.elements.has(ref)) {
       ariaNode.ref = ref;
     } else {
-      // NEW: Determine if element is in iframe
-      const inIframe = this.isInIframe(element);
-      const frameId = inIframe ? this.getFrameId(element) : null;
+      // Determine if element is in iframe
+      const frameId = this.getFrameId(element);
       
       // Create frame-qualified ref if in iframe
       if (frameId) {
@@ -336,7 +170,7 @@ private createAriaNode(element: Element): AriaNode | null {
       role: role,
       name: name,
       attributes: this.bridge.getAttributes(element),
-      frameId: frameId || undefined,  // NEW: track frame
+      frameId: frameId || undefined,
     };
     
     this.bridge.elements.set(ref, elementInfo);
@@ -346,25 +180,22 @@ private createAriaNode(element: Element): AriaNode | null {
 }
 ```
 
-### 2.4 Add Frame Detection Helpers
+### 1.4 Frame Detection Helpers
 
 ```typescript
 /**
- * Check if element is inside an iframe
- */
-private isInIframe(element: Element): boolean {
-  return element.ownerDocument !== document;
-}
-
-/**
  * Get frame identifier for element
- * Returns a simple index-based identifier for the iframe
+ * Returns simple index-based identifier (f1, f2, f3...)
  */
 private getFrameId(element: Element): string {
   const doc = element.ownerDocument;
-  if (doc === document) return '';
   
-  // Find the iframe element in main document
+  // Element in main document
+  if (doc === document) {
+    return '';
+  }
+  
+  // Element in iframe - find which one
   const iframes = Array.from(document.querySelectorAll('iframe'));
   for (let i = 0; i < iframes.length; i++) {
     const iframe = iframes[i] as HTMLIFrameElement;
@@ -377,19 +208,14 @@ private getFrameId(element: Element): string {
     }
   }
   
-  return 'f0';  // Fallback
+  // Fallback for nested iframes or edge cases
+  return 'f0';
 }
 ```
 
-**Estimated Changes:** ~120 lines
-
----
-
-## Phase 3: Frame-Aware Element References
+### 1.5 Update ElementInfo Type
 
 **File: `src/browser/types/elements.ts`**
-
-### 3.1 Update ElementInfo Type
 
 ```typescript
 export type ElementInfo = {
@@ -398,44 +224,47 @@ export type ElementInfo = {
   role: string;
   name: string;
   attributes: Record<string, string>;
-  frameId?: string;  // NEW: optional frame identifier
+  frameId?: string;  // NEW: track which frame element is in
 };
 ```
 
-**Estimated Changes:** ~5 lines
+**Estimated Changes:** ~130 lines total across SnapshotGenerator.ts and elements.ts
 
 ---
 
-## Phase 4: Frame-Aware Interactions
+## Phase 2: Frame-Aware Ref Parsing
 
 **File: `src/runtime/MultiContextBrowser.ts`**
 
-### 4.1 Parse Frame-Qualified Refs
+### 2.1 Add Ref Parser
 
 ```typescript
 /**
- * Parse ref to extract frame ID and element number
+ * Parse ref to extract frame ID
  * Examples:
  *   "e5" → { frameId: null, ref: "e5" }
- *   "f1_e5" → { frameId: "f1", ref: "e5" }
+ *   "f1_e5" → { frameId: "f1", ref: "f1_e5" }
  */
-private parseRef(ref: string): { frameId: string | null; localRef: string } {
-  const match = ref.match(/^(f\d+)_(.+)$/);
+private parseRef(ref: string): { frameId: string | null; fullRef: string } {
+  const match = ref.match(/^(f\d+)_/);
   if (match) {
-    return { frameId: match[1], localRef: match[2] };
+    return { frameId: match[1], fullRef: ref };
   }
-  return { frameId: null, localRef: ref };
+  return { frameId: null, fullRef: ref };
 }
 ```
 
-### 4.2 Update Click/Type/Structural Methods
+### 2.2 Update Interaction Methods
+
+The bridge handles iframe elements automatically - just pass the ref:
 
 ```typescript
 async click(ref: string): Promise<void> {
   const context = await this.ensureCurrentRoleContext();
-  const { frameId, localRef } = this.parseRef(ref);
   
-  // Set up navigation listener...
+  // Parse ref (for future frame-specific optimizations)
+  const { fullRef } = this.parseRef(ref);
+  
   const navigationPromise = context.page.waitForNavigation({
     waitUntil: "networkidle2",
     timeout: 1000,
@@ -445,12 +274,11 @@ async click(ref: string): Promise<void> {
   });
   
   try {
-    // Execute click in correct frame
+    // Bridge handles all refs including iframe elements
     await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "click",
-      [localRef],  // Pass local ref to bridge
-      frameId || undefined  // Pass frame ID to injector
+      [fullRef]
     );
     
     await navigationPromise;
@@ -462,106 +290,54 @@ async click(ref: string): Promise<void> {
 
 async type(ref: string, text: string): Promise<void> {
   const context = await this.ensureCurrentRoleContext();
-  const { frameId, localRef } = this.parseRef(ref);
+  const { fullRef } = this.parseRef(ref);
   
   await context.bridgeInjector.callBridgeMethod(
     context.cdpSession,
     "type",
-    [localRef, text],
-    frameId || undefined
+    [fullRef, text]
   );
 }
 
 async resolve_container(ref: string): Promise<any> {
   const context = await this.ensureCurrentRoleContext();
-  const { frameId, localRef } = this.parseRef(ref);
+  const { fullRef } = this.parseRef(ref);
   
   return await context.bridgeInjector.callBridgeMethod(
     context.cdpSession,
     "resolve_container",
-    [localRef],
-    frameId || undefined
+    [fullRef]
   );
 }
 
-// Similar updates for inspect_pattern and extract_anchors
+async inspect_pattern(ref: string, ancestorLevel: number): Promise<any> {
+  const context = await this.ensureCurrentRoleContext();
+  const { fullRef } = this.parseRef(ref);
+  
+  return await context.bridgeInjector.callBridgeMethod(
+    context.cdpSession,
+    "inspect_pattern",
+    [fullRef, ancestorLevel]
+  );
+}
+
+async extract_anchors(ref: string, ancestorLevel: number): Promise<any> {
+  const context = await this.ensureCurrentRoleContext();
+  const { fullRef } = this.parseRef(ref);
+  
+  return await context.bridgeInjector.callBridgeMethod(
+    context.cdpSession,
+    "extract_anchors",
+    [fullRef, ancestorLevel]
+  );
+}
 ```
 
-**Estimated Changes:** ~80 lines
+**Estimated Changes:** ~40 lines
 
 ---
 
-## Phase 5: Frame ID Mapping
-
-**Challenge:** Browser-side frame detection uses simple indexes (`f1`, `f2`), but CDP uses frame IDs (opaque strings). Need to map between them.
-
-**File: `src/runtime/BridgeInjector.ts`**
-
-### 5.1 Add Frame Index Tracking
-
-```typescript
-export class BridgeInjector {
-  // ... existing ...
-  
-  // NEW: Map frame IDs to simple indexes
-  private frameIdToIndex = new Map<string, string>();  // CDP frameId → "f1"
-  private nextFrameIndex = 1;
-}
-```
-
-### 5.2 Assign Indexes on Frame Attach
-
-```typescript
-const onFrameAttached = async (evt: any) => {
-  const frameId = evt.frameId;
-  
-  // Assign a simple index for this frame
-  const frameIndex = `f${this.nextFrameIndex++}`;
-  this.frameIdToIndex.set(frameId, frameIndex);
-  
-  console.log(`🖼️ Frame attached: ${frameId} → ${frameIndex}`);
-  
-  await this.injectIntoFrame(cdp, frameId);
-};
-```
-
-### 5.3 Resolve Frame ID from Index
-
-```typescript
-/**
- * Get CDP frame ID from simple frame index
- */
-private getFrameIdFromIndex(frameIndex: string): string | null {
-  for (const [frameId, index] of this.frameIdToIndex.entries()) {
-    if (index === frameIndex) return frameId;
-  }
-  return null;
-}
-```
-
-### 5.4 Update callBridgeMethod
-
-```typescript
-async callBridgeMethod<T = any>(
-  cdp: CDPSession,
-  method: string,
-  args: any[] = [],
-  frameIndex?: string  // "f1", "f2", etc.
-): Promise<T> {
-  // Resolve CDP frame ID from index
-  const frameId = frameIndex ? this.getFrameIdFromIndex(frameIndex) : this.mainFrameId;
-  
-  const objectId = await this.getBridgeHandle(cdp, frameId || undefined);
-  
-  // ... rest unchanged ...
-}
-```
-
-**Estimated Changes:** ~50 lines
-
----
-
-## Phase 6: Testing
+## Phase 3: Testing
 
 **File: `tests/iframe-support.spec.ts`** (new file)
 
@@ -589,6 +365,7 @@ test.describe("Iframe Support", () => {
       <html>
         <body>
           <h1>Main Page</h1>
+          <button>Main Button</button>
           <iframe srcdoc="<h2>Iframe Content</h2><button>Iframe Button</button>"></iframe>
         </body>
       </html>
@@ -599,21 +376,20 @@ test.describe("Iframe Support", () => {
     
     const snapshot = await browser.snapshot();
     
-    // Main content
     expect(snapshot.text).toContain("Main Page");
-    
-    // Iframe content (if accessible)
-    const hasIframeContent = snapshot.text.includes("Iframe Content");
-    console.log(`Iframe content captured: ${hasIframeContent}`);
+    expect(snapshot.text).toContain("Main Button");
+    expect(snapshot.text).toContain("iframe");
+    expect(snapshot.text).toContain("Iframe Content");
+    expect(snapshot.text).toContain("Iframe Button");
   });
 
-  test("should interact with iframe elements", async () => {
+  test("should generate frame-qualified refs for iframe elements", async () => {
     const html = `
       <!DOCTYPE html>
       <html>
         <body>
-          <h1>Main Page</h1>
-          <iframe id="test-frame" srcdoc="<button id='btn'>Click Me</button>"></iframe>
+          <button>Main Button</button>
+          <iframe srcdoc="<button>Iframe Button</button>"></iframe>
         </body>
       </html>
     `;
@@ -623,13 +399,62 @@ test.describe("Iframe Support", () => {
     
     const snapshot = await browser.snapshot();
     
-    // Find iframe button ref (should be frame-qualified)
+    // Main button should have simple ref
+    const mainRef = snapshot.text.match(/Main Button.*\[ref=(e\d+)\]/)?.[1];
+    expect(mainRef).toMatch(/^e\d+$/);
+    
+    // Iframe button should have frame-qualified ref
+    const iframeRef = snapshot.text.match(/Iframe Button.*\[ref=(f\d+_e\d+)\]/)?.[1];
+    expect(iframeRef).toMatch(/^f\d+_e\d+$/);
+  });
+
+  test("should interact with iframe elements", async () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <h1>Main Page</h1>
+          <iframe id="test-frame" srcdoc="<button id='btn' onclick='this.textContent=&quot;Clicked&quot;'>Click Me</button>"></iframe>
+        </body>
+      </html>
+    `;
+
+    await browser.navigate(`data:text/html,${encodeURIComponent(html)}`);
+    await new Promise(r => setTimeout(r, 300));
+    
+    const snapshot = await browser.snapshot();
     const iframeButtonRef = snapshot.text.match(/Click Me.*\[ref=(f\d+_e\d+)\]/)?.[1];
     
-    if (iframeButtonRef) {
-      // Should be able to click iframe element
-      await browser.click(iframeButtonRef);
-      expect(iframeButtonRef).toMatch(/^f\d+_e\d+$/);
+    expect(iframeButtonRef).toBeTruthy();
+    
+    // Should be able to click iframe element
+    await browser.click(iframeButtonRef!);
+    
+    const snapshot2 = await browser.snapshot();
+    expect(snapshot2.text).toContain("Clicked");
+  });
+
+  test("should type into iframe input elements", async () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <iframe srcdoc="<input type='text' placeholder='Type here' />"></iframe>
+        </body>
+      </html>
+    `;
+
+    await browser.navigate(`data:text/html,${encodeURIComponent(html)}`);
+    await new Promise(r => setTimeout(r, 300));
+    
+    const snapshot = await browser.snapshot();
+    const inputRef = snapshot.text.match(/textbox.*\[ref=(f\d+_e\d+)\]/)?.[1];
+    
+    if (inputRef) {
+      await browser.type(inputRef, "Hello from iframe");
+      
+      const snapshot2 = await browser.snapshot();
+      expect(snapshot2.text).toContain("Hello from iframe");
     }
   });
 
@@ -638,6 +463,7 @@ test.describe("Iframe Support", () => {
       <!DOCTYPE html>
       <html>
         <body>
+          <h1>Main</h1>
           <iframe srcdoc="<p>Level 1</p><iframe srcdoc='<p>Level 2</p><button>Nested Button</button>'></iframe>"></iframe>
         </body>
       </html>
@@ -647,17 +473,33 @@ test.describe("Iframe Support", () => {
     await new Promise(r => setTimeout(r, 500));
     
     const snapshot = await browser.snapshot();
-    expect(snapshot.text).toContain("iframe");
+    
+    expect(snapshot.text).toContain("Main");
+    expect(snapshot.text).toContain("Level 1");
+    expect(snapshot.text).toContain("Level 2");
+    expect(snapshot.text).toContain("Nested Button");
   });
 
   test("should handle cross-origin iframes gracefully", async () => {
-    await browser.navigate("https://example.com");
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <h1>Main Page</h1>
+          <iframe src="https://example.com"></iframe>
+        </body>
+      </html>
+    `;
+
+    await browser.navigate(`data:text/html,${encodeURIComponent(html)}`);
+    await new Promise(r => setTimeout(r, 500));
     
-    // Page might have cross-origin iframes (ads, trackers, etc.)
     const snapshot = await browser.snapshot();
     
-    // Should not crash, should handle gracefully
-    expect(snapshot.elementCount).toBeGreaterThan(0);
+    // Should not crash
+    expect(snapshot.text).toContain("Main Page");
+    expect(snapshot.text).toContain("iframe");
+    expect(snapshot.text).toContain("[cross-origin iframe]");
   });
 
   test("should use structural tools on iframe elements", async () => {
@@ -665,7 +507,7 @@ test.describe("Iframe Support", () => {
       <!DOCTYPE html>
       <html>
         <body>
-          <iframe srcdoc="<div class='container'><button id='test'>Test</button></div>"></iframe>
+          <iframe srcdoc="<div class='container' id='wrapper'><button id='test'>Test Button</button></div>"></iframe>
         </body>
       </html>
     `;
@@ -674,76 +516,127 @@ test.describe("Iframe Support", () => {
     await new Promise(r => setTimeout(r, 300));
     
     const snapshot = await browser.snapshot();
-    const iframeRef = snapshot.text.match(/Test.*\[ref=(f\d+_e\d+)\]/)?.[1];
+    const iframeRef = snapshot.text.match(/Test Button.*\[ref=(f\d+_e\d+)\]/)?.[1];
     
     if (iframeRef) {
-      // Structural analysis should work within iframe
+      // resolve_container should work within iframe
       const containerResult = await browser.resolve_container(iframeRef);
       expect(containerResult).toBeDefined();
       expect(containerResult.target.ref).toBe(iframeRef);
+      expect(containerResult.ancestors.length).toBeGreaterThan(0);
+      
+      // inspect_pattern should work
+      const patternResult = await browser.inspect_pattern(iframeRef, 1);
+      expect(patternResult).toBeDefined();
+      
+      // extract_anchors should work
+      const anchorsResult = await browser.extract_anchors(iframeRef, 1);
+      expect(anchorsResult).toBeDefined();
     }
+  });
+
+  test("should handle multiple iframes on same page", async () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <iframe srcdoc="<button>Frame 1 Button</button>"></iframe>
+          <iframe srcdoc="<button>Frame 2 Button</button>"></iframe>
+          <iframe srcdoc="<button>Frame 3 Button</button>"></iframe>
+        </body>
+      </html>
+    `;
+
+    await browser.navigate(`data:text/html,${encodeURIComponent(html)}`);
+    await new Promise(r => setTimeout(r, 300));
+    
+    const snapshot = await browser.snapshot();
+    
+    // Should see all three frames
+    expect(snapshot.text).toContain("Frame 1 Button");
+    expect(snapshot.text).toContain("Frame 2 Button");
+    expect(snapshot.text).toContain("Frame 3 Button");
+    
+    // Refs should be distinct
+    const ref1 = snapshot.text.match(/Frame 1 Button.*\[ref=(f\d+_e\d+)\]/)?.[1];
+    const ref2 = snapshot.text.match(/Frame 2 Button.*\[ref=(f\d+_e\d+)\]/)?.[1];
+    const ref3 = snapshot.text.match(/Frame 3 Button.*\[ref=(f\d+_e\d+)\]/)?.[1];
+    
+    expect(ref1).toBeTruthy();
+    expect(ref2).toBeTruthy();
+    expect(ref3).toBeTruthy();
+    expect(ref1).not.toBe(ref2);
+    expect(ref2).not.toBe(ref3);
   });
 });
 ```
 
-**Estimated Changes:** ~200 lines (new file)
+**Estimated Changes:** ~220 lines (new file)
 
 ---
 
 ## Summary
 
 ### Total Estimated Changes
-- `BridgeInjector.ts`: ~200 lines
 - `SnapshotGenerator.ts`: ~120 lines
-- `MultiContextBrowser.ts`: ~80 lines
-- `elements.ts`: ~5 lines
-- New test file: ~200 lines
-- **Total: ~605 lines of code**
+- `elements.ts`: ~5 lines  
+- `MultiContextBrowser.ts`: ~40 lines
+- New test file: ~220 lines
+- **Total: ~385 lines of code**
 
 ### Files Modified
-1. ✏️ `src/runtime/BridgeInjector.ts`
-2. ✏️ `src/browser/core/SnapshotGenerator.ts`
+1. ✏️ `src/browser/core/SnapshotGenerator.ts`
+2. ✏️ `src/browser/types/elements.ts`
 3. ✏️ `src/runtime/MultiContextBrowser.ts`
-4. ✏️ `src/browser/types/elements.ts`
-5. ✏️ `src/runtime/types.ts` (minor - add frameId to context)
-6. ➕ `tests/iframe-support.spec.ts` (new)
-7. ✏️ `tests/bridge-lifecycle.spec.ts` (already updated)
+4. ➕ `tests/iframe-support.spec.ts` (new)
+5. ✏️ `tests/bridge-lifecycle.spec.ts` (already updated)
 
 ### Testing Strategy
 1. Run existing tests - ensure no regressions
 2. Run new iframe test suite
 3. Manual testing with real sites containing iframes
-4. Test cross-origin handling (should gracefully degrade)
+4. Test cross-origin handling (graceful degradation)
 5. Test nested iframe scenarios
-6. Test frame lifecycle (attach/detach during interactions)
+6. Test multiple iframes on same page
 
 ### Rollout Plan
-1. **Phase 1-2**: Core injection and snapshot (can test in isolation)
-2. **Phase 3-4**: Interactions (depends on phase 1-2)
-3. **Phase 5**: Frame mapping refinements
-4. **Phase 6**: Comprehensive testing and edge cases
+1. **Phase 1**: Snapshot generation with iframe traversal
+2. **Phase 2**: Ref parsing and interaction routing
+3. **Phase 3**: Comprehensive testing
+
+### Why This Approach Works
+
+**Same-Origin Iframes (99% of use cases):**
+- ✅ `iframe.contentDocument` provides full DOM access
+- ✅ All interactions work through main bridge
+- ✅ Structural analysis tools work unchanged
+- ✅ Simple and maintainable
+
+**Cross-Origin Iframes:**
+- ✅ Gracefully handled with `[cross-origin iframe]` marker
+- ✅ No crashes or errors
+- ✅ Expected behavior (browser security blocks access)
+
+### Performance Impact
+- Minimal: Only processes accessible iframes
+- Cross-origin iframes fail fast (single try-catch)
+- No additional CDP overhead
+- Structural tools already bounded by config limits
 
 ### Risk Mitigation
 - ✅ No breaking changes to existing API
 - ✅ Existing tests should pass unchanged
 - ✅ Graceful degradation for cross-origin
-- ✅ Per-frame isolation prevents interference
-- ⚠️ Frame lifecycle timing (attach/detach during navigation)
-- ⚠️ Frame ID mapping consistency across navigations
-
-### Performance Impact
-- Minimal: Only processes same-origin iframes
-- Cross-origin iframes are skipped (no perf cost)
-- Per-frame bridges are lightweight
-- Structural tools already bounded by config limits
+- ✅ Single bridge instance (no sync issues)
+- ✅ DOM-based approach is well-understood
 
 ---
 
 ## Next Steps
 
-1. Review this plan for any gaps or concerns
-2. Start with Phase 1 (multi-frame injection)
-3. Test incrementally after each phase
-4. Document iframe ref format in user-facing docs
-5. Update CHANGELOG.md with iframe support announcement
-
+1. Start with Phase 1 (snapshot generation)
+2. Test with existing iframe test from bridge-lifecycle.spec.ts
+3. Implement Phase 2 (ref parsing)
+4. Add comprehensive Phase 3 tests
+5. Document iframe ref format in user-facing docs
+6. Update CHANGELOG.md with iframe support announcement
