@@ -37,7 +37,7 @@ npx playwright test --debug
 - **Snapshot Generator** (`snapshot-generator.spec.ts`) - Accessibility tree generation
 - **CSS & YAML** (`css-and-yaml.spec.ts`) - Content edge cases
 
-**Total Duration**: ~2-3 minutes for full suite
+**Total Duration**: ~2-3 minutes (tests run in parallel)
 
 ## Writing Tests
 
@@ -97,10 +97,7 @@ Tests run automatically on:
 
 ### What CI Runs
 
-1. **Full Test Suite** - All tests via `./tests/run-pr-tests.sh`
-2. **Smoke Test** - Critical tests only (fast fail)
-
-Both jobs run in parallel for faster feedback.
+All tests run in parallel using Playwright's built-in parallelization for fast feedback (~2-3 minutes).
 
 ## npm Publish Safety
 

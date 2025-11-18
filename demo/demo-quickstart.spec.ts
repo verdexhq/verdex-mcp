@@ -12,7 +12,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEMO_PAGE = `file://${path.resolve(__dirname, "demo-page.html")}`;
+const DEMO_PAGE = `file://${path.resolve(
+  __dirname,
+  "worst-case/demo-page.html"
+)}`;
 
 test.describe("Verdex Quick Start Demo", () => {
   test.beforeEach(async ({ page }) => {

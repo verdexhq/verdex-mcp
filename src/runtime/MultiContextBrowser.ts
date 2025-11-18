@@ -420,19 +420,30 @@ export class MultiContextBrowser {
         throw error;
       });
 
-    // Execute the click
-    await context.bridgeInjector.callBridgeMethod(context.cdpSession, "click", [
-      ref,
-    ]);
+    try {
+      // Execute the click
+      await context.bridgeInjector.callBridgeMethod(
+        context.cdpSession,
+        "click",
+        [ref]
+      );
 
-    // Wait for navigation to complete (if it happens)
-    // For cross-document navigation, this resolves when page is loaded
-    // For same-document navigation (SPA/Remix), this times out and returns null
-    await navigationPromise;
+      // Wait for navigation to complete (if it happens)
+      // For cross-document navigation, this resolves when page is loaded
+      // For same-document navigation (SPA/Remix), this times out and returns null
+      await navigationPromise;
 
-    // No additional wait needed - networkidle2 already waits 500ms after network settles
-    // Bridge is automatically re-injected via CDP events for cross-document navigation
-    // Bridge context stays valid for same-document navigation (SPA/Remix)
+      // No additional wait needed - networkidle2 already waits 500ms after network settles
+      // Bridge is automatically re-injected via CDP events for cross-document navigation
+      // Bridge context stays valid for same-document navigation (SPA/Remix)
+    } catch (error) {
+      // CRITICAL: Await navigationPromise even on error to prevent "Navigating frame was detached"
+      // If we don't wait for it, the promise keeps running during browser cleanup
+      await navigationPromise.catch(() => {
+        /* Ignore navigation errors when click itself failed */
+      });
+      throw error;
+    }
   }
 
   async type(ref: string, text: string): Promise<void> {

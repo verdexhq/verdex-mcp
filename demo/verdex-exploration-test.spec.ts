@@ -21,7 +21,7 @@ test.describe("Verdex Selector Validation - Scenario 1", () => {
   }) => {
     // Navigate to the well-structured demo page
     await page.goto(
-      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/tests/demo-scenario-1-well-structured.html"
+      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/demo/demo-scenario-1-well-structured.html"
     );
 
     // CORRECT Pattern: Scope to container first, THEN filter by content, THEN target button
@@ -57,7 +57,7 @@ test.describe("Verdex Selector Validation - Scenario 1", () => {
     page,
   }) => {
     await page.goto(
-      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/tests/demo-scenario-1-well-structured.html"
+      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/demo/demo-scenario-1-well-structured.html"
     );
 
     // Strategy 2: Test ID scoped (more specific but unnecessary if simple works)
@@ -88,7 +88,7 @@ test.describe("Verdex Selector Validation - Scenario 1", () => {
     page,
   }) => {
     await page.goto(
-      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/tests/demo-scenario-1-well-structured.html"
+      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/demo/demo-scenario-1-well-structured.html"
     );
 
     // Test that we can uniquely select different products
@@ -126,7 +126,7 @@ test.describe("Verdex Selector Validation - Scenario 1", () => {
     page,
   }) => {
     await page.goto(
-      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/tests/demo-scenario-1-well-structured.html"
+      "file:///Users/johnchildseddy/Desktop/testnexus-codebase/TESTING/verdex-mcp/demo/demo-scenario-1-well-structured.html"
     );
 
     // Out of Stock button should be unique by text alone

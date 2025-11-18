@@ -13,9 +13,16 @@
  */
 import { test, expect } from "@playwright/test";
 import { VerdexMCPServer } from "../src/index.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // ⚠️ DEMO FILE PATH - Be careful when moving/renaming demo files!
-const DEMO_PAGE_PATH = `file://${process.cwd()}/demo/worst-case/demo-page.html`;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DEMO_PAGE_PATH = `file://${path.resolve(
+  __dirname,
+  "../demo/worst-case/demo-page.html"
+)}`;
 
 test.describe("MCP Server Integration with Bundled Bridge", () => {
   let server: VerdexMCPServer;

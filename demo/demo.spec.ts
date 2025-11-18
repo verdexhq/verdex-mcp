@@ -15,7 +15,9 @@ import { test, expect } from "@playwright/test";
 test.describe("ShopFast Demo Page - Verdex-Powered Selectors", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to our demo page
-    await page.goto("file://" + process.cwd() + "/tests/demo-page.html");
+    await page.goto(
+      "file://" + process.cwd() + "/demo/worst-case/demo-page.html"
+    );
     await expect(
       page.getByRole("heading", { level: 3, name: "Shopping Cart (3)" })
     ).toBeVisible();

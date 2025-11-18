@@ -23,12 +23,6 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
-# Check if test script exists
-if [ ! -f "tests/run-pr-tests.sh" ]; then
-    echo "❌ Error: tests/run-pr-tests.sh not found"
-    exit 1
-fi
-
 # Create pre-push hook
 echo "📝 Creating pre-push hook..."
 cat > .git/hooks/pre-push << 'EOF'
@@ -43,8 +37,8 @@ echo "🧪 Running Verdex MCP test suite before push..."
 echo "   (This ensures no regressions are pushed to the repository)"
 echo ""
 
-# Run the PR test script
-./tests/run-pr-tests.sh
+# Run the test suite
+npm test
 
 # Capture exit code
 EXIT_CODE=$?
@@ -132,6 +126,6 @@ echo "  • git push --no-verify"
 echo "  • git commit --no-verify"
 echo ""
 echo "Testing the setup:"
-echo "  • ./tests/run-pr-tests.sh"
+echo "  • npm test"
 echo ""
 
