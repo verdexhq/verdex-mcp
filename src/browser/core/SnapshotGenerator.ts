@@ -44,9 +44,15 @@ export class SnapshotGenerator {
     console.log("Starting snapshot...");
 
     try {
-      // Clear previous state
-      this.bridge.elements.clear();
-      this.bridge.counter = 0;
+      // Clean up stale refs (elements removed from DOM)
+      for (const [ref, info] of this.bridge.elements.entries()) {
+        if (!info.element.isConnected) {
+          delete (info.element as any)._verdexRef;
+          this.bridge.elements.delete(ref);
+        }
+      }
+
+      // Keep: Clear visited set for this snapshot traversal
       this.visited.clear();
 
       // Phase 1: Build the tree
@@ -182,10 +188,20 @@ export class SnapshotGenerator {
 
     // Add reference for interactive elements
     if (AriaUtils.isInteractive(element, role)) {
-      const ref = `e${++this.bridge.counter}`;
-      ariaNode.ref = ref;
+      // Check if element already has a ref
+      let ref = (element as any)._verdexRef;
 
-      // Store element information
+      if (ref && this.bridge.elements.has(ref)) {
+        // Existing element with valid ref in current bridge - reuse it
+        ariaNode.ref = ref;
+      } else {
+        // New element OR stale ref from previous session - create new ref
+        ref = `e${++this.bridge.counter}`;
+        (element as any)._verdexRef = ref;
+        ariaNode.ref = ref;
+      }
+
+      // Always update element info (properties may have changed)
       const elementInfo: ElementInfo = {
         element: element,
         tagName: element.tagName,

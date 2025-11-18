@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed (Minor Breaking)
+- **Ref persistence across snapshots:** Element refs now persist within a page session
+  - Refs like `e25` stay consistent across multiple `snapshot()` calls
+  - Enables multi-turn LLM exploration workflows
+  - Stale refs (removed elements) are automatically cleaned up
+  - **Breaking:** `resolve_container()`, `inspect_pattern()`, `extract_anchors()` now throw errors 
+    instead of returning `null` for missing/stale refs (error handling already updated in 0.1.3)
+
+### Fixed
+- Fixed conversational workflow where refs broke after snapshots
+- Fixed browser back/forward button causing ref conflicts
+
 ## [0.1.3] - 2025-10-08
 
 ### Changed
