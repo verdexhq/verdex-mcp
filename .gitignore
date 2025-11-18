@@ -17,10 +17,8 @@ _playwright/
 *.js.map
 
 # Testing
-tests/
 playwright-report/
 playwright.config.ts
-demo-page.html
 
 # Environment variables
 .env
