@@ -1,9 +1,21 @@
 /**
  * Integration test for MCP server with bundled bridge
  * Tests that the bridge works correctly when called through the MCP server layer
+ *
+ * ⚠️  DEMO FILE DEPENDENCY:
+ * This test relies on demo/worst-case/demo-page.html for integration testing.
+ * The demo page must contain:
+ * - "Add to Cart" buttons
+ * - Search input with "Search products" placeholder/label
+ * - Product card structure with repeating patterns
+ *
+ * If you move or modify the demo file structure, update DEMO_PAGE_PATH below!
  */
 import { test, expect } from "@playwright/test";
 import { VerdexMCPServer } from "../src/index.js";
+
+// ⚠️ DEMO FILE PATH - Be careful when moving/renaming demo files!
+const DEMO_PAGE_PATH = `file://${process.cwd()}/demo/worst-case/demo-page.html`;
 
 test.describe("MCP Server Integration with Bundled Bridge", () => {
   let server: VerdexMCPServer;
@@ -17,6 +29,8 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     if (server) {
       // @ts-ignore - Access private browser for cleanup
       if ((server as any).browser) {
+        // Add a small delay to ensure all async operations complete before closing
+        await new Promise((resolve) => setTimeout(resolve, 100));
         await (server as any).browser.close();
       }
     }
@@ -70,9 +84,8 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     await server.browser.initialize();
 
     // Load the demo page
-    const demoPagePath = `file://${process.cwd()}/tests/demo-page.html`;
     // @ts-ignore
-    await server.browser.navigate(demoPagePath);
+    await server.browser.navigate(DEMO_PAGE_PATH);
 
     // Take snapshot to find interactive elements
     // @ts-ignore
@@ -89,6 +102,10 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.click(buttonRef);
 
+    // Take a snapshot after click to ensure operation completed
+    // @ts-ignore
+    await server.browser.snapshot();
+
     console.log(`✅ browser_click working via MCP server`);
     console.log(`   - Successfully clicked button ref: ${buttonRef}`);
   });
@@ -97,9 +114,8 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.initialize();
 
-    const demoPagePath = `file://${process.cwd()}/tests/demo-page.html`;
     // @ts-ignore
-    await server.browser.navigate(demoPagePath);
+    await server.browser.navigate(DEMO_PAGE_PATH);
 
     // @ts-ignore
     const snapshot = await server.browser.snapshot();
@@ -118,6 +134,10 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.type(inputRef, searchText);
 
+    // Take a snapshot after typing to ensure operation completed
+    // @ts-ignore
+    await server.browser.snapshot();
+
     console.log(`✅ browser_type working via MCP server`);
     console.log(`   - Successfully typed "${searchText}" into ${inputRef}`);
   });
@@ -126,9 +146,8 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.initialize();
 
-    const demoPagePath = `file://${process.cwd()}/tests/demo-page.html`;
     // @ts-ignore
-    await server.browser.navigate(demoPagePath);
+    await server.browser.navigate(DEMO_PAGE_PATH);
 
     // @ts-ignore
     const snapshot = await server.browser.snapshot();
@@ -161,9 +180,8 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.initialize();
 
-    const demoPagePath = `file://${process.cwd()}/tests/demo-page.html`;
     // @ts-ignore
-    await server.browser.navigate(demoPagePath);
+    await server.browser.navigate(DEMO_PAGE_PATH);
 
     // @ts-ignore
     const snapshot = await server.browser.snapshot();
@@ -201,9 +219,8 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.initialize();
 
-    const demoPagePath = `file://${process.cwd()}/tests/demo-page.html`;
     // @ts-ignore
-    await server.browser.navigate(demoPagePath);
+    await server.browser.navigate(DEMO_PAGE_PATH);
 
     // @ts-ignore
     const snapshot = await server.browser.snapshot();
