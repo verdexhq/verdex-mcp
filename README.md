@@ -13,6 +13,7 @@
 <div align="center">
 
 [![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
+[![Test Suite](https://github.com/verdexhq/verdex-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/verdexhq/verdex-mcp/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Playwright](https://img.shields.io/badge/Playwright-Ready-45ba4b?logo=playwright)](https://playwright.dev/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io)
@@ -437,31 +438,27 @@ Browser Instance
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how to help:
+We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for detailed instructions.
+
+### Quick Start for Contributors
+
+```bash
+# 1. Fork and clone
+git clone https://github.com/YOUR_USERNAME/verdex-mcp.git
+cd verdex-mcp
+
+# 2. Install and build
+npm install
+npx playwright install chromium
+npm run build
+
+# 3. Run tests
+npm test
+```
 
 ### Reporting Issues
 
 Found a bug or have a feature request? [Open an issue](https://github.com/verdexhq/verdex-mcp/issues)
-
-### Development Setup
-
-```bash
-# Clone repo
-git clone https://github.com/verdexhq/verdex-mcp.git
-cd verdex-mcp
-
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run tests
-npm test
-
-# Start in dev mode
-npm run dev
-```
 
 ### Areas We'd Love Help With
 
@@ -470,6 +467,8 @@ npm run dev
 - **iframe support**: Cross-frame DOM exploration
 - **More browser actions**: Drag-and-drop, hover states, keyboard navigation
 - **Documentation**: More examples, video tutorials
+
+For full guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 

@@ -65,9 +65,9 @@ export class MultiContextBrowser {
 
     if (!this.browser) {
       this.browser = await puppeteer.launch({
-        headless: false,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--start-maximized"],
-        defaultViewport: null,
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        defaultViewport: { width: 1280, height: 720 },
       });
     }
   }
@@ -400,14 +400,25 @@ export class MultiContextBrowser {
   async click(ref: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
 
-    // Set up navigation listener BEFORE clicking
-    // This will resolve if navigation happens, or reject on timeout
+    // Set up navigation listener BEFORE clicking (prevents race condition)
+    // networkidle2: Waits for ≤2 network connections for 500ms (good for real-world apps)
+    // 1s timeout: Fast feedback for non-navigating clicks (most common case)
     const navigationPromise = context.page
       .waitForNavigation({
-        waitUntil: "networkidle0",
-        timeout: 30000,
+        waitUntil: "networkidle2",
+        timeout: 1000,
       })
-      .catch(() => null); // Resolve to null if no navigation (timeout is expected)
+      .catch((error) => {
+        // Only suppress timeout errors (expected for non-navigating clicks)
+        if (
+          error.message?.includes("Timeout") ||
+          error.message?.includes("timeout")
+        ) {
+          return null;
+        }
+        // Re-throw real errors (network failures, etc.)
+        throw error;
+      });
 
     // Execute the click
     await context.bridgeInjector.callBridgeMethod(context.cdpSession, "click", [
@@ -419,10 +430,9 @@ export class MultiContextBrowser {
     // For same-document navigation (SPA/Remix), this times out and returns null
     await navigationPromise;
 
-    // Small wait for any dynamic content updates
-    // For cross-document nav: bridge is automatically re-injected via CDP events
-    // For same-document nav (Remix): bridge context stays valid, no re-injection needed
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // No additional wait needed - networkidle2 already waits 500ms after network settles
+    // Bridge is automatically re-injected via CDP events for cross-document navigation
+    // Bridge context stays valid for same-document navigation (SPA/Remix)
   }
 
   async type(ref: string, text: string): Promise<void> {
