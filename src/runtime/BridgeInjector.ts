@@ -4,11 +4,21 @@
 import type { CDPSession } from "puppeteer";
 import { BRIDGE_BUNDLE, BRIDGE_VERSION } from "./bridge-bundle.js";
 import type { BridgeConfig, InjectorOptions } from "../browser/types/bridge.js";
+import { ManualPromise } from "../utils/ManualPromise.js";
+
+// NEW: Multi-frame state structure
+type FrameState = {
+  frameId: string;
+  contextId: number;
+  bridgeObjectId: string;
+  contextReadyPromise: ManualPromise<void>;
+};
 
 export class BridgeInjector {
   private worldName: string;
   private config: BridgeConfig;
 
+  // KEEP EXISTING: Old single-frame state (will be removed in Step 2.10)
   private mainFrameId: string | null = null;
   private contextId: number | null = null; // executionContextId for our world
   private bridgeObjectId: string | null = null; // created instance
@@ -16,6 +26,9 @@ export class BridgeInjector {
   private scriptId: string | null = null; // addScriptToEvaluateOnNewDocument identifier
   private manualInjectionMode = false; // Fallback for very old Chromium
   private listeners: Array<{ event: string; handler: Function }> = []; // Track listeners for cleanup
+
+  // ADD NEW: Multi-frame state (parallel state for testing)
+  private frameStates = new Map<CDPSession, Map<string, FrameState>>();
 
   constructor(options: InjectorOptions = {}) {
     this.worldName = options.worldName ?? "verdex_isolated";
@@ -40,12 +53,22 @@ export class BridgeInjector {
     const onCtx = (evt: any) => {
       const ctx = evt.context;
       const aux = ctx.auxData ?? {};
+      const frameId = aux.frameId;
       const matchesWorld =
         ctx.name === this.worldName || aux.name === this.worldName;
-      const matchesTop = !this.mainFrameId || aux.frameId === this.mainFrameId;
+      const matchesTop = !this.mainFrameId || frameId === this.mainFrameId;
+
       if (matchesWorld && matchesTop) {
+        // KEEP EXISTING: Old single-frame logic
         this.contextId = ctx.id;
         this.resolveContextReady();
+      }
+
+      // ADD NEW: Also populate frameStates map for any frame with our world
+      if (matchesWorld && frameId) {
+        const frameState = this.getOrCreateFrameState(cdp, frameId);
+        frameState.contextId = ctx.id;
+        frameState.contextReadyPromise.resolve();
       }
     };
 
@@ -71,6 +94,27 @@ export class BridgeInjector {
     this.addListener(cdp, "Runtime.executionContextCreated", onCtx);
     this.addListener(cdp, "Page.navigatedWithinDocument", onSameDoc);
     this.addListener(cdp, "Page.frameNavigated", onCrossDocNav);
+
+    // NEW: Frame lifecycle listeners for multi-frame support
+    // Lazy injection pattern: Only track frame, don't inject until needed
+    const onFrameAttached = (evt: any) => {
+      // Just create placeholder state - injection happens on-demand via ensureFrameState
+      this.getOrCreateFrameState(cdp, evt.frameId);
+    };
+
+    const onFrameDetached = (evt: any) => {
+      const sessionStates = this.frameStates.get(cdp);
+      if (sessionStates) {
+        const state = sessionStates.get(evt.frameId);
+        if (state && !state.contextReadyPromise.isDone()) {
+          state.contextReadyPromise.reject(new Error("Frame detached"));
+        }
+        sessionStates.delete(evt.frameId);
+      }
+    };
+
+    this.addListener(cdp, "Page.frameAttached", onFrameAttached);
+    this.addListener(cdp, "Page.frameDetached", onFrameDetached);
 
     // 2) ENABLE DOMAINS
     await cdp.send("Page.enable");
@@ -275,6 +319,110 @@ export class BridgeInjector {
   reset(): void {
     this.contextId = null;
     this.bridgeObjectId = null;
+  }
+
+  // NEW: Multi-frame helper methods
+  private getFrameState(
+    cdp: CDPSession,
+    frameId: string
+  ): FrameState | undefined {
+    return this.frameStates.get(cdp)?.get(frameId);
+  }
+
+  private getOrCreateFrameState(cdp: CDPSession, frameId: string): FrameState {
+    let state = this.getFrameState(cdp, frameId);
+    if (state) return state;
+
+    state = {
+      frameId,
+      contextId: 0,
+      bridgeObjectId: "",
+      contextReadyPromise: new ManualPromise<void>(),
+    };
+
+    if (!this.frameStates.has(cdp)) {
+      this.frameStates.set(cdp, new Map());
+    }
+    this.frameStates.get(cdp)!.set(frameId, state);
+
+    return state;
+  }
+
+  /**
+   * Ensure a frame has an isolated world with bridge injected.
+   * This is LAZY - only injects when first called, not on frame attach.
+   * Uses ManualPromise to wait for executionContextCreated event.
+   *
+   * Playwright equivalent: FrameExecutionContext.injectedScript()
+   * No polling, no retries - event-driven and idempotent.
+   */
+  async ensureFrameState(
+    cdp: CDPSession,
+    frameId: string
+  ): Promise<FrameState> {
+    let state = this.getFrameState(cdp, frameId);
+
+    // If bridge already exists, return immediately (idempotent)
+    if (state?.contextReadyPromise.isDone() && state.bridgeObjectId) {
+      return state;
+    }
+
+    // If injection is in-progress, wait for it
+    if (state?.contextReadyPromise && !state.contextReadyPromise.isDone()) {
+      await state.contextReadyPromise;
+      return state;
+    }
+
+    // First call - create state and inject
+    state = this.getOrCreateFrameState(cdp, frameId);
+
+    try {
+      // Create isolated world (will trigger executionContextCreated event)
+      await cdp.send("Page.createIsolatedWorld", {
+        frameId,
+        worldName: this.worldName,
+        grantUniveralAccess: false,
+      });
+
+      // Wait for executionContextCreated event to resolve the promise
+      await state.contextReadyPromise;
+
+      // Inject bundle and get bridge handle
+      const { result } = await cdp.send("Runtime.evaluate", {
+        expression: BRIDGE_BUNDLE,
+        contextId: state.contextId,
+        returnByValue: false,
+      });
+
+      if (!result.objectId) {
+        throw new Error("Bridge did not return an object");
+      }
+
+      state.bridgeObjectId = result.objectId;
+
+      return state;
+    } catch (error) {
+      // Handle non-injectable frames gracefully (cross-origin, about:blank, etc.)
+      const errorMsg = String(error);
+      const isNonInjectable =
+        errorMsg.includes("cross-origin") ||
+        errorMsg.includes("about:blank") ||
+        errorMsg.includes("Cannot find context") ||
+        errorMsg.includes("No frame");
+
+      if (isNonInjectable) {
+        // Mark as failed so we don't retry - propagate error to caller
+        state.contextReadyPromise.reject(error as Error);
+        throw new Error(`Frame ${frameId} cannot be injected: ${errorMsg}`);
+      }
+
+      // For real errors, clean up and allow retry
+      const sessionStates = this.frameStates.get(cdp);
+      if (sessionStates) {
+        sessionStates.delete(frameId);
+      }
+      throw error;
+    }
   }
 
   async dispose(cdp: CDPSession): Promise<void> {
