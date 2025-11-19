@@ -168,6 +168,7 @@ export class AriaUtils {
     "SELECT",
     "TEXTAREA",
     "DETAILS",
+    "IFRAME", // ← iframes need refs for frame resolution
   ];
 
   /**
@@ -262,6 +263,8 @@ export class AriaUtils {
         return "separator";
       case "HTML":
         return "document";
+      case "IFRAME":
+        return "iframe";
       case "IMG":
         // Empty alt makes it presentational
         if (
