@@ -258,7 +258,10 @@ export class MultiContextBrowser {
       if (!healthy) {
         // injector will recreate on demand
       }
-      await context.bridgeInjector.getBridgeHandle(context.cdpSession);
+      await context.bridgeInjector.getBridgeHandle(
+        context.cdpSession,
+        context.mainFrameId
+      );
     } catch (error) {
       throw new Error(
         `Failed to ensure bridge for role '${context.role}': ${
@@ -386,7 +389,9 @@ export class MultiContextBrowser {
       const context = await this.ensureCurrentRoleContext();
       return await context.bridgeInjector.callBridgeMethod(
         context.cdpSession,
-        "snapshot"
+        "snapshot",
+        [],
+        context.mainFrameId
       );
     } catch (error) {
       throw new Error(
@@ -425,7 +430,8 @@ export class MultiContextBrowser {
       await context.bridgeInjector.callBridgeMethod(
         context.cdpSession,
         "click",
-        [ref]
+        [ref],
+        context.mainFrameId
       );
 
       // Wait for navigation to complete (if it happens)
@@ -448,10 +454,12 @@ export class MultiContextBrowser {
 
   async type(ref: string, text: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
-    await context.bridgeInjector.callBridgeMethod(context.cdpSession, "type", [
-      ref,
-      text,
-    ]);
+    await context.bridgeInjector.callBridgeMethod(
+      context.cdpSession,
+      "type",
+      [ref, text],
+      context.mainFrameId
+    );
   }
 
   async resolve_container(ref: string): Promise<any> {
@@ -459,7 +467,8 @@ export class MultiContextBrowser {
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "resolve_container",
-      [ref]
+      [ref],
+      context.mainFrameId
     );
   }
 
@@ -468,7 +477,8 @@ export class MultiContextBrowser {
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "inspect_pattern",
-      [ref, ancestorLevel]
+      [ref, ancestorLevel],
+      context.mainFrameId
     );
   }
 
@@ -477,7 +487,8 @@ export class MultiContextBrowser {
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "extract_anchors",
-      [ref, ancestorLevel]
+      [ref, ancestorLevel],
+      context.mainFrameId
     );
   }
 

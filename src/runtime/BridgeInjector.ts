@@ -76,7 +76,14 @@ export class BridgeInjector {
     // Context stays alive, but we invalidate the bridge instance handle
     const onSameDoc = (evt: any) => {
       if (this.isTopFrame(evt.frameId)) {
-        this.bridgeObjectId = null;
+        this.bridgeObjectId = null; // OLD: single-frame state
+      }
+
+      // NEW: For multi-frame, invalidate bridge instance for navigated frame
+      const sessionStates = this.frameStates.get(cdp);
+      const state = sessionStates?.get(evt.frameId);
+      if (state) {
+        state.bridgeObjectId = ""; // Clear cached instance, keep context
       }
     };
 
@@ -86,8 +93,14 @@ export class BridgeInjector {
       if (evt.frame && this.isTopFrame(evt.frame.id) && !evt.frame.parentId) {
         // Cross-document navigation destroys and recreates execution contexts
         // Reset our state; Runtime.executionContextCreated will fire with new context
-        this.contextId = null;
-        this.bridgeObjectId = null;
+        this.contextId = null; // OLD: single-frame state
+        this.bridgeObjectId = null; // OLD: single-frame state
+
+        // NEW: Also clear multi-frame state for navigated frame
+        const sessionStates = this.frameStates.get(cdp);
+        if (sessionStates) {
+          sessionStates.delete(evt.frame.id);
+        }
       }
     };
 
@@ -216,23 +229,19 @@ export class BridgeInjector {
     resolvers.forEach((fn) => fn());
   }
 
-  async getBridgeHandle(cdp: CDPSession): Promise<string> {
-    // If we have a cached bridge handle, check if it's still valid
-    if (this.bridgeObjectId) {
-      const alive = await this.healthCheck(cdp);
-      if (alive) return this.bridgeObjectId;
-      this.bridgeObjectId = null;
-    }
+  async getBridgeHandle(cdp: CDPSession, frameId: string): Promise<string> {
+    // Ensure frame has isolated world and bridge bundle injected
+    const state = await this.ensureFrameState(cdp, frameId);
 
-    // Wait for isolated world context to be ready (if not already)
-    await this.waitForContextReady();
-    if (!this.contextId)
-      throw new Error("No execution context available for the bridge world");
+    // If we have a cached bridge instance handle, return it
+    if (state.bridgeObjectId) {
+      return state.bridgeObjectId;
+    }
 
     // Verify factory exists and version matches
     const { result: factoryType } = await cdp.send("Runtime.evaluate", {
       expression: "typeof globalThis.__VerdexBridgeFactory__",
-      contextId: this.contextId,
+      contextId: state.contextId,
       returnByValue: true,
     });
     if (factoryType.value !== "object") {
@@ -243,7 +252,7 @@ export class BridgeInjector {
 
     const { result: versionCheck } = await cdp.send("Runtime.evaluate", {
       expression: "globalThis.__VerdexBridgeFactory__?.version",
-      contextId: this.contextId,
+      contextId: state.contextId,
       returnByValue: true,
     });
     if (versionCheck.value !== BRIDGE_VERSION) {
@@ -257,22 +266,23 @@ export class BridgeInjector {
       expression: `(function(config){ return globalThis.__VerdexBridgeFactory__.create(config); })(${JSON.stringify(
         this.config
       )})`,
-      contextId: this.contextId,
+      contextId: state.contextId,
       returnByValue: false,
     });
     if (!result.objectId)
       throw new Error("Failed to create bridge instance (no objectId)");
 
-    this.bridgeObjectId = result.objectId;
-    return this.bridgeObjectId;
+    state.bridgeObjectId = result.objectId;
+    return state.bridgeObjectId;
   }
 
   async callBridgeMethod<T = any>(
     cdp: CDPSession,
     method: string,
-    args: any[] = []
+    args: any[],
+    frameId: string
   ): Promise<T> {
-    const objectId = await this.getBridgeHandle(cdp);
+    const objectId = await this.getBridgeHandle(cdp, frameId);
 
     const response = await cdp.send("Runtime.callFunctionOn", {
       functionDeclaration: `
@@ -387,18 +397,12 @@ export class BridgeInjector {
       // Wait for executionContextCreated event to resolve the promise
       await state.contextReadyPromise;
 
-      // Inject bundle and get bridge handle
-      const { result } = await cdp.send("Runtime.evaluate", {
+      // Inject bundle (factory) into isolated world
+      await cdp.send("Runtime.evaluate", {
         expression: BRIDGE_BUNDLE,
         contextId: state.contextId,
         returnByValue: false,
       });
-
-      if (!result.objectId) {
-        throw new Error("Bridge did not return an object");
-      }
-
-      state.bridgeObjectId = result.objectId;
 
       return state;
     } catch (error) {
