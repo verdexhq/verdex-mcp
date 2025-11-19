@@ -22,6 +22,19 @@ export type ElementInfo = {
 };
 
 /**
+ * Entry in the global ref index for multi-frame element tracking.
+ */
+export type RefIndexEntry = {
+  frameId: string;
+  localRef: string;
+};
+
+/**
+ * Global index mapping global refs to their frame-local refs.
+ */
+export type GlobalRefIndex = Map<string, RefIndexEntry>;
+
+/**
  * Context for a specific role in multi-role browser management.
  * Contains all the Puppeteer resources needed for a role-specific browser session.
  */
@@ -37,6 +50,10 @@ export type RoleContext = {
   lastUsed: number;
   hasNavigated: boolean; // Track if this context has been navigated
   storageStatePath?: string; // Optional: Path to Playwright storage state file
+
+  // NEW: Multi-frame state
+  refIndex?: GlobalRefIndex;
+  navigationTimestamp?: number;
 };
 
 /**
