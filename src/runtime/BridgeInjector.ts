@@ -265,10 +265,7 @@ export class BridgeInjector {
   }
 
   // NEW: Multi-frame helper methods
-  private getFrameState(
-    cdp: CDPSession,
-    frameId: string
-  ): FrameState | undefined {
+  getFrameState(cdp: CDPSession, frameId: string): FrameState | undefined {
     return this.frameStates.get(cdp)?.get(frameId);
   }
 

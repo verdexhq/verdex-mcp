@@ -277,6 +277,9 @@ export class MultiContextBrowser {
         });
         finalResponse = response || finalResponse;
 
+        // NEW: Discover and inject bridges into all frames
+        await this.discoverAndInjectFrames(context);
+
         const endTime = Date.now();
         const loadTime = endTime - startTime;
 
@@ -356,6 +359,68 @@ export class MultiContextBrowser {
 
       throw new Error(errorMessage);
     }
+  }
+
+  /**
+   * Discover all frames in page and inject bridges into each.
+   * Called after navigation to ensure bridges exist in all frames.
+   */
+  private async discoverAndInjectFrames(context: RoleContext): Promise<void> {
+    try {
+      // Get complete frame tree
+      const { frameTree } = await context.cdpSession.send("Page.getFrameTree");
+
+      // Inject into all frames recursively (parallel)
+      await this.injectFrameTreeRecursive(context, frameTree);
+    } catch (error) {
+      console.warn("Frame discovery failed:", error);
+    }
+  }
+
+  /**
+   * Recursively inject bridges into frame tree.
+   * Uses parallel processing for speed.
+   */
+  private async injectFrameTreeRecursive(
+    context: RoleContext,
+    frameTree: any
+  ): Promise<void> {
+    // Inject into this frame
+    try {
+      await context.bridgeInjector.ensureFrameState(
+        context.cdpSession,
+        frameTree.frame.id
+      );
+    } catch (error) {
+      // Frame detachment is normal - don't treat as error
+      if (this.isFrameDetachedError(error)) {
+        return;
+      }
+      console.warn(`Failed to inject into frame ${frameTree.frame.id}:`, error);
+      return;
+    }
+
+    // Recursively inject into children (PARALLEL for speed)
+    if (frameTree.childFrames && frameTree.childFrames.length > 0) {
+      await Promise.allSettled(
+        frameTree.childFrames.map((child: any) =>
+          this.injectFrameTreeRecursive(context, child)
+        )
+      );
+      // allSettled means one frame failure doesn't block siblings
+    }
+  }
+
+  private isFrameDetachedError(error: any): boolean {
+    if (!error?.message) return false;
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes("frame detached") ||
+      msg.includes("frame has been detached") ||
+      msg.includes("cannot find execution context") ||
+      msg.includes("execution context was destroyed") ||
+      msg.includes("frame with the given id was not found")
+    );
   }
 
   async snapshot(): Promise<Snapshot> {
