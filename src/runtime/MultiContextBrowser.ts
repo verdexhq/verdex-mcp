@@ -1,6 +1,11 @@
 import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
 import { Snapshot } from "../shared-types.js";
-import { RoleContext, RolesConfiguration } from "./types.js";
+import {
+  RoleContext,
+  RolesConfiguration,
+  GlobalRefIndex,
+  RefIndexEntry,
+} from "./types.js";
 import { BridgeInjector } from "./BridgeInjector.js";
 
 export class MultiContextBrowser {
@@ -506,15 +511,162 @@ export class MultiContextBrowser {
     }
   }
 
+  /**
+   * Recursively expand iframe markers in snapshot text.
+   * For each "- iframe [ref=eN]" line:
+   *   1. Resolve element ref to frame ID
+   *   2. Snapshot that child frame
+   *   3. Rewrite child refs with frame prefix (fX_eN)
+   *   4. Recursively expand any iframes in child
+   *   5. Indent and merge child content
+   */
+  private async expandIframes(
+    context: RoleContext,
+    snapshotText: string,
+    currentFrameId: string,
+    ordinalCounter: number,
+    refIndex: GlobalRefIndex
+  ): Promise<{ text: string; elementCount: number; nextOrdinal: number }> {
+    const lines = snapshotText.split("\n");
+    const result: string[] = [];
+    let totalElements = 0;
+    let nextOrdinal = ordinalCounter;
+
+    for (const line of lines) {
+      // Match iframe markers: "- iframe [ref=eN]" or "  - iframe "Name" [ref=eN]"
+      const match = line.match(
+        /^(\s*)- iframe(?:\s+"[^"]*")?\s+\[ref=([^\]]+)\]/
+      );
+
+      if (!match) {
+        // Not an iframe marker, keep as-is
+        result.push(line);
+        continue;
+      }
+
+      const indentation = match[1];
+      const iframeRef = match[2];
+
+      // Keep the original iframe line (with colon to indicate children)
+      result.push(line + ":");
+
+      try {
+        // Resolve iframe element ref to frame ID
+        const frameInfo = await this.resolveFrameFromRef(
+          context,
+          currentFrameId,
+          iframeRef
+        );
+
+        if (!frameInfo) {
+          result.push(indentation + "  [Frame content unavailable]");
+          continue;
+        }
+
+        // Assign frame ordinal (f1, f2, f3, ...)
+        const frameOrdinal = ++nextOrdinal;
+
+        // Snapshot child frame
+        const childSnapshot = (await context.bridgeInjector.callBridgeMethod(
+          context.cdpSession,
+          "snapshot",
+          [],
+          frameInfo.frameId
+        )) as {
+          text: string;
+          elementCount: number;
+        };
+
+        totalElements += childSnapshot.elementCount;
+
+        // Recursively expand any iframes in child frame
+        const expandedChild = await this.expandIframes(
+          context,
+          childSnapshot.text,
+          frameInfo.frameId,
+          nextOrdinal,
+          refIndex
+        );
+
+        nextOrdinal = expandedChild.nextOrdinal;
+        totalElements +=
+          expandedChild.elementCount - childSnapshot.elementCount;
+
+        // Rewrite refs in child frame: eN → fX_eN
+        // Only rewrite local refs (starting with 'e'), not already-qualified refs (starting with 'f')
+        const prefix = `f${frameOrdinal}_`;
+        const rewritten = expandedChild.text.replace(
+          /\[ref=(e[^\]]+)\]/g,
+          (_whole, localRef) => {
+            const globalRef = prefix + localRef;
+            refIndex.set(globalRef, { frameId: frameInfo.frameId, localRef });
+            return `[ref=${globalRef}]`;
+          }
+        );
+
+        // Indent child frame content and add to result
+        for (const childLine of rewritten.split("\n")) {
+          if (childLine.trim()) {
+            result.push(indentation + "  " + childLine);
+          }
+        }
+      } catch (error) {
+        // Frame detachment is normal, generic errors need logging
+        if (this.isFrameDetachedError(error)) {
+          result.push(indentation + "  [Frame detached]");
+        } else {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          result.push(indentation + `  [Error: ${errMsg}]`);
+        }
+        continue;
+      }
+    }
+
+    return {
+      text: result.join("\n"),
+      elementCount: totalElements,
+      nextOrdinal,
+    };
+  }
+
   async snapshot(): Promise<Snapshot> {
     try {
       const context = await this.ensureCurrentRoleContext();
-      return await context.bridgeInjector.callBridgeMethod(
+
+      // Get main frame snapshot (with iframe markers from bridge)
+      const mainSnapshot = (await context.bridgeInjector.callBridgeMethod(
         context.cdpSession,
         "snapshot",
         [],
         context.mainFrameId
+      )) as Snapshot;
+
+      // Build refIndex for interaction routing (Phase 6)
+      const refIndex = new Map<string, RefIndexEntry>();
+
+      // Populate with main frame refs first
+      const mainFrameRefs = mainSnapshot.text.matchAll(/\[ref=([^\]]+)\]/g);
+      for (const match of mainFrameRefs) {
+        const ref = match[1];
+        refIndex.set(ref, { frameId: context.mainFrameId, localRef: ref });
+      }
+
+      // Recursively expand iframe markers
+      const expanded = await this.expandIframes(
+        context,
+        mainSnapshot.text,
+        context.mainFrameId,
+        0, // ordinal counter starts at 0
+        refIndex
       );
+
+      // Store refIndex on context for interaction routing (Phase 6)
+      context.refIndex = refIndex;
+
+      return {
+        text: expanded.text,
+        elementCount: mainSnapshot.elementCount + expanded.elementCount,
+      };
     } catch (error) {
       throw new Error(
         `Snapshot failed for role '${this.currentRole}': ${
