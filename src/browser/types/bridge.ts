@@ -42,5 +42,4 @@ export type BridgeConfig = {
 export type InjectorOptions = {
   worldName?: string;
   config?: BridgeConfig;
-  mainFrameId?: string;
 };

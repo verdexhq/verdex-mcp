@@ -135,7 +135,6 @@ export class MultiContextBrowser {
     const bridgeInjector = new BridgeInjector({
       worldName: `verdex_${role}_${salt}`,
       config: this.bridgeConfig,
-      mainFrameId,
     });
 
     // Setup auto-injection (registers listeners, enables domains, injects bundle)
@@ -244,31 +243,6 @@ export class MultiContextBrowser {
     const context = await this._setupRoleContext(role, browserContext, page);
     console.log(`✅ Created isolated context for role: ${role}`);
     return context;
-  }
-
-  /**
-   * CRITICAL: Ensure bridge is alive for a specific role context
-   * This handles bridge resurrection after navigation or context destruction
-   */
-  private async ensureBridgeForContext(context: RoleContext): Promise<void> {
-    try {
-      const healthy = await context.bridgeInjector.healthCheck(
-        context.cdpSession
-      );
-      if (!healthy) {
-        // injector will recreate on demand
-      }
-      await context.bridgeInjector.getBridgeHandle(
-        context.cdpSession,
-        context.mainFrameId
-      );
-    } catch (error) {
-      throw new Error(
-        `Failed to ensure bridge for role '${context.role}': ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
   }
 
   // Public API methods (unified - no branching)
