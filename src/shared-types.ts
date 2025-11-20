@@ -204,7 +204,8 @@ export class StaleRefError extends Error {
 export class UnknownRefError extends Error {
   constructor(public ref: string) {
     super(
-      `Element ${ref} not found. Try browser_snapshot() to refresh refs.`
+      `Unknown element reference: ${ref}. ` +
+        `Ref may be stale after navigation. Take a new snapshot to get fresh refs.`
     );
     this.name = "UnknownRefError";
   }
@@ -234,11 +235,7 @@ export class FrameInjectionError extends Error {
  * Error thrown when navigation fails
  */
 export class NavigationError extends Error {
-  constructor(
-    public url: string,
-    public role: string,
-    details: string
-  ) {
+  constructor(public url: string, public role: string, details: string) {
     super(`Navigation failed for role '${role}' to '${url}': ${details}`);
     this.name = "NavigationError";
   }

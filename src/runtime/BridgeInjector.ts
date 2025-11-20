@@ -5,6 +5,7 @@ import type { CDPSession } from "puppeteer";
 import { BRIDGE_BUNDLE, BRIDGE_VERSION } from "./bridge-bundle.js";
 import type { BridgeConfig, InjectorOptions } from "../browser/types/bridge.js";
 import { ManualPromise } from "../utils/ManualPromise.js";
+import { FrameDetachedError, FrameInjectionError } from "../shared-types.js";
 
 // NEW: Multi-frame state structure
 type FrameState = {
@@ -36,6 +37,30 @@ export class BridgeInjector {
     this.listeners.push({ event, handler });
   }
 
+  /**
+   * Setup automatic bridge injection for all frames in a page.
+   *
+   * This method establishes an event-driven lifecycle for bridge management:
+   *
+   * **Event Coordination**:
+   * 1. Listeners registered BEFORE enabling domains (prevents race conditions)
+   * 2. Domains enabled (triggers existing context events)
+   * 3. Auto-injection script registered for new documents
+   * 4. Main frame injection as fallback
+   *
+   * **Navigation Patterns Handled**:
+   * - Cross-document navigation: Destroys & recreates contexts
+   * - Same-document navigation (SPA): Context survives, bridge instance invalidated
+   * - Frame attach/detach: Lazy injection on first use
+   *
+   * **Why ManualPromise?**:
+   * - Allows event handlers to resolve promises awaited elsewhere
+   * - No polling or retries needed - purely event-driven
+   * - Idempotent - multiple awaits on same promise are safe
+   *
+   * @param cdp - CDP session for this page
+   * @param mainFrameId - ID of the main frame (from Page.getFrameTree)
+   */
   async setupAutoInjection(
     cdp: CDPSession,
     mainFrameId: string
@@ -98,7 +123,7 @@ export class BridgeInjector {
       if (sessionStates) {
         const state = sessionStates.get(evt.frameId);
         if (state && !state.contextReadyPromise.isDone()) {
-          state.contextReadyPromise.reject(new Error("Frame detached"));
+          state.contextReadyPromise.reject(new FrameDetachedError(evt.frameId));
         }
         sessionStates.delete(evt.frameId);
       }
@@ -388,9 +413,10 @@ export class BridgeInjector {
         // Mark as failed so we don't retry - propagate error to caller
         // Only reject if not already settled (frameDetached event may have already rejected it)
         if (!state.contextReadyPromise.isDone()) {
-          state.contextReadyPromise.reject(error as Error);
+          const injectionError = new FrameInjectionError(frameId, errorMsg);
+          state.contextReadyPromise.reject(injectionError);
         }
-        throw new Error(`Frame ${frameId} cannot be injected: ${errorMsg}`);
+        throw new FrameInjectionError(frameId, errorMsg);
       }
 
       // For real errors, clean up and allow retry
@@ -414,6 +440,7 @@ export class BridgeInjector {
       }
       this.scriptId = null;
     }
+
     // Remove all registered listeners (critical: prevents memory leaks)
     for (const { event, handler } of this.listeners) {
       try {
@@ -422,5 +449,21 @@ export class BridgeInjector {
       } catch {}
     }
     this.listeners = [];
+
+    // Clean up frame states for this session (prevents memory leaks)
+    const sessionStates = this.frameStates.get(cdp);
+    if (sessionStates) {
+      // Reject any pending frame state promises
+      for (const [frameId, state] of sessionStates.entries()) {
+        if (!state.contextReadyPromise.isDone()) {
+          state.contextReadyPromise.reject(
+            new Error(
+              `Session disposed while frame ${frameId} was initializing`
+            )
+          );
+        }
+      }
+      this.frameStates.delete(cdp);
+    }
   }
 }

@@ -9,16 +9,22 @@ import { BrowserContext, CDPSession, Page } from "puppeteer";
 /**
  * Represents information about an interactive element stored in the Node.js runtime.
  * This is different from the browser-side ElementInfo which has actual DOM Elements.
+ *
+ * AUDIT RESULTS (2025-11-20):
+ * - selector: NOT USED (removed)
+ * - siblingIndex: NOT USED (removed)
+ * - parentRef: NOT USED (removed)
+ *
+ * Note: This type is currently unused in the runtime layer. It may be used in
+ * future phases for element tracking or caching. For now, we rely on the bridge's
+ * in-browser ElementInfo map.
  */
 export type ElementInfo = {
   element: any; // Will be the actual DOM element reference in browser context
   tagName: string; // HTML tag name
   role: string; // ARIA role or semantic role of the element
   name: string; // Accessible name of the element
-  selector: string; // Best selector for finding this element
   attributes: Record<string, string>; // Element attributes
-  siblingIndex: number; // Index among siblings
-  parentRef: string | null; // Reference to parent interactive element
 };
 
 /**
@@ -54,6 +60,9 @@ export type RoleContext = {
   // NEW: Multi-frame state
   refIndex?: GlobalRefIndex;
   navigationTimestamp?: number;
+
+  // Error recovery
+  lastErrorSnapshot?: any; // Snapshot type (avoid circular import)
 };
 
 /**

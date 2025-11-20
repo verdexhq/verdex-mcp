@@ -1,5 +1,4 @@
 import puppeteer, { Browser, BrowserContext, Page } from "puppeteer";
-import { Snapshot } from "../shared-types.js";
 import {
   RoleContext,
   RolesConfiguration,
@@ -7,6 +6,13 @@ import {
   RefIndexEntry,
 } from "./types.js";
 import { BridgeInjector } from "./BridgeInjector.js";
+import {
+  Snapshot,
+  FrameDetachedError,
+  NavigationError,
+  UnknownRefError,
+} from "../shared-types.js";
+import { RefFormatter } from "../utils/RefFormatter.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;
@@ -23,8 +29,10 @@ export class MultiContextBrowser {
   }
 
   /**
-   * Set bridge configuration (performance limits)
-   * This will be injected into the browser context
+   * Set bridge configuration programmatically.
+   * This takes precedence over environment variables.
+   *
+   * @param config - Performance limits for bridge operations
    */
   setBridgeConfiguration(config: {
     maxDepth?: number;
@@ -35,23 +43,43 @@ export class MultiContextBrowser {
   }
 
   /**
-   * Load bridge configuration from environment variables
+   * Load bridge configuration from environment variables.
+   * Environment variables only override values that weren't explicitly set.
+   *
+   * Precedence order:
+   * 1. Programmatic config (via setBridgeConfiguration)
+   * 2. Environment variables (BRIDGE_MAX_DEPTH, etc.)
+   * 3. Default values (set in bridge creation)
    */
   private loadBridgeConfigFromEnv(): void {
-    if (process.env.BRIDGE_MAX_DEPTH) {
-      this.bridgeConfig.maxDepth = parseInt(process.env.BRIDGE_MAX_DEPTH, 10);
+    if (
+      process.env.BRIDGE_MAX_DEPTH &&
+      this.bridgeConfig.maxDepth === undefined
+    ) {
+      const parsed = parseInt(process.env.BRIDGE_MAX_DEPTH, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        this.bridgeConfig.maxDepth = parsed;
+      }
     }
-    if (process.env.BRIDGE_MAX_SIBLINGS) {
-      this.bridgeConfig.maxSiblings = parseInt(
-        process.env.BRIDGE_MAX_SIBLINGS,
-        10
-      );
+
+    if (
+      process.env.BRIDGE_MAX_SIBLINGS &&
+      this.bridgeConfig.maxSiblings === undefined
+    ) {
+      const parsed = parseInt(process.env.BRIDGE_MAX_SIBLINGS, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        this.bridgeConfig.maxSiblings = parsed;
+      }
     }
-    if (process.env.BRIDGE_MAX_DESCENDANTS) {
-      this.bridgeConfig.maxDescendants = parseInt(
-        process.env.BRIDGE_MAX_DESCENDANTS,
-        10
-      );
+
+    if (
+      process.env.BRIDGE_MAX_DESCENDANTS &&
+      this.bridgeConfig.maxDescendants === undefined
+    ) {
+      const parsed = parseInt(process.env.BRIDGE_MAX_DESCENDANTS, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        this.bridgeConfig.maxDescendants = parsed;
+      }
     }
   }
 
@@ -322,14 +350,6 @@ export class MultiContextBrowser {
       const endTime = Date.now();
       const loadTime = endTime - startTime;
 
-      // For failed navigation, we still want to return a snapshot with error metadata
-      // but we need to throw the error as expected by the current API
-      const errorMessage = `Navigate failed for role '${
-        this.currentRole
-      }' to '${url}': ${
-        error instanceof Error ? error.message : String(error)
-      }`;
-
       // Try to get current page state for error context
       try {
         const context = await this.ensureCurrentRoleContext();
@@ -357,12 +377,17 @@ export class MultiContextBrowser {
         };
 
         // Store error snapshot in context for potential retrieval
-        // But still throw error to maintain API contract
+        context.lastErrorSnapshot = errorSnapshot;
+        console.debug(`Error snapshot stored in context.lastErrorSnapshot`);
       } catch (contextError) {
         // If we can't even get context, just throw original error
       }
 
-      throw new Error(errorMessage);
+      throw new NavigationError(
+        url,
+        this.currentRole,
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
 
@@ -399,6 +424,7 @@ export class MultiContextBrowser {
     } catch (error) {
       // Frame detachment is normal - don't treat as error
       if (this.isFrameDetachedError(error)) {
+        console.debug(`Frame ${frameTree.frame.id} detached during injection`);
         return;
       }
       console.warn(`Failed to inject into frame ${frameTree.frame.id}:`, error);
@@ -417,6 +443,12 @@ export class MultiContextBrowser {
   }
 
   private isFrameDetachedError(error: any): boolean {
+    // Check for our custom error type first
+    if (error instanceof FrameDetachedError) {
+      return true;
+    }
+
+    // Fallback to message checking for external errors
     if (!error?.message) return false;
     const msg = error.message.toLowerCase();
     return (
@@ -597,11 +629,15 @@ export class MultiContextBrowser {
 
         // Rewrite refs in child frame: eN → fX_eN
         // Only rewrite local refs (starting with 'e'), not already-qualified refs (starting with 'f')
-        const prefix = `f${frameOrdinal}_`;
         const rewritten = expandedChild.text.replace(
           /\[ref=(e[^\]]+)\]/g,
           (_whole, localRef) => {
-            const globalRef = prefix + localRef;
+            // Only rewrite local refs, not already-qualified refs
+            if (!RefFormatter.isLocal(localRef)) {
+              return `[ref=${localRef}]`; // Already qualified, keep as-is
+            }
+
+            const globalRef = RefFormatter.toGlobal(frameOrdinal, localRef);
             refIndex.set(globalRef, { frameId: frameInfo.frameId, localRef });
             return `[ref=${globalRef}]`;
           }
@@ -616,9 +652,11 @@ export class MultiContextBrowser {
       } catch (error) {
         // Frame detachment is normal, generic errors need logging
         if (this.isFrameDetachedError(error)) {
+          console.debug(`Frame ${iframeRef} detached during expansion`);
           result.push(indentation + "  [Frame detached]");
         } else {
           const errMsg = error instanceof Error ? error.message : String(error);
+          console.warn(`Frame expansion error for ${iframeRef}:`, error);
           result.push(indentation + `  [Error: ${errMsg}]`);
         }
         continue;
@@ -659,10 +697,7 @@ export class MultiContextBrowser {
     }
 
     // If not found, ref is stale or invalid
-    throw new Error(
-      `Unknown element reference: ${ref}. ` +
-        `Ref may be stale after navigation. Take a new snapshot to get fresh refs.`
-    );
+    throw new UnknownRefError(ref);
   }
 
   async snapshot(): Promise<Snapshot> {
@@ -712,6 +747,41 @@ export class MultiContextBrowser {
     }
   }
 
+  /**
+   * Get the last error snapshot if available.
+   * Useful for debugging navigation failures.
+   *
+   * @returns Last error snapshot or null if none available
+   */
+  async getLastErrorSnapshot(): Promise<Snapshot | null> {
+    try {
+      const context = await this.ensureCurrentRoleContext();
+      return context.lastErrorSnapshot || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Click an interactive element.
+   *
+   * **Navigation Handling**:
+   * - Sets up navigation listener BEFORE clicking (prevents race)
+   * - Waits up to 1 second for navigation (fast feedback for non-nav clicks)
+   * - Uses networkidle2 for real-world app compatibility
+   *
+   * **Why 1 Second Timeout?**:
+   * - Most clicks don't navigate (buttons, accordions, modals)
+   * - 1s is long enough to detect navigation start
+   * - If navigation starts, we wait full networkidle2 duration
+   * - Balances responsiveness with reliability
+   *
+   * **Cross-Frame Support**:
+   * - Ref is parsed to determine target frame
+   * - Click is routed to correct iframe if needed
+   *
+   * @param ref - Global element reference (e.g. "e1" or "f2_e5")
+   */
   async click(ref: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
 
