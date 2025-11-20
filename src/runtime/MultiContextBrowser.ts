@@ -424,7 +424,10 @@ export class MultiContextBrowser {
       msg.includes("frame has been detached") ||
       msg.includes("cannot find execution context") ||
       msg.includes("execution context was destroyed") ||
-      msg.includes("frame with the given id was not found")
+      msg.includes("frame with the given id was not found") ||
+      msg.includes("no frame for given id") ||
+      msg.includes("target closed") ||
+      msg.includes("session closed")
     );
   }
 
@@ -629,6 +632,39 @@ export class MultiContextBrowser {
     };
   }
 
+  /**
+   * Parse a global ref into { frameId, localRef } using the snapshot-built refIndex.
+   * All refs (main frame and child frames) are in refIndex for consistent lookup.
+   *
+   * @param ref - Global ref from snapshot (e1, f1_e1, f2_e1, etc.)
+   * @param context - Role context containing refIndex
+   * @returns Frame ID and local ref for routing interactions
+   * @throws Error if ref is not in refIndex (stale or invalid)
+   */
+  private parseRef(
+    ref: string,
+    context: RoleContext
+  ): { frameId: string; localRef: string } {
+    // Check if refIndex exists (should be populated by snapshot())
+    if (!context.refIndex) {
+      throw new Error(
+        "No refIndex found. Take a snapshot first before interacting with elements."
+      );
+    }
+
+    // Lookup in refIndex (includes both main frame and child frame refs)
+    const entry = context.refIndex.get(ref);
+    if (entry) {
+      return { frameId: entry.frameId, localRef: entry.localRef };
+    }
+
+    // If not found, ref is stale or invalid
+    throw new Error(
+      `Unknown element reference: ${ref}. ` +
+        `Ref may be stale after navigation. Take a new snapshot to get fresh refs.`
+    );
+  }
+
   async snapshot(): Promise<Snapshot> {
     try {
       const context = await this.ensureCurrentRoleContext();
@@ -679,6 +715,9 @@ export class MultiContextBrowser {
   async click(ref: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
 
+    // Parse ref to get frame and local ref
+    const { frameId, localRef } = this.parseRef(ref, context);
+
     // Set up navigation listener BEFORE clicking (prevents race condition)
     // networkidle2: Waits for ≤2 network connections for 500ms (good for real-world apps)
     // 1s timeout: Fast feedback for non-navigating clicks (most common case)
@@ -700,12 +739,12 @@ export class MultiContextBrowser {
       });
 
     try {
-      // Execute the click
+      // Execute the click (routes to correct frame!)
       await context.bridgeInjector.callBridgeMethod(
         context.cdpSession,
         "click",
-        [ref],
-        context.mainFrameId
+        [localRef],
+        frameId
       );
 
       // Wait for navigation to complete (if it happens)
@@ -728,41 +767,61 @@ export class MultiContextBrowser {
 
   async type(ref: string, text: string): Promise<void> {
     const context = await this.ensureCurrentRoleContext();
+
+    // Parse ref to get frame and local ref
+    const { frameId, localRef } = this.parseRef(ref, context);
+
+    // Route to correct frame!
     await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "type",
-      [ref, text],
-      context.mainFrameId
+      [localRef, text],
+      frameId
     );
   }
 
   async resolve_container(ref: string): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
+
+    // Parse ref to get frame and local ref
+    const { frameId, localRef } = this.parseRef(ref, context);
+
+    // Route to correct frame!
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "resolve_container",
-      [ref],
-      context.mainFrameId
+      [localRef],
+      frameId
     );
   }
 
   async inspect_pattern(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
+
+    // Parse ref to get frame and local ref
+    const { frameId, localRef } = this.parseRef(ref, context);
+
+    // Route to correct frame!
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "inspect_pattern",
-      [ref, ancestorLevel],
-      context.mainFrameId
+      [localRef, ancestorLevel],
+      frameId
     );
   }
 
   async extract_anchors(ref: string, ancestorLevel: number): Promise<any> {
     const context = await this.ensureCurrentRoleContext();
+
+    // Parse ref to get frame and local ref
+    const { frameId, localRef } = this.parseRef(ref, context);
+
+    // Route to correct frame!
     return await context.bridgeInjector.callBridgeMethod(
       context.cdpSession,
       "extract_anchors",
-      [ref, ancestorLevel],
-      context.mainFrameId
+      [localRef, ancestorLevel],
+      frameId
     );
   }
 

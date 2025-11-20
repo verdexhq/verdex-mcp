@@ -274,11 +274,18 @@ export class BridgeInjector {
     let state = this.getFrameState(cdp, frameId);
     if (state) return state;
 
+    const promise = new ManualPromise<void>();
+    // Add a catch handler to prevent unhandled promise rejections
+    // (callers who await it will still get the rejection)
+    promise.catch(() => {
+      // Silently ignore - awaiting callers will handle the error
+    });
+
     state = {
       frameId,
       contextId: 0,
       bridgeObjectId: "",
-      contextReadyPromise: new ManualPromise<void>(),
+      contextReadyPromise: promise,
     };
 
     if (!this.frameStates.has(cdp)) {
@@ -310,8 +317,40 @@ export class BridgeInjector {
 
     // If injection is in-progress, wait for it
     if (state?.contextReadyPromise && !state.contextReadyPromise.isDone()) {
-      await state.contextReadyPromise;
-      return state;
+      try {
+        await state.contextReadyPromise;
+        return state;
+      } catch (error) {
+        // Promise was rejected while we were waiting (e.g. frame detached)
+        // Clean up state and propagate error to caller
+        const sessionStates = this.frameStates.get(cdp);
+        if (sessionStates) {
+          sessionStates.delete(frameId);
+        }
+        throw error;
+      }
+    }
+
+    // If context ready but no bridge instance, we're in same-document navigation state
+    // The isolated world context still exists, just need to ensure bundle is present
+    if (state?.contextReadyPromise.isDone() && !state.bridgeObjectId) {
+      try {
+        // Context exists, verify bundle is still there or re-inject
+        await cdp.send("Runtime.evaluate", {
+          expression: BRIDGE_BUNDLE,
+          contextId: state.contextId,
+          returnByValue: false,
+        });
+        return state;
+      } catch (error) {
+        // Context was destroyed (shouldn't happen for same-doc nav, but handle gracefully)
+        // Clean up and fall through to full re-injection
+        const sessionStates = this.frameStates.get(cdp);
+        if (sessionStates) {
+          sessionStates.delete(frameId);
+        }
+        // Fall through to create new state
+      }
     }
 
     // First call - create state and inject
@@ -347,7 +386,10 @@ export class BridgeInjector {
 
       if (isNonInjectable) {
         // Mark as failed so we don't retry - propagate error to caller
-        state.contextReadyPromise.reject(error as Error);
+        // Only reject if not already settled (frameDetached event may have already rejected it)
+        if (!state.contextReadyPromise.isDone()) {
+          state.contextReadyPromise.reject(error as Error);
+        }
         throw new Error(`Frame ${frameId} cannot be injected: ${errorMsg}`);
       }
 
