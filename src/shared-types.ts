@@ -177,3 +177,69 @@ export type Snapshot = {
     isolatedWorldId?: number;
   };
 };
+
+// ============================================================================
+// Error types
+// ============================================================================
+
+/**
+ * Error thrown when an element reference is stale (element removed from DOM)
+ */
+export class StaleRefError extends Error {
+  constructor(
+    public ref: string,
+    public elementInfo: { role: string; name: string; tagName: string }
+  ) {
+    super(
+      `Element ${ref} (${elementInfo.role} "${elementInfo.name}") was removed from DOM. ` +
+        `Take a new snapshot() to refresh refs.`
+    );
+    this.name = "StaleRefError";
+  }
+}
+
+/**
+ * Error thrown when an element reference is not found in the bridge
+ */
+export class UnknownRefError extends Error {
+  constructor(public ref: string) {
+    super(
+      `Element ${ref} not found. Try browser_snapshot() to refresh refs.`
+    );
+    this.name = "UnknownRefError";
+  }
+}
+
+/**
+ * Error thrown when a frame is detached or unavailable
+ */
+export class FrameDetachedError extends Error {
+  constructor(public frameId: string, details?: string) {
+    super(`Frame ${frameId} was detached${details ? `: ${details}` : ""}`);
+    this.name = "FrameDetachedError";
+  }
+}
+
+/**
+ * Error thrown when frame injection fails for non-recoverable reasons
+ */
+export class FrameInjectionError extends Error {
+  constructor(public frameId: string, public reason: string) {
+    super(`Failed to inject bridge into frame ${frameId}: ${reason}`);
+    this.name = "FrameInjectionError";
+  }
+}
+
+/**
+ * Error thrown when navigation fails
+ */
+export class NavigationError extends Error {
+  constructor(
+    public url: string,
+    public role: string,
+    details: string
+  ) {
+    super(`Navigation failed for role '${role}' to '${url}': ${details}`);
+    this.name = "NavigationError";
+  }
+}
