@@ -110,6 +110,7 @@ export class BridgeInjector {
     // 2) ENABLE DOMAINS
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
+    await cdp.send("DOM.enable"); // For frame resolution via DOM.describeNode
 
     // 3) REGISTER FOR NEW DOCS — Three-tier fallback
     try {

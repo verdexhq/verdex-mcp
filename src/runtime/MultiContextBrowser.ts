@@ -423,6 +423,89 @@ export class MultiContextBrowser {
     );
   }
 
+  /**
+   * Resolve an iframe element reference to its CDP frameId.
+   *
+   * Uses CDP's DOM.describeNode to get the child frameId from an iframe element.
+   * Works with objectIds from any execution context (isolated world, main world, etc.)
+   * because DOM methods operate at the document level, not the execution context level.
+   *
+   * This is the same approach Playwright uses in ElementHandle.contentFrame().
+   */
+  private async resolveFrameFromRef(
+    context: RoleContext,
+    parentFrameId: string,
+    iframeRef: string
+  ): Promise<{ frameId: string } | null> {
+    try {
+      // Get bridge handle for the parent frame
+      const bridgeObjectId = await context.bridgeInjector.getBridgeHandle(
+        context.cdpSession,
+        parentFrameId
+      );
+
+      // Get the iframe element's objectId from the isolated world bridge
+      // KEY: returnByValue = false means we get a remote object with objectId
+      const { result } = await context.cdpSession.send(
+        "Runtime.callFunctionOn",
+        {
+          objectId: bridgeObjectId,
+          functionDeclaration: `function(ref) { 
+          // Get the ElementInfo which contains the actual DOM element
+          const info = this.elements.get(ref);
+          if (!info) return null;
+          
+          // Verify it's an iframe
+          if (info.tagName.toUpperCase() !== 'IFRAME') return null;
+          
+          // Return the element itself (will have objectId)
+          return info.element;
+        }`,
+          arguments: [{ value: iframeRef }],
+          returnByValue: false, // CRITICAL: Get as remote object, not value
+        }
+      );
+
+      if (!result.objectId) {
+        console.warn(`No objectId for iframe ref ${iframeRef}`);
+        return null;
+      }
+
+      // Use the isolated world objectId directly with DOM.describeNode
+      // This works because DOM methods operate at the document level, not execution context level
+      const { node } = await context.cdpSession.send("DOM.describeNode", {
+        objectId: result.objectId,
+        pierce: true, // Enables traversal into iframe's content document
+      });
+
+      // Get the child frameId from the node info
+      // CDP returns either node.frameId or node.contentDocument.frameId depending on browser version
+      const childFrameId = node.frameId || node.contentDocument?.frameId;
+
+      if (!childFrameId) {
+        console.warn(
+          `Element ${iframeRef} has no associated frame (might be empty or not yet loaded)`
+        );
+        return null;
+      }
+
+      return { frameId: childFrameId };
+    } catch (error: any) {
+      // Handle cross-origin iframes gracefully
+      if (
+        error?.message?.includes("cross-origin") ||
+        error?.message?.includes("Cannot find context")
+      ) {
+        console.warn(
+          `Iframe ${iframeRef} is cross-origin and cannot be accessed`
+        );
+        return null;
+      }
+      console.warn(`Failed to resolve frame from ref ${iframeRef}:`, error);
+      return null;
+    }
+  }
+
   async snapshot(): Promise<Snapshot> {
     try {
       const context = await this.ensureCurrentRoleContext();
