@@ -4,6 +4,7 @@ import {
   RolesConfiguration,
   GlobalRefIndex,
   RefIndexEntry,
+  FailureLog,
 } from "./types.js";
 import { BridgeInjector } from "./BridgeInjector.js";
 import {
@@ -230,7 +231,17 @@ export class MultiContextBrowser {
 
       console.log(`✅ Auth data loaded for role: ${role}`);
     } catch (error) {
-      console.warn(`⚠️ Failed to load auth for role ${role}:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // NEW: Track but don't throw (let context be created without auth)
+      console.warn(`⚠️ Failed to load auth for role '${role}':`, errorMsg);
+
+      // Will be picked up by context creation to store in failures
+      throw {
+        authPath,
+        error: errorMsg,
+        timestamp: Date.now(),
+      };
     }
   }
 
@@ -254,9 +265,20 @@ export class MultiContextBrowser {
       const page = pages[0] || (await browserContext.newPage());
 
       // Load auth data
-      await this._loadAuthData(role, page);
+      let authError: any;
+      try {
+        await this._loadAuthData(role, page);
+      } catch (error) {
+        authError = error;
+      }
 
       const context = await this._setupRoleContext(role, browserContext, page);
+
+      if (authError) {
+        const failures = this.ensureFailureLog(context);
+        failures.authLoadError = authError;
+      }
+
       console.log(`✅ Created main context for default role: ${role}`);
       return context;
     }
@@ -271,9 +293,20 @@ export class MultiContextBrowser {
     const page = await browserContext.newPage();
 
     // Load auth data
-    await this._loadAuthData(role, page);
+    let authError: any;
+    try {
+      await this._loadAuthData(role, page);
+    } catch (error) {
+      authError = error;
+    }
 
     const context = await this._setupRoleContext(role, browserContext, page);
+
+    if (authError) {
+      const failures = this.ensureFailureLog(context);
+      failures.authLoadError = authError;
+    }
+
     console.log(`✅ Created isolated context for role: ${role}`);
     return context;
   }
@@ -403,7 +436,17 @@ export class MultiContextBrowser {
       // Inject into all frames recursively (parallel)
       await this.injectFrameTreeRecursive(context, frameTree);
     } catch (error) {
-      console.warn("Frame discovery failed:", error);
+      // NEW: Track discovery failure
+      const failures = this.ensureFailureLog(context);
+      failures.frameDiscoveryError = {
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: Date.now(),
+      };
+
+      console.warn("Frame discovery failed:", {
+        role: context.role,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -427,18 +470,52 @@ export class MultiContextBrowser {
         console.debug(`Frame ${frameTree.frame.id} detached during injection`);
         return;
       }
-      console.warn(`Failed to inject into frame ${frameTree.frame.id}:`, error);
+
+      // NEW: Track non-detachment failures
+      const failures = this.ensureFailureLog(context);
+      failures.frameInjectionFailures.push({
+        frameId: frameTree.frame.id,
+        error: error instanceof Error ? error.message : String(error),
+        reason: this.classifyFrameError(error),
+        timestamp: Date.now(),
+      });
+
+      console.warn(`Failed to inject into frame ${frameTree.frame.id}:`, {
+        reason: this.classifyFrameError(error),
+        error: error instanceof Error ? error.message : String(error),
+      });
       return;
     }
 
     // Recursively inject into children (PARALLEL for speed)
     if (frameTree.childFrames && frameTree.childFrames.length > 0) {
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         frameTree.childFrames.map((child: any) =>
           this.injectFrameTreeRecursive(context, child)
         )
       );
-      // allSettled means one frame failure doesn't block siblings
+
+      // NEW: Check for failures
+      const failed = results.filter((r) => r.status === "rejected");
+      if (failed.length > 0) {
+        const failures = this.ensureFailureLog(context);
+
+        console.warn(
+          `${failed.length}/${frameTree.childFrames.length} child frames failed injection`
+        );
+
+        failed.forEach((result, idx) => {
+          if (result.status === "rejected") {
+            const childFrame = frameTree.childFrames[idx];
+            failures.frameInjectionFailures.push({
+              frameId: childFrame.frame.id,
+              error: String(result.reason),
+              reason: this.classifyFrameError(result.reason),
+              timestamp: Date.now(),
+            });
+          }
+        });
+      }
     }
   }
 
@@ -461,6 +538,33 @@ export class MultiContextBrowser {
       msg.includes("target closed") ||
       msg.includes("session closed")
     );
+  }
+
+  /**
+   * Ensure context has failure log initialized
+   */
+  private ensureFailureLog(context: RoleContext): FailureLog {
+    if (!context.failures) {
+      context.failures = {
+        frameInjectionFailures: [],
+        frameExpansionFailures: [],
+        cleanupErrors: [],
+      };
+    }
+    return context.failures;
+  }
+
+  /**
+   * Classify frame injection error
+   */
+  private classifyFrameError(
+    error: any
+  ): "cross-origin" | "detached" | "timeout" | "unknown" {
+    const msg = error?.message?.toLowerCase() || "";
+    if (msg.includes("cross-origin")) return "cross-origin";
+    if (this.isFrameDetachedError(error)) return "detached";
+    if (msg.includes("timeout")) return "timeout";
+    return "unknown";
   }
 
   /**
@@ -561,11 +665,17 @@ export class MultiContextBrowser {
     currentFrameId: string,
     ordinalCounter: number,
     refIndex: GlobalRefIndex
-  ): Promise<{ text: string; elementCount: number; nextOrdinal: number }> {
+  ): Promise<{
+    text: string;
+    elementCount: number;
+    nextOrdinal: number;
+    errors: Array<{ ref: string; error: string; detached: boolean }>; // NEW
+  }> {
     const lines = snapshotText.split("\n");
     const result: string[] = [];
     let totalElements = 0;
     let nextOrdinal = ordinalCounter;
+    const errors: Array<{ ref: string; error: string; detached: boolean }> = []; // NEW
 
     for (const line of lines) {
       // Match iframe markers: "- iframe [ref=eN]" or "  - iframe "Name" [ref=eN]"
@@ -595,6 +705,12 @@ export class MultiContextBrowser {
 
         if (!frameInfo) {
           result.push(indentation + "  [Frame content unavailable]");
+          errors.push({
+            // NEW
+            ref: iframeRef,
+            error: "Frame content unavailable",
+            detached: false,
+          });
           continue;
         }
 
@@ -626,6 +742,7 @@ export class MultiContextBrowser {
         nextOrdinal = expandedChild.nextOrdinal;
         totalElements +=
           expandedChild.elementCount - childSnapshot.elementCount;
+        errors.push(...expandedChild.errors); // NEW: Merge child errors
 
         // Rewrite refs in child frame: eN → fX_eN
         // Only rewrite local refs (starting with 'e'), not already-qualified refs (starting with 'f')
@@ -650,14 +767,25 @@ export class MultiContextBrowser {
           }
         }
       } catch (error) {
+        const isDetached = this.isFrameDetachedError(error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        // NEW: Track error
+        errors.push({
+          ref: iframeRef,
+          error: errorMsg,
+          detached: isDetached,
+        });
+
         // Frame detachment is normal, generic errors need logging
-        if (this.isFrameDetachedError(error)) {
+        if (isDetached) {
           console.debug(`Frame ${iframeRef} detached during expansion`);
           result.push(indentation + "  [Frame detached]");
         } else {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          console.warn(`Frame expansion error for ${iframeRef}:`, error);
-          result.push(indentation + `  [Error: ${errMsg}]`);
+          console.warn(`Frame expansion error for ${iframeRef}:`, {
+            error: errorMsg,
+          });
+          result.push(indentation + `  [Error: ${errorMsg}]`);
         }
         continue;
       }
@@ -667,6 +795,7 @@ export class MultiContextBrowser {
       text: result.join("\n"),
       elementCount: totalElements,
       nextOrdinal,
+      errors, // NEW
     };
   }
 
@@ -734,10 +863,30 @@ export class MultiContextBrowser {
       // Store refIndex on context for interaction routing (Phase 6)
       context.refIndex = refIndex;
 
-      return {
+      // NEW: Track expansion errors
+      if (expanded.errors.length > 0) {
+        const failures = this.ensureFailureLog(context);
+        failures.frameExpansionFailures.push(
+          ...expanded.errors.map((e) => ({
+            ref: e.ref,
+            error: e.error,
+            detached: e.detached,
+            timestamp: Date.now(),
+          }))
+        );
+      }
+
+      const snapshot: Snapshot = {
         text: expanded.text,
         elementCount: mainSnapshot.elementCount + expanded.elementCount,
       };
+
+      // NEW: Add expansion errors to snapshot if any
+      if (expanded.errors.length > 0) {
+        snapshot.expansionErrors = expanded.errors;
+      }
+
+      return snapshot;
     } catch (error) {
       throw new Error(
         `Snapshot failed for role '${this.currentRole}': ${
@@ -759,6 +908,45 @@ export class MultiContextBrowser {
       return context.lastErrorSnapshot || null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Get failure log for current role (for debugging).
+   * Returns empty log if no failures.
+   */
+  async getFailures(): Promise<FailureLog> {
+    try {
+      const context = await this.ensureCurrentRoleContext();
+      return (
+        context.failures || {
+          frameInjectionFailures: [],
+          frameExpansionFailures: [],
+          cleanupErrors: [],
+        }
+      );
+    } catch {
+      return {
+        frameInjectionFailures: [],
+        frameExpansionFailures: [],
+        cleanupErrors: [],
+      };
+    }
+  }
+
+  /**
+   * Clear failure log for current role (useful between test runs).
+   */
+  async clearFailures(): Promise<void> {
+    try {
+      const context = await this.ensureCurrentRoleContext();
+      context.failures = {
+        frameInjectionFailures: [],
+        frameExpansionFailures: [],
+        cleanupErrors: [],
+      };
+    } catch {
+      // Ignore
     }
   }
 
@@ -1003,24 +1191,61 @@ export class MultiContextBrowser {
   ): Promise<void> {
     try {
       const context = await contextPromise;
+      const failures = this.ensureFailureLog(context);
 
-      // Cleanup order matters: Injector -> CDP -> Page -> Context
+      // Track each cleanup step
       if (context.bridgeInjector) {
-        await context.bridgeInjector.dispose(context.cdpSession);
-      }
-      if (context.cdpSession) {
-        await context.cdpSession.detach();
-      }
-      if (context.page && !context.page.isClosed()) {
-        await context.page.close();
-      }
-      // Only close browser context for non-default roles
-      // Default role uses defaultBrowserContext() which cannot be closed
-      if (context.browserContext && role !== "default") {
-        await context.browserContext.close();
+        try {
+          await context.bridgeInjector.dispose(context.cdpSession);
+        } catch (error) {
+          failures.cleanupErrors.push({
+            step: "bridge-dispose",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
 
-      console.log(`✅ Closed context for role: ${role}`);
+      if (context.cdpSession) {
+        try {
+          await context.cdpSession.detach();
+        } catch (error) {
+          failures.cleanupErrors.push({
+            step: "cdp-detach",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (context.page && !context.page.isClosed()) {
+        try {
+          await context.page.close();
+        } catch (error) {
+          failures.cleanupErrors.push({
+            step: "page-close",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (context.browserContext && role !== "default") {
+        try {
+          await context.browserContext.close();
+        } catch (error) {
+          failures.cleanupErrors.push({
+            step: "context-close",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (failures.cleanupErrors.length > 0) {
+        console.error(
+          `Context cleanup for role '${role}' had ${failures.cleanupErrors.length} failures:`,
+          failures.cleanupErrors
+        );
+      } else {
+        console.log(`✅ Closed context for role: ${role}`);
+      }
     } catch (error) {
       console.error(`❌ Failed to close context for role ${role}:`, error);
     }

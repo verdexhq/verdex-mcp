@@ -41,6 +41,37 @@ export type RefIndexEntry = {
 export type GlobalRefIndex = Map<string, RefIndexEntry>;
 
 /**
+ * Tracks operational failures for debugging
+ */
+export type FailureLog = {
+  frameInjectionFailures: Array<{
+    frameId: string;
+    error: string;
+    reason: "cross-origin" | "detached" | "timeout" | "unknown";
+    timestamp: number;
+  }>;
+  frameExpansionFailures: Array<{
+    ref: string;
+    error: string;
+    detached: boolean;
+    timestamp: number;
+  }>;
+  frameDiscoveryError?: {
+    error: string;
+    timestamp: number;
+  };
+  authLoadError?: {
+    error: string;
+    authPath: string;
+    timestamp: number;
+  };
+  cleanupErrors: Array<{
+    step: string;
+    error: string;
+  }>;
+};
+
+/**
  * Context for a specific role in multi-role browser management.
  * Contains all the Puppeteer resources needed for a role-specific browser session.
  */
@@ -63,6 +94,9 @@ export type RoleContext = {
 
   // Error recovery
   lastErrorSnapshot?: any; // Snapshot type (avoid circular import)
+
+  // NEW: Simple failure log
+  failures?: FailureLog;
 };
 
 /**

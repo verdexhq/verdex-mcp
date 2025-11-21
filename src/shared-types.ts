@@ -176,6 +176,12 @@ export type Snapshot = {
     worldType?: string;
     isolatedWorldId?: number;
   };
+  // NEW: Expansion errors (if any)
+  expansionErrors?: Array<{
+    ref: string;
+    error: string;
+    detached: boolean;
+  }>;
 };
 
 // ============================================================================
