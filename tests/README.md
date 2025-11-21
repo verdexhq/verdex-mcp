@@ -2,6 +2,23 @@
 
 Comprehensive end-to-end tests for the Verdex MCP browser automation system.
 
+## 📁 Organization
+
+Tests are now organized into thematic directories. See [ORGANIZATION.md](./ORGANIZATION.md) for details.
+
+```
+tests/
+├── integration/    - Full stack E2E tests
+├── runtime/        - Browser & navigation tests
+├── bridge/         - Bridge lifecycle tests
+├── multi-frame/    - Frame & iframe tests
+├── features/       - Feature-specific tests
+├── performance/    - Load & stress tests
+├── regression/     - Fixed bugs & flaky tests
+├── archive/        - Deprecated tests
+└── utils/          - Shared test utilities
+```
+
 ## Overview
 
 This test suite ensures the Verdex MCP system functions correctly across all major components:
@@ -124,11 +141,26 @@ Tests content capture edge cases:
 npm test
 ```
 
-### Run Specific Test Suite
+### Run Tests by Category
 ```bash
-npx playwright test tests/role-management.spec.ts
-npx playwright test tests/navigation-lifecycle.spec.ts
-npx playwright test tests/bridge-lifecycle.spec.ts
+# Integration tests
+npx playwright test tests/integration/
+
+# Multi-frame tests
+npx playwright test tests/multi-frame/
+
+# Performance tests  
+npx playwright test tests/performance/
+
+# Feature tests
+npx playwright test tests/features/
+```
+
+### Run Specific Test File
+```bash
+npx playwright test tests/runtime/role-management.spec.ts
+npx playwright test tests/runtime/navigation-lifecycle.spec.ts
+npx playwright test tests/bridge/bridge-lifecycle.spec.ts
 ```
 
 ### Run Tests in Headed Mode (Debugging)
