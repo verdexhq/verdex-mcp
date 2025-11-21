@@ -181,6 +181,10 @@ export type SnapshotWarnings = {
 export type Snapshot = {
   text: string;
   elementCount: number;
+  pageContext?: {
+    url: string;
+    title: string;
+  };
   navigation?: NavigationMetadata; // Optional - only present after navigation
   isolatedWorldInfo?: {
     sessionId?: string;

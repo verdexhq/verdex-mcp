@@ -939,6 +939,10 @@ export class MultiContextBrowser {
       const snapshot: Snapshot = {
         text: expanded.text,
         elementCount: mainSnapshot.elementCount + expanded.elementCount,
+        pageContext: {
+          url: context.page.url(),
+          title: await context.page.title(),
+        },
       };
 
       // Add expansion errors to snapshot if any
