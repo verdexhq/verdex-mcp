@@ -33,6 +33,7 @@ Meet Verdex, an experimental Chrome/CDP MCP server that helps AI coding assistan
 - **🔍 Structured DOM Exploration** - Three-step workflow (`resolve_container` → `inspect_pattern` → `extract_anchors`) to understand page structure with minimal tokens (100-1K per call vs. 10K+ for raw DOM dumps)
 - **👥 Multi-Role Isolation** - Test multi-user flows in isolated browser contexts with pre-loaded authentication
 - **🎯 Semantic Selector Generation** - Guide LLMs to create selectors using `data-testid`, `getByRole()`, and content filters instead of brittle positions
+- **🖼️ Multi-Frame Support** - Handles same-origin iframes with lazy expansion and frame-qualified refs (e.g., `f1_e3` for iframe elements)
 - **🤖 AI-First Design** - Built for LLM consumption with compact, structured responses and clear tool descriptions
 - **🔒 CDP-Powered Isolation** - Each role runs in isolated JavaScript execution contexts, preventing interference with app code
 
@@ -311,10 +312,9 @@ Child 2 (button) [ref=e3]:
 |------|-------------|
 | `browser_initialize` | Start browser session |
 | `browser_navigate` | Navigate to URL and capture page snapshot |
-| `browser_snapshot` | Get current page's accessibility tree |
-| `browser_click` | Click element by reference (e.g., `e1`, `e2`) |
+| `browser_snapshot` | Get current page's accessibility tree (with iframe expansion) |
+| `browser_click` | Click element by reference (e.g., `e1`, `e2`, `f1_e3` for iframe elements) |
 | `browser_type` | Type text into input field |
-| `browser_inspect` | Get detailed element attributes and bounds |
 | `wait_for_browser` | Pause for page loads/animations |
 | `browser_close` | Clean shutdown |
 
@@ -380,6 +380,26 @@ await browser_navigate("https://shop.example.com");
 // ... verify discount applied
 ```
 
+### Example 3: Interacting with Iframe Content
+
+```javascript
+// Navigate to page with iframe
+await browser_navigate("https://example.com/checkout");
+
+// Snapshot shows both main frame and iframe content
+// Main frame elements: [ref=e1], [ref=e2], etc.
+// Iframe elements: [ref=f1_e1], [ref=f1_e2], etc.
+
+// Click button inside iframe (note frame-qualified ref)
+await browser_click("f1_e5");
+
+// Generate selector for iframe element
+page
+  .frameLocator('iframe[title="Payment Form"]')
+  .getByRole("button", { name: "Pay Now" })
+  .click();
+```
+
 ---
 
 ## 🏗️ Technical Architecture
@@ -397,33 +417,31 @@ await browser_navigate("https://shop.example.com");
 Browser Instance
 ├── Default Context (role: "default")
 │   ├── Page 1 (about:blank)
-│   └── CDP Session + Isolated World
+│   └── CDP Session + Isolated World + Multi-Frame Support
 │
 ├── Incognito Context (role: "admin")
 │   ├── Page 1 (admin.example.com)
 │   ├── Auth: admin-auth.json
-│   └── CDP Session + Isolated World
+│   └── CDP Session + Isolated World + Multi-Frame Support
 │
 └── Incognito Context (role: "user")
     ├── Page 1 (app.example.com)
     ├── Auth: user-auth.json
-    └── CDP Session + Isolated World
+    └── CDP Session + Isolated World + Multi-Frame Support
 ```
 
 **Benefits:**
 - ✅ Complete session isolation (cookies, localStorage, cache)
 - ✅ Parallel multi-user scenarios in one test session
 - ✅ No manual context management
+- ✅ Iframe content automatically expanded in snapshots with frame-qualified refs
 
 ---
 
 ## ⚠️ Current Limitations
 
-- **Chrome-only**: Uses Puppeteer/CDP (no Firefox/Safari)
-- **Not a test runner**: Assists authoring; you still run tests in Playwright
-- **Limited actions**: Fewer interaction primitives than Playwright MCP
+- **Limited actions**: Fewer interaction primitives than Playwright MCP (no drag-and-drop, hover, etc.)
 - **Programmatic typing**: Sets input values directly, not full keypress simulation
-- **No iframe support**: Currently doesn't handle cross-frame interactions
 - **Large pages**: Very complex DOMs may need throttling/timeouts
 
 ---
@@ -456,7 +474,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/verdex
 
 - **Token efficiency benchmarks**: Measure actual token usage vs. alternatives
 - **Extra probes**: Computed visibility, ARIA relationships, layout metrics
-- **iframe support**: Cross-frame DOM exploration
+- **Cross-origin iframe handling**: Improved strategies for working with payment widgets (Stripe, PayPal)
 - **More browser actions**: Drag-and-drop, hover states, keyboard navigation
 - **Documentation**: More examples, video tutorials
 
