@@ -74,13 +74,21 @@ Found ${snapshot.elementCount} interactive elements`;
 
   async handleSnapshot() {
     const snapshot = await this.browser.snapshot();
+
+    let responseText = `📄 Current Page (Role: ${this.browser.getCurrentRole()}):\n`;
+
+    if (snapshot.pageContext) {
+      responseText += `   URL: ${snapshot.pageContext.url}\n`;
+      responseText += `   Title: "${snapshot.pageContext.title}"\n\n`;
+    }
+
+    responseText += `${snapshot.text}\n\nFound ${snapshot.elementCount} interactive elements`;
+
     return {
       content: [
         {
           type: "text",
-          text: `Current Page Snapshot (Role: ${this.browser.getCurrentRole()}):\n${
-            snapshot.text
-          }\n\nFound ${snapshot.elementCount} interactive elements`,
+          text: responseText,
         },
       ],
     };

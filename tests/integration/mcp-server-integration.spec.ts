@@ -12,7 +12,7 @@
  * If you move or modify the demo file structure, update DEMO_PAGE_PATH below!
  */
 import { test, expect } from "@playwright/test";
-import { VerdexMCPServer } from "../src/index.js";
+import { VerdexMCPServer } from "../../src/index.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -21,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEMO_PAGE_PATH = `file://${path.resolve(
   __dirname,
-  "../demo/worst-case/demo-page.html"
+  "../../demo/worst-case/demo-page.html"
 )}`;
 
 test.describe("MCP Server Integration with Bundled Bridge", () => {

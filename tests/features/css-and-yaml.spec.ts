@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("CSS Pseudo-Elements and YAML Escaping", () => {
   let browser: MultiContextBrowser;

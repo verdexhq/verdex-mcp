@@ -18,6 +18,9 @@ export type {
   SnapshotResult,
 } from "../../shared-types.js";
 
+// Re-export error classes (not 'type' because they're runtime classes)
+export { StaleRefError, UnknownRefError } from "../../shared-types.js";
+
 /**
  * Browser-specific: Information about an interactive element in the browser context.
  * This version uses the actual DOM Element type rather than 'any'.

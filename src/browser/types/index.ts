@@ -15,5 +15,8 @@ export type {
   AnchorsResult,
 } from "./elements.js";
 
+// Re-export error classes as values (not types)
+export { StaleRefError, UnknownRefError } from "./elements.js";
+
 export type { IBridge, BridgeConfig } from "./bridge.js";
 export type { VerdexBridgeFactory } from "./global.js";

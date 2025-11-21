@@ -3,7 +3,7 @@
  * Verifies that element refs stay consistent within a page session
  */
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("Ref Persistence", () => {
   let browser: MultiContextBrowser;
@@ -209,7 +209,9 @@ test.describe("Ref Persistence", () => {
     expect(snap.text).toContain("[ref=e1]");
 
     // Try to click non-existent ref
-    await expect(browser.click("e99")).rejects.toThrow("Element e99 not found");
+    await expect(browser.click("e99")).rejects.toThrow(
+      /Unknown element reference: e99/
+    );
   });
 
   test("Additional: error handling for stale refs", async () => {

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("SnapshotGenerator comprehensive behavior", () => {
   let browser: MultiContextBrowser;

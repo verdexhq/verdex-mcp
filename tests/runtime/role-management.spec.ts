@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("Multi-Role Management", () => {
   let browser: MultiContextBrowser;

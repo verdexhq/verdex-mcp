@@ -164,16 +164,118 @@ export type NavigationMetadata = {
 };
 
 /**
+ * Warnings about non-critical issues during snapshot generation.
+ * These don't prevent operation but provide transparency.
+ */
+export type SnapshotWarnings = {
+  inaccessibleFrames?: number;
+  authStatus?: "unauthenticated";
+  partialContent?: boolean;
+  details?: string[];
+};
+
+/**
  * Enhanced snapshot with optional navigation metadata.
  * Used by the Node.js runtime to track page state and navigation.
  */
 export type Snapshot = {
   text: string;
   elementCount: number;
+  pageContext?: {
+    url: string;
+    title: string;
+  };
   navigation?: NavigationMetadata; // Optional - only present after navigation
   isolatedWorldInfo?: {
     sessionId?: string;
     worldType?: string;
     isolatedWorldId?: number;
   };
+  // NEW: Expansion errors (if any)
+  expansionErrors?: Array<{
+    ref: string;
+    error: string;
+    detached: boolean;
+  }>;
+  // NEW: Non-critical warnings
+  warnings?: SnapshotWarnings;
 };
+
+// ============================================================================
+// Error types
+// ============================================================================
+
+/**
+ * Error thrown when an element reference is stale (element removed from DOM)
+ */
+export class StaleRefError extends Error {
+  constructor(
+    public ref: string,
+    public elementInfo: { role: string; name: string; tagName: string }
+  ) {
+    super(
+      `Element ${ref} (${elementInfo.role} "${elementInfo.name}") was removed from DOM. ` +
+        `Take a new snapshot() to refresh refs.`
+    );
+    this.name = "StaleRefError";
+  }
+}
+
+/**
+ * Error thrown when an element reference is not found in the bridge
+ */
+export class UnknownRefError extends Error {
+  constructor(public ref: string) {
+    super(
+      `Unknown element reference: ${ref}. ` +
+        `Ref may be stale after navigation. Take a new snapshot to get fresh refs.`
+    );
+    this.name = "UnknownRefError";
+  }
+}
+
+/**
+ * Error thrown when a frame is detached or unavailable
+ */
+export class FrameDetachedError extends Error {
+  constructor(public frameId: string, details?: string) {
+    super(`Frame ${frameId} was detached${details ? `: ${details}` : ""}`);
+    this.name = "FrameDetachedError";
+  }
+}
+
+/**
+ * Error thrown when frame injection fails for non-recoverable reasons
+ */
+export class FrameInjectionError extends Error {
+  constructor(public frameId: string, public reason: string) {
+    super(`Failed to inject bridge into frame ${frameId}: ${reason}`);
+    this.name = "FrameInjectionError";
+  }
+}
+
+/**
+ * Error thrown when navigation fails
+ */
+export class NavigationError extends Error {
+  constructor(public url: string, public role: string, details: string) {
+    super(`Navigation failed for role '${role}' to '${url}': ${details}`);
+    this.name = "NavigationError";
+  }
+}
+
+/**
+ * Error thrown when required authentication cannot be loaded
+ */
+export class AuthenticationError extends Error {
+  constructor(
+    public role: string,
+    public authPath: string,
+    public reason: string
+  ) {
+    super(
+      `Authentication required for role '${role}' but failed to load from ${authPath}: ${reason}`
+    );
+    this.name = "AuthenticationError";
+  }
+}

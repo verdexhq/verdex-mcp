@@ -13,7 +13,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("Bridge Lifecycle Management", () => {
   let browser: MultiContextBrowser;

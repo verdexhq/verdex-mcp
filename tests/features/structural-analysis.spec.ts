@@ -11,7 +11,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("Structural Analysis Edge Cases", () => {
   let browser: MultiContextBrowser;
@@ -551,15 +551,15 @@ test.describe("Structural Analysis Edge Cases", () => {
 
       await expect(async () => {
         await browser.resolve_container("e999");
-      }).rejects.toThrow(/Element e999 not found/);
+      }).rejects.toThrow(/Unknown element reference: e999/);
 
       await expect(async () => {
         await browser.inspect_pattern("e999", 1);
-      }).rejects.toThrow(/Element e999 not found/);
+      }).rejects.toThrow(/Unknown element reference: e999/);
 
       await expect(async () => {
         await browser.extract_anchors("e999", 1);
-      }).rejects.toThrow(/Element e999 not found/);
+      }).rejects.toThrow(/Unknown element reference: e999/);
     });
 
     test("should handle structural analysis on elements removed from DOM", async () => {

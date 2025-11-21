@@ -2,7 +2,7 @@
  * Performance profiling test to identify bottlenecks
  */
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("Performance Profiling", () => {
   let browser: MultiContextBrowser;

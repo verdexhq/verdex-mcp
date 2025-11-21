@@ -14,6 +14,8 @@ import type {
   AnchorsResult,
   BridgeConfig,
 } from "../types/index.js";
+// Import error classes as values (not types) - we need to instantiate them
+import { StaleRefError, UnknownRefError } from "../types/index.js";
 
 export class BridgeFactory {
   /**
@@ -27,18 +29,17 @@ export class BridgeFactory {
       const info = bridge.elements.get(ref);
 
       if (!info) {
-        throw new Error(
-          `Element ${ref} not found. Try browser_snapshot() to refresh refs.`
-        );
+        throw new UnknownRefError(ref);
       }
 
       if (!info.element.isConnected) {
         // Auto-cleanup stale ref
         bridge.elements.delete(ref);
-        throw new Error(
-          `Element ${ref} (${info.role} "${info.name}") was removed from DOM. ` +
-            `Take a new snapshot() to refresh refs.`
-        );
+        throw new StaleRefError(ref, {
+          role: info.role,
+          name: info.name,
+          tagName: info.tagName,
+        });
       }
 
       return info.element;

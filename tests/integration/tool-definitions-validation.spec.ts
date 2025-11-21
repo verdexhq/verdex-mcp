@@ -11,7 +11,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { TOOL_DEFINITIONS } from "../src/server/tools/ToolDefinitions.js";
+import { TOOL_DEFINITIONS } from "../../src/server/tools/ToolDefinitions.js";
 
 test.describe("Tool Definitions Validation", () => {
   test("should define all expected MCP tools", () => {

@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { MultiContextBrowser } from "../src/runtime/MultiContextBrowser.js";
+import { MultiContextBrowser } from "../../src/runtime/MultiContextBrowser.js";
 
 test.describe("Error Handling - End to End", () => {
   let browser: MultiContextBrowser;
@@ -30,7 +30,7 @@ test.describe("Error Handling - End to End", () => {
     // Try to click non-existent ref
     await expect(async () => {
       await browser.click("e999");
-    }).rejects.toThrow(/Element e999 not found/);
+    }).rejects.toThrow(/Unknown element reference: e999/);
   });
 
   test("type() throws clear error for non-existent ref", async () => {
@@ -44,7 +44,7 @@ test.describe("Error Handling - End to End", () => {
     // Try to type into non-existent ref
     await expect(async () => {
       await browser.type("e999", "test");
-    }).rejects.toThrow(/Element e999 not found/);
+    }).rejects.toThrow(/Unknown element reference: e999/);
   });
 
   test("resolve_container() throws error for non-existent ref", async () => {
@@ -54,7 +54,7 @@ test.describe("Error Handling - End to End", () => {
     // Try to resolve non-existent ref
     await expect(async () => {
       await browser.resolve_container("e999");
-    }).rejects.toThrow(/Element e999 not found/);
+    }).rejects.toThrow(/Unknown element reference: e999/);
   });
 
   test("inspect_pattern() throws error for non-existent ref", async () => {
@@ -64,7 +64,7 @@ test.describe("Error Handling - End to End", () => {
     // Try to inspect non-existent ref
     await expect(async () => {
       await browser.inspect_pattern("e999", 1);
-    }).rejects.toThrow(/Element e999 not found/);
+    }).rejects.toThrow(/Unknown element reference: e999/);
   });
 
   test("inspect_pattern() throws error for ancestor level too high", async () => {
@@ -91,7 +91,7 @@ test.describe("Error Handling - End to End", () => {
     // Try to extract anchors for non-existent ref
     await expect(async () => {
       await browser.extract_anchors("e999", 0);
-    }).rejects.toThrow(/Element e999 not found/);
+    }).rejects.toThrow(/Unknown element reference: e999/);
   });
 
   test("extract_anchors() throws error for ancestor level too high", async () => {
@@ -119,8 +119,8 @@ test.describe("Error Handling - End to End", () => {
       throw new Error("Should have thrown error");
     } catch (error: any) {
       // Check error message includes helpful guidance
-      expect(error.message).toContain("Element e999 not found");
-      expect(error.message).toContain("browser_snapshot()");
+      expect(error.message).toContain("Unknown element reference: e999");
+      expect(error.message).toContain("Take a new snapshot");
     }
   });
 
@@ -131,10 +131,10 @@ test.describe("Error Handling - End to End", () => {
 
     await browser.navigate("data:text/html,<button>Click me</button>");
 
-    // Verify error propagates correctly from bridge through MultiContextBrowser
+    // Verify error propagates correctly from parseRef through MultiContextBrowser
     await expect(async () => {
       await browser.click("e999");
-    }).rejects.toThrow(/Element e999 not found/);
+    }).rejects.toThrow(/Unknown element reference: e999/);
   });
 
   test("structural analysis methods return valid empty results", async () => {
