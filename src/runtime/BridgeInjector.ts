@@ -6,6 +6,7 @@ import { BRIDGE_BUNDLE, BRIDGE_VERSION } from "./bridge-bundle.js";
 import type { BridgeConfig, InjectorOptions } from "../browser/types/bridge.js";
 import { ManualPromise } from "../utils/ManualPromise.js";
 import { FrameDetachedError, FrameInjectionError } from "../shared-types.js";
+import { logAndContinue } from "../utils/logging.js";
 
 // NEW: Multi-frame state structure
 type FrameState = {
@@ -435,8 +436,8 @@ export class BridgeInjector {
         await cdp.send("Page.removeScriptToEvaluateOnNewDocument", {
           identifier: this.scriptId,
         } as any);
-      } catch {
-        /* ignore */
+      } catch (error) {
+        logAndContinue(error, "BridgeInjector.dispose:removeScript");
       }
       this.scriptId = null;
     }
@@ -446,7 +447,9 @@ export class BridgeInjector {
       try {
         (cdp as any).off?.(event, handler) ??
           (cdp as any).removeListener?.(event, handler);
-      } catch {}
+      } catch (error) {
+        logAndContinue(error, "BridgeInjector.dispose:removeListener");
+      }
     }
     this.listeners = [];
 

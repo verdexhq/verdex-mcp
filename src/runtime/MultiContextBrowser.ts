@@ -12,8 +12,10 @@ import {
   FrameDetachedError,
   NavigationError,
   UnknownRefError,
+  AuthenticationError,
 } from "../shared-types.js";
 import { RefFormatter } from "../utils/RefFormatter.js";
+import { logAndContinue } from "../utils/logging.js";
 
 export class MultiContextBrowser {
   private browser: Browser | null = null;
@@ -195,7 +197,8 @@ export class MultiContextBrowser {
   }
 
   /**
-   * Load authentication data from auth file into browser context
+   * Load authentication data from auth file into browser context.
+   * Throws on failure - caller decides if critical based on authRequired.
    */
   private async _loadAuthData(role: string, page: Page): Promise<void> {
     const authPath = this.rolesConfig?.roles[role]?.authPath;
@@ -231,17 +234,13 @@ export class MultiContextBrowser {
 
       console.log(`✅ Auth data loaded for role: ${role}`);
     } catch (error) {
+      // Throw proper Error with context
       const errorMsg = error instanceof Error ? error.message : String(error);
-
-      // NEW: Track but don't throw (let context be created without auth)
-      console.warn(`⚠️ Failed to load auth for role '${role}':`, errorMsg);
-
-      // Will be picked up by context creation to store in failures
-      throw {
-        authPath,
-        error: errorMsg,
-        timestamp: Date.now(),
-      };
+      const authError = new Error(
+        `Failed to load auth from ${authPath}: ${errorMsg}`
+      );
+      (authError as any).authPath = authPath; // Attach metadata
+      throw authError;
     }
   }
 
@@ -264,19 +263,39 @@ export class MultiContextBrowser {
       const pages = await browserContext.pages();
       const page = pages[0] || (await browserContext.newPage());
 
-      // Load auth data
-      let authError: any;
+      // Try to load auth data
+      let authError: Error | undefined;
       try {
         await this._loadAuthData(role, page);
       } catch (error) {
-        authError = error;
+        authError = error instanceof Error ? error : new Error(String(error));
       }
 
       const context = await this._setupRoleContext(role, browserContext, page);
 
+      // Track auth failure in FailureLog
       if (authError) {
         const failures = this.ensureFailureLog(context);
-        failures.authLoadError = authError;
+        failures.authLoadError = {
+          error: authError.message,
+          authPath: (authError as any).authPath || "unknown",
+          timestamp: Date.now(),
+        };
+
+        // DECISION POINT: Check if auth is required
+        const roleConfig = this.rolesConfig?.roles[role];
+        if (roleConfig?.authRequired) {
+          throw new AuthenticationError(
+            role,
+            (authError as any).authPath || "unknown",
+            authError.message
+          );
+        }
+
+        // Non-critical: log and continue
+        console.warn(
+          `⚠️ Role '${role}' created without authentication (optional)`
+        );
       }
 
       console.log(`✅ Created main context for default role: ${role}`);
@@ -292,19 +311,43 @@ export class MultiContextBrowser {
     // Create page in the isolated context
     const page = await browserContext.newPage();
 
-    // Load auth data
-    let authError: any;
+    // Try to load auth data
+    let authError: Error | undefined;
     try {
       await this._loadAuthData(role, page);
     } catch (error) {
-      authError = error;
+      authError = error instanceof Error ? error : new Error(String(error));
     }
 
     const context = await this._setupRoleContext(role, browserContext, page);
 
+    // Track auth failure in FailureLog
     if (authError) {
       const failures = this.ensureFailureLog(context);
-      failures.authLoadError = authError;
+      failures.authLoadError = {
+        error: authError.message,
+        authPath: (authError as any).authPath || "unknown",
+        timestamp: Date.now(),
+      };
+
+      // DECISION POINT: Check if auth is required
+      const roleConfig = this.rolesConfig?.roles[role];
+      if (roleConfig?.authRequired) {
+        // Cleanup before throwing
+        await page.close().catch(logAndContinue);
+        await browserContext.close().catch(logAndContinue);
+
+        throw new AuthenticationError(
+          role,
+          (authError as any).authPath || "unknown",
+          authError.message
+        );
+      }
+
+      // Non-critical: log and continue
+      console.warn(
+        `⚠️ Role '${role}' created without authentication (optional)`
+      );
     }
 
     console.log(`✅ Created isolated context for role: ${role}`);
@@ -427,26 +470,39 @@ export class MultiContextBrowser {
   /**
    * Discover all frames in page and inject bridges into each.
    * Called after navigation to ensure bridges exist in all frames.
+   *
+   * DECISION POINT: Throws if main frame injection fails (critical).
+   * Logs if child frame injection fails (acceptable).
    */
   private async discoverAndInjectFrames(context: RoleContext): Promise<void> {
     try {
       // Get complete frame tree
       const { frameTree } = await context.cdpSession.send("Page.getFrameTree");
 
-      // Inject into all frames recursively (parallel)
-      await this.injectFrameTreeRecursive(context, frameTree);
+      // Inject into all frames recursively (main frame marked as critical)
+      await this.injectFrameTreeRecursive(context, frameTree, true);
+
+      // DECISION POINT: Check if main frame failed
+      const mainFrameFailed = context.failures?.frameInjectionFailures.some(
+        (f) => f.isMainFrame
+      );
+
+      if (mainFrameFailed) {
+        // CRITICAL: Cannot snapshot without main frame
+        throw new Error(
+          `Main frame injection failed - page cannot be automated`
+        );
+      }
     } catch (error) {
-      // NEW: Track discovery failure
+      // Track discovery failure
       const failures = this.ensureFailureLog(context);
       failures.frameDiscoveryError = {
         error: error instanceof Error ? error.message : String(error),
         timestamp: Date.now(),
       };
 
-      console.warn("Frame discovery failed:", {
-        role: context.role,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // Re-throw - this is critical
+      throw error;
     }
   }
 
@@ -456,7 +512,8 @@ export class MultiContextBrowser {
    */
   private async injectFrameTreeRecursive(
     context: RoleContext,
-    frameTree: any
+    frameTree: any,
+    isMainFrame: boolean = false
   ): Promise<void> {
     // Inject into this frame
     try {
@@ -471,31 +528,33 @@ export class MultiContextBrowser {
         return;
       }
 
-      // NEW: Track non-detachment failures
+      // Track non-detachment failures
       const failures = this.ensureFailureLog(context);
       failures.frameInjectionFailures.push({
         frameId: frameTree.frame.id,
         error: error instanceof Error ? error.message : String(error),
         reason: this.classifyFrameError(error),
+        isMainFrame, // Track if this is the main frame
         timestamp: Date.now(),
       });
 
       console.warn(`Failed to inject into frame ${frameTree.frame.id}:`, {
         reason: this.classifyFrameError(error),
         error: error instanceof Error ? error.message : String(error),
+        isMainFrame,
       });
       return;
     }
 
-    // Recursively inject into children (PARALLEL for speed)
+    // Recursively inject into children (PARALLEL for speed, child frames not main)
     if (frameTree.childFrames && frameTree.childFrames.length > 0) {
       const results = await Promise.allSettled(
-        frameTree.childFrames.map((child: any) =>
-          this.injectFrameTreeRecursive(context, child)
+        frameTree.childFrames.map(
+          (child: any) => this.injectFrameTreeRecursive(context, child, false) // child frames not critical
         )
       );
 
-      // NEW: Check for failures
+      // Check for failures (non-critical for child frames)
       const failed = results.filter((r) => r.status === "rejected");
       if (failed.length > 0) {
         const failures = this.ensureFailureLog(context);
@@ -511,6 +570,7 @@ export class MultiContextBrowser {
               frameId: childFrame.frame.id,
               error: String(result.reason),
               reason: this.classifyFrameError(result.reason),
+              isMainFrame: false,
               timestamp: Date.now(),
             });
           }
@@ -881,10 +941,13 @@ export class MultiContextBrowser {
         elementCount: mainSnapshot.elementCount + expanded.elementCount,
       };
 
-      // NEW: Add expansion errors to snapshot if any
+      // Add expansion errors to snapshot if any
       if (expanded.errors.length > 0) {
         snapshot.expansionErrors = expanded.errors;
       }
+
+      // Build warnings from FailureLog
+      snapshot.warnings = this.buildWarningsFromFailureLog(context);
 
       return snapshot;
     } catch (error) {
@@ -894,6 +957,55 @@ export class MultiContextBrowser {
         }`
       );
     }
+  }
+
+  /**
+   * Build warnings for snapshot from FailureLog.
+   * Returns undefined if no warnings.
+   */
+  private buildWarningsFromFailureLog(context: RoleContext) {
+    const failures = context.failures;
+    if (!failures) return undefined;
+
+    const warnings: any = {};
+    let hasWarnings = false;
+
+    // Check for inaccessible frames (non-main frames that failed)
+    const inaccessibleFrames = failures.frameInjectionFailures.filter(
+      (f) => !f.isMainFrame
+    );
+
+    if (inaccessibleFrames.length > 0) {
+      warnings.inaccessibleFrames = inaccessibleFrames.length;
+      warnings.details = warnings.details || [];
+      inaccessibleFrames.forEach((f) => {
+        warnings.details.push(`Frame ${f.frameId}: ${f.reason}`);
+      });
+      hasWarnings = true;
+    }
+
+    // Check for unauthenticated status
+    if (failures.authLoadError) {
+      warnings.authStatus = "unauthenticated";
+      warnings.details = warnings.details || [];
+      warnings.details.push(`Auth failed: ${failures.authLoadError.error}`);
+      hasWarnings = true;
+    }
+
+    // Check for partial content (frame expansion failures)
+    if (failures.frameExpansionFailures.length > 0) {
+      warnings.partialContent = true;
+      warnings.details = warnings.details || [];
+      const detached = failures.frameExpansionFailures.filter(
+        (f) => f.detached
+      ).length;
+      warnings.details.push(
+        `${failures.frameExpansionFailures.length} iframe(s) inaccessible (${detached} detached)`
+      );
+      hasWarnings = true;
+    }
+
+    return hasWarnings ? warnings : undefined;
   }
 
   /**
@@ -945,8 +1057,8 @@ export class MultiContextBrowser {
         frameExpansionFailures: [],
         cleanupErrors: [],
       };
-    } catch {
-      // Ignore
+    } catch (error) {
+      logAndContinue(error, "clearFailures");
     }
   }
 

@@ -41,7 +41,11 @@ export type RefIndexEntry = {
 export type GlobalRefIndex = Map<string, RefIndexEntry>;
 
 /**
- * Tracks operational failures for debugging
+ * Tracks operational failures for debugging and decision-making.
+ *
+ * Pattern: Track all failures here, then classify at decision points:
+ * - If critical (e.g., main frame failed) → throw
+ * - If acceptable (e.g., cross-origin iframe) → continue with warning
  */
 export type FailureLog = {
   frameInjectionFailures: Array<{
@@ -49,6 +53,7 @@ export type FailureLog = {
     error: string;
     reason: "cross-origin" | "detached" | "timeout" | "unknown";
     timestamp: number;
+    isMainFrame?: boolean; // NEW: Track if this was main frame (critical)
   }>;
   frameExpansionFailures: Array<{
     ref: string;
@@ -69,6 +74,10 @@ export type FailureLog = {
     step: string;
     error: string;
   }>;
+
+  // NEW: Counters for quick checks
+  totalFrames?: number;
+  successfulFrames?: number;
 };
 
 /**
@@ -95,7 +104,7 @@ export type RoleContext = {
   // Error recovery
   lastErrorSnapshot?: any; // Snapshot type (avoid circular import)
 
-  // NEW: Simple failure log
+  // Failure tracking (single source of truth)
   failures?: FailureLog;
 };
 
@@ -104,7 +113,8 @@ export type RoleContext = {
  */
 export type RoleConfig = {
   authPath: string;
-  defaultUrl?: string; // Optional - for backward compatibility
+  defaultUrl?: string;
+  authRequired?: boolean; // If true, role cannot be created without auth
 };
 
 /**

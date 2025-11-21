@@ -17,6 +17,7 @@ import {
   FrameDetachedError,
   FrameInjectionError,
   NavigationError,
+  AuthenticationError,
 } from "../shared-types.js";
 
 export class VerdexMCPServer {
@@ -225,6 +226,31 @@ This frame cannot be automated. Try one of these approaches:
 • If cross-origin, this is a browser security limit (cannot be bypassed)`;
     }
 
+    // Authentication failed - required auth cannot load
+    if (error instanceof AuthenticationError) {
+      return `❌ Authentication Required
+
+Role: ${error.role}
+Auth File: ${error.authPath}
+
+Failed to load authentication data: ${error.reason}
+
+This role requires authentication but the auth file couldn't be loaded.
+
+Possible causes:
+• Auth file doesn't exist at specified path
+• Auth file has invalid JSON format
+• Auth file permissions prevent reading
+• Path specified incorrectly in configuration
+
+🔧 Action Required:
+1. Verify auth file exists: ${error.authPath}
+2. Check file permissions (must be readable)
+3. Validate JSON format in auth file
+4. If auth is optional, set authRequired: false in role config
+5. Run auth capture process if credentials expired`;
+    }
+
     // Navigation failed - couldn't navigate to URL
     if (error instanceof NavigationError) {
       return `❌ Navigation Failed
@@ -238,13 +264,15 @@ Possible causes:
 • Invalid or unreachable URL
 • Network connectivity issues
 • Server error (404, 500, etc.)
-• Authentication required
+• Authentication required (check warnings in snapshot)
 • Timeout (page took too long to load)
+• Main frame injection failed
 
 🔧 Action Required:
 • Verify the URL is correct and accessible
 • Check network connectivity
-• Verify authentication if needed (check role configuration)
+• Call browser_snapshot() to see current page state
+• Check role authentication status via getFailures()
 • Try a different URL or retry after a moment`;
     }
 
