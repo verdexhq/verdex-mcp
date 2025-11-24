@@ -218,6 +218,18 @@ verdex-mcp/
 └── dist/                 # Compiled output (generated)
 ```
 
+## Architecture & Design Reference
+
+### Current Documentation
+
+For understanding the current system architecture:
+
+- **`ARCHITECTURE.md`** - System architecture overview
+  - Layer architecture (Browser → Runtime → Server → MCP)
+  - Event-driven patterns (ManualPromise, CDP coordination)
+  - Multi-frame element addressing
+  - Memory management and cleanup
+
 ## Test Categories
 
 Our tests are organized by priority:

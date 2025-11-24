@@ -83,9 +83,9 @@ echo ""
 
 # Run only critical tests for speed
 npx playwright test \
-  tests/mcp-server-integration.spec.ts \
-  tests/bridge-lifecycle.spec.ts \
-  tests/role-management.spec.ts \
+  tests/integration/mcp-server-integration.spec.ts \
+  tests/bridge/bridge-lifecycle.spec.ts \
+  tests/runtime/role-management.spec.ts \
   --reporter=list
 
 EXIT_CODE=$?

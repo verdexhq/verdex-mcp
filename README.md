@@ -33,9 +33,7 @@ Meet Verdex, an experimental Chrome/CDP MCP server that helps AI coding assistan
 - **🔍 Structured DOM Exploration** - Three-step workflow (`resolve_container` → `inspect_pattern` → `extract_anchors`) to understand page structure with minimal tokens (100-1K per call vs. 10K+ for raw DOM dumps)
 - **👥 Multi-Role Isolation** - Test multi-user flows in isolated browser contexts with pre-loaded authentication
 - **🎯 Semantic Selector Generation** - Guide LLMs to create selectors using `data-testid`, `getByRole()`, and content filters instead of brittle positions
-- **🖼️ Multi-Frame Support** - Handles same-origin iframes with lazy expansion and frame-qualified refs (e.g., `f1_e3` for iframe elements)
 - **🤖 AI-First Design** - Built for LLM consumption with compact, structured responses and clear tool descriptions
-- **🔒 CDP-Powered Isolation** - Each role runs in isolated JavaScript execution contexts, preventing interference with app code
 
 ---
 

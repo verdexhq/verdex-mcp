@@ -4,6 +4,7 @@ tests/
 *.spec.ts
 
 # Development files
+.archive/
 .auth/
 .env
 .gitattributes

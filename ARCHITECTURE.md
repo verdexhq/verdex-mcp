@@ -244,8 +244,5 @@ Identified during architecture review:
 
 ## Related Documentation
 
-- `ARCHITECTURE_IMPROVEMENTS.md` - Implementation plan for recent improvements
-- `MULTI_FRAME_ANALYSIS.md` - Deep dive into multi-frame support
 - `TESTING.md` - Testing strategy and test organization
-- `VERDEX_SELECTOR_GUIDE.md` - Best practices for element selection
 

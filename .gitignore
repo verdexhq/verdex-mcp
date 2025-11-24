@@ -33,6 +33,7 @@ downloads/
 chromium-cache/
 .puppeteer_cache/
 .auth/
+.archive/
 
 # Logs
 logs/
