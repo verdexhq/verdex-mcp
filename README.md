@@ -58,7 +58,18 @@ Add this configuration to your MCP settings file:
 
 The `npx` command will automatically download and run the latest version—no installation required!
 
-### 2. Use with your AI coding assistant
+### 2. Set up cursor rules (recommended)
+
+Copy the included cursor rules to teach your AI assistant best practices:
+
+```bash
+mkdir -p .cursor/rules
+cp node_modules/@verdex/mcp/.cursor/rules/*.mdc .cursor/rules/
+```
+
+These rules prevent fragile selectors like `.nth(8)` and teach the Container → Content → Role pattern. See [Configuration](#cursor-rules-setup-recommended) for details.
+
+### 3. Use with your AI coding assistant
 
 ```
 User: "Help me write a Playwright test that adds an iPhone to the cart"
@@ -151,6 +162,49 @@ Add to your MCP settings file (e.g., `~/Library/Application Support/Code/User/gl
   }
 }
 ```
+
+### Cursor Rules Setup (Recommended)
+
+Verdex tools work best when paired with cursor rules that teach AI assistants robust selector patterns and workflow methodology. These rules are **essential for optimal results** and prevent common pitfalls like positional selectors.
+
+**Why cursor rules matter:**
+- 🎯 **Selector patterns** - Teaches the Container → Content → Role methodology
+- ⚠️ **Anti-patterns** - Prevents fragile `.nth()`, `.first()`, `.last()` selectors
+- 🔄 **Workflow discovery** - Guides page exploration and workflow mapping
+- ✅ **Idiomatic tests** - Ensures Playwright best practices
+
+**Included rules:**
+- **`playwright-test-patterns-guide.mdc`** - Test structure, assertions, authentication patterns
+- **`selector-writing-guide.mdc`** - Container → Content → Role pattern, anti-patterns to avoid
+- **`workflow-discovery-guide.mdc`** - Page exploration techniques, workflow mapping
+
+**Setup for Cursor:**
+
+The cursor rules are included in the package. To use them:
+
+1. **Option A: Copy to your project** (Recommended for project-specific setup)
+   ```bash
+   # Copy from node_modules after npx install
+   mkdir -p .cursor/rules
+   cp node_modules/@verdex/mcp/.cursor/rules/*.mdc .cursor/rules/
+   ```
+
+2. **Option B: Reference from package** (For global use across projects)
+   ```bash
+   # Add to your Cursor settings to reference the installed package rules
+   # Location: node_modules/@verdex/mcp/.cursor/rules/
+   ```
+
+3. **Verify rules are loaded:**
+   - Open Cursor
+   - Check that rules appear in your Cursor rules list
+   - Ask your AI assistant: "What cursor rules are available?"
+
+**Setup for Claude Desktop / Other IDEs:**
+
+For Claude Desktop or other AI assistants, reference these guides manually or set up similar rule mechanisms if available.
+
+**⚠️ Important**: Without cursor rules, AI assistants may generate fragile selectors. These rules encode best practices from extensive Playwright testing experience.
 
 ### Multi-Role Configuration
 
@@ -487,6 +541,11 @@ For full guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
 - **[Cheat Sheet](examples/CHEAT_SHEET.md)** - Quick reference for tools and patterns
 - **[Example Tests](demo/demo-quickstart.spec.ts)** - Working Playwright test examples
 - **[Demo Page](demo/worst-case/demo-page.html)** - Realistic e-commerce page for testing
+
+### Cursor Rules (Essential)
+- **[Playwright Test Patterns](.cursor/rules/playwright-test-patterns-guide.mdc)** - Idiomatic test structure, assertions, authentication
+- **[Selector Writing Guide](.cursor/rules/selector-writing-guide.mdc)** - Container → Content → Role pattern, avoiding anti-patterns
+- **[Workflow Discovery Guide](.cursor/rules/workflow-discovery-guide.mdc)** - Page exploration and workflow mapping techniques
 
 ### Links
 - **GitHub**: https://github.com/verdexhq/verdex-mcp

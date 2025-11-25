@@ -2,7 +2,8 @@ export const TOOL_DEFINITIONS = [
   // Core browser functionality
   {
     name: "browser_initialize",
-    description: "Initialize the browser instance",
+    description:
+      "Initialize browser instance. Required before any browser operations (browser_navigate, browser_click, browser_snapshot, select_role etc.).",
     inputSchema: {
       type: "object",
       properties: {},
@@ -10,7 +11,14 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "browser_navigate",
-    description: "Navigate to a URL and return page snapshot",
+    description: `Navigate to a URL. Returns accessibility tree snapshot showing interactive elements with temporary reference IDs (e1, e2, e3, etc.).
+
+Example output:
+  button "Add to Cart" [ref=e25]
+  button "Add to Cart" [ref=e26]
+  textbox "Email" [ref=e1]
+
+Note: Refs are temporary identifiers valid for the current page state. They change on navigation or page refresh.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -24,7 +32,19 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "browser_snapshot",
-    description: "Take a snapshot of the current page's accessibility tree",
+    description: `Capture the current page state as an accessibility tree with interactive elements labeled with reference IDs (e1, e2, etc.).
+
+Shows:
+- Headings and text content
+- Interactive elements (buttons, links, inputs) with refs
+- Element states (disabled, checked, invalid)
+- ARIA landmarks and roles
+
+Example output:
+  heading "Products" [level=1]
+  button "Add to Cart" [ref=e25]
+  button "Add to Cart" [ref=e26]
+  link "Checkout" [ref=e30]`,
     inputSchema: {
       type: "object",
       properties: {},
@@ -32,7 +52,9 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "browser_click",
-    description: "Click an element by its reference ID",
+    description: `Click an element using its reference ID from the snapshot.
+
+Example: browser_click("e25") clicks the element labeled [ref=e25] in the most recent snapshot.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -46,7 +68,9 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "browser_type",
-    description: "Type text into an input element",
+    description: `Type text into an input field using its reference ID from the snapshot.
+
+Example: browser_type("e1", "test@example.com") types into the element labeled [ref=e1].`,
     inputSchema: {
       type: "object",
       properties: {
@@ -64,7 +88,9 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "wait_for_browser",
-    description: "Wait for a specified amount of time (useful for page loads)",
+    description: `Wait for a specified number of milliseconds.
+
+Default: 1000ms (1 second) if not specified.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -78,7 +104,8 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "browser_close",
-    description: "Close the browser instance",
+    description:
+      "Close browser instance and clean up resources. Terminates the browser context created by browser_initialize.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -88,8 +115,18 @@ export const TOOL_DEFINITIONS = [
   // Element analysis tools
   {
     name: "resolve_container",
-    description:
-      "STEP 1: Find the containment hierarchy for an element to identify stable scoping containers. Returns parent elements up to body, showing which have unique identifiers (data-testid, id) that can be used for scoped selectors. Essential first step for creating non-fragile selectors that don't rely on DOM position.",
+    description: `Examine the DOM ancestry of an element, showing parent containers and their attributes up to <body>.
+
+Returns ancestor chain with:
+- Level numbers (1 = immediate parent, 2 = grandparent, etc.)
+- Tag names at each level
+- All attributes at each level (data-testid, id, role, aria-*, class, etc.)
+
+Example output:
+  Level 1 (div): {"class": "product-details"}
+  Level 2 (article): {"data-testid": "product-card", "role": "article"}
+  Level 3 (div): {"data-testid": "product-grid"}
+  Level 4 (main): {"role": "main"}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -103,8 +140,26 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "inspect_pattern",
-    description:
-      "STEP 2: After resolve_container, analyze sibling elements at a specific ancestor level to understand repeating patterns (like product cards, list items, table rows). Reveals if elements share structure but have distinguishing content. Use the ancestor level from resolve_container output. Critical for understanding element uniqueness within its container.",
+    description: `Analyze sibling elements at a specific ancestor level, showing their attributes and content outline.
+
+Parameters:
+- ref: Element reference from snapshot
+- ancestorLevel: Level number from resolve_container (1 = immediate parent, 2 = grandparent, etc.)
+
+Returns sibling analysis:
+- Count of siblings at that level
+- Attributes for each sibling
+- Content outline (text, headings, key elements)
+
+Example output:
+  Found 6 siblings at ancestor level 2:
+  
+  Sibling 1: {"data-testid": "product-card"}
+    Contains: "iPhone 15 Pro", "$999", "Add to Cart"
+  Sibling 2: {"data-testid": "product-card"}
+    Contains: "MacBook Pro", "$1,999", "Add to Cart"
+  Sibling 3: {"data-testid": "product-card"}
+    Contains: "iPad Air", "$599", "Add to Cart"`,
     inputSchema: {
       type: "object",
       properties: {
@@ -115,7 +170,7 @@ export const TOOL_DEFINITIONS = [
         ancestorLevel: {
           type: "number",
           description:
-            "Use level number from resolve_container output (e.g., if resolve_container shows 'Level 3' as your target container, use ancestorLevel: 3)",
+            "Level number from resolve_container output (e.g., 2 for grandparent)",
         },
       },
       required: ["ref", "ancestorLevel"],
@@ -123,8 +178,24 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "extract_anchors",
-    description:
-      "STEP 3: After identifying the right ancestor level from inspect_pattern, explore the internal structure within that container to find unique identifying elements (headings, labels, specific text). This discovers semantic identifiers that make selectors robust and human-readable. Use same ancestorLevel as inspect_pattern.",
+    description: `Deep scan of content within a container at a specific ancestor level.
+
+Parameters:
+- ref: Element reference from snapshot
+- ancestorLevel: Level number from resolve_container
+
+Returns detailed content tree showing:
+- Tag names
+- Text content
+- Attributes (data-testid, id, aria-*, etc.)
+- Nesting depth
+
+Example output:
+  Descendants at ancestor level 2:
+  - tag: "h3", text: "iPhone 15 Pro", depth: 1
+  - tag: "span", attrs: {"data-testid": "price"}, text: "$999", depth: 2
+  - tag: "button", text: "Add to Cart", depth: 3
+  - tag: "img", attrs: {"alt": "iPhone 15 Pro"}, depth: 2`,
     inputSchema: {
       type: "object",
       properties: {
@@ -134,8 +205,7 @@ export const TOOL_DEFINITIONS = [
         },
         ancestorLevel: {
           type: "number",
-          description:
-            "Use the same level number identified from inspect_pattern analysis (the ancestor level that contains your target scope)",
+          description: "Level number from resolve_container output",
         },
       },
       required: ["ref", "ancestorLevel"],
@@ -144,7 +214,8 @@ export const TOOL_DEFINITIONS = [
   // Multi-role functionality
   {
     name: "get_current_role",
-    description: "Get the currently active role",
+    description:
+      "Get the currently active browser role/context. Useful when managing multiple browser contexts for different user roles or test scenarios.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -152,7 +223,8 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "list_current_roles",
-    description: "List all available roles",
+    description:
+      "List all available browser roles/contexts. Use this to see what roles are configured and available for switching.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -160,7 +232,8 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "select_role",
-    description: "Switch to a different role",
+    description:
+      "Switch to a different browser role/context. Useful for testing different user permissions or scenarios without reinitializing the browser.",
     inputSchema: {
       type: "object",
       properties: {
