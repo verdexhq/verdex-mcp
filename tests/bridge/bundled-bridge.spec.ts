@@ -20,7 +20,7 @@ test.describe("Bundled Bridge Injection", () => {
 
   test("should inject bridge with correct version", async () => {
     // Navigate to a simple page
-    await browser.navigate("https://example.com");
+    await browser.navigate("data:text/html,<h1>Test Page</h1>");
 
     // Verify snapshot works (proves bridge is injected and functional)
     const snapshot = await browser.snapshot();
@@ -32,12 +32,12 @@ test.describe("Bundled Bridge Injection", () => {
 
   test("should survive page navigation", async () => {
     // First navigation
-    await browser.navigate("https://example.com");
+    await browser.navigate("data:text/html,<h1>Page One</h1>");
     const snapshot1 = await browser.snapshot();
     expect(snapshot1.elementCount).toBeGreaterThanOrEqual(0);
 
     // Second navigation
-    await browser.navigate("https://www.iana.org/domains/reserved");
+    await browser.navigate("data:text/html,<h1>Page Two</h1>");
     const snapshot2 = await browser.snapshot();
     expect(snapshot2.elementCount).toBeGreaterThanOrEqual(0);
 
@@ -47,13 +47,13 @@ test.describe("Bundled Bridge Injection", () => {
 
   test("should handle multiple roles with isolated bridges", async () => {
     // Default role
-    await browser.navigate("https://example.com");
+    await browser.navigate("data:text/html,<h1>Default Role Page</h1>");
     const snapshot1 = await browser.snapshot();
     expect(snapshot1.elementCount).toBeGreaterThanOrEqual(0);
 
     // Create and switch to new role
     await browser.selectRole("test-role");
-    await browser.navigate("https://example.com");
+    await browser.navigate("data:text/html,<h1>Test Role Page</h1>");
     const snapshot2 = await browser.snapshot();
 
     // Both snapshots should work independently
@@ -66,7 +66,7 @@ test.describe("Bundled Bridge Injection", () => {
   });
 
   test("should provide bridge version metadata", async () => {
-    await browser.navigate("https://example.com");
+    await browser.navigate("data:text/html,<h1>Test Page</h1>");
 
     // Get snapshot - if this works, the bridge factory with version is available
     const snapshot = await browser.snapshot();
