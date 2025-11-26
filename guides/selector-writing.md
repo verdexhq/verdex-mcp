@@ -131,7 +131,7 @@ Level 3 (div):
 
 ### 4. Analyze Patterns with `inspect_pattern(ref, level)`
 
-**When to use**: When you find a stable container and need to understand sibling elements
+**When to use**: When you find a stable container and need to understand siblings
 
 **What it does**: Shows all siblings at a specific ancestor level
 
@@ -249,12 +249,12 @@ page
 
 ### Tool Comparison Matrix
 
-| Tool | When to Use | Token Cost | What You Learn |
-|------|-------------|------------|----------------|
-| `browser_snapshot()` | Always first | ~500-800 | Element refs, uniqueness check |
-| `resolve_container(ref)` | Element not unique | ~300-400 | Test IDs, semantic containers |
-| `inspect_pattern(ref, level)` | Repeating elements | ~400-500 | Sibling structure, unique text |
-| `extract_anchors(ref, level)` | Complex nesting | ~400-600 | Deep content, hidden attributes |
+| Tool                          | When to Use        | Token Cost | What You Learn                  |
+| ----- | --- | ---- | ---- |
+| `browser_snapshot()`          | Always first       | ~500-800   | Element refs, uniqueness check  |
+| `resolve_container(ref)`      | Element not unique | ~300-400   | Test IDs, semantic containers   |
+| `inspect_pattern(ref, level)` | Repeating elements | ~400-500   | Sibling structure, unique text  |
+| `extract_anchors(ref, level)` | Complex nesting    | ~400-600   | Deep content, hidden attributes |
 
 ### Decision Tree
 
@@ -652,12 +652,12 @@ page.getByRole("navigation", { name: "Breadcrumb" })
 
 ### Token Budget by Scenario
 
-| Scenario | Tools Used | Avg Cost | When to Use |
-|----------|-----------|----------|-------------|
-| **Unique element** | Snapshot only | ~800 | Element appears once |
-| **Test ID scoped** | Snapshot + resolve + inspect | ~1,200 | Well-structured apps |
-| **Semantic scoped** | Snapshot + resolve + inspect | ~1,500 | Accessible markup |
-| **Structure-based** | All tools + extract | ~2,500 | Legacy/unstructured code |
+| Scenario            | Tools Used                   | Avg Cost | When to Use              |
+| ---- | ---- | ----- | --- |
+| **Unique element**  | Snapshot only                | ~800     | Element appears once     |
+| **Test ID scoped**  | Snapshot + resolve + inspect | ~1,200   | Well-structured apps     |
+| **Semantic scoped** | Snapshot + resolve + inspect | ~1,500   | Accessible markup        |
+| **Structure-based** | All tools + extract          | ~2,500   | Legacy/unstructured code |
 
 ---
 
@@ -826,8 +826,8 @@ The key insight: **Don't dump the entire DOM. Ask targeted questions about struc
 
 - [Playwright Best Practices](https://playwright.dev/docs/best-practices)
 - [ARIA Roles Reference](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles)
-- [Verdex Demo Scenarios](./tests/DEMO_SCENARIOS_GUIDE.md)
-- [Test Examples](demo/verdex-exploration-test.spec.ts)
+- [Workflow Discovery Guide](workflow-discovery.md)
+- [Playwright Test Patterns](playwright-patterns.md)
 
 ---
 

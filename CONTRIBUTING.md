@@ -157,6 +157,18 @@ Help improve test coverage:
 - Improve test clarity
 - Document test patterns
 
+### 📖 LLM Instructions (Skills & Rules)
+
+Help improve how LLMs use Verdex:
+
+- Refine selector patterns based on real-world usage
+- Add decision trees for tool selection
+- Document new workflows you discover
+- Create specialized guides for specific scenarios
+- Keep Skills and Cursor Rules synchronized
+
+**Important**: Changes to instruction layer don't require tool changes!
+
 ## Development Tips
 
 ### Running in Dev Mode
@@ -217,6 +229,84 @@ verdex-mcp/
 ├── demo/                 # Demo pages and examples
 └── dist/                 # Compiled output (generated)
 ```
+
+## Contributing to the Instruction Layer vs. Tool Layer
+
+Verdex follows a **decoupled architecture** that separates tool implementation from LLM instructions:
+
+### 🔧 Tool Layer (Core Verdex MCP)
+
+**Location**: `src/`, `tests/`  
+**What it is**: The actual MCP tools for browser automation
+
+This layer is **AI-assistant agnostic** and provides:
+- Browser management (`browser_initialize`, `browser_navigate`)
+- DOM exploration (`resolve_container`, `inspect_pattern`, `extract_anchors`)
+- Interaction tools (`browser_click`, `browser_type`)
+
+**Contributing here**: Follow standard TypeScript/testing workflow above
+
+---
+
+### 📚 Instruction Layer (Skills & Cursor Rules)
+
+**Location**: `SKILL.md`, `guides/`, `.cursor/rules/` (if using Cursor)  
+**What it is**: Guidance that teaches LLMs how to use the tools effectively
+
+This layer is **LLM-specific** and provides:
+- Workflow patterns (explore → select → test)
+- Best practices (Container → Content → Role pattern)
+- Progressive disclosure strategy
+- Common pitfalls and solutions
+
+**We provide two formats:**
+
+1. **Anthropic Skills** (for Claude Code, Claude Desktop)
+   - `SKILL.md` - Main entry point
+   - `guides/workflow-discovery.md` - Exploration techniques
+   - `guides/selector-writing.md` - Selector patterns
+   - `guides/playwright-patterns.md` - Test writing
+
+2. **Cursor Rules** (for Cursor IDE)
+   - `.cursor/rules/` - Workspace-level rules
+   - Same content, different loading mechanism
+
+---
+
+### Why This Matters
+
+✅ **Portability**: The same Verdex MCP tools work with Claude, GPT-4, or any future AI assistant
+
+✅ **Flexibility**: You can customize instructions for your team without touching tool code
+
+✅ **Evolution**: Tools can improve independently from instruction methods
+
+✅ **Community**: Others can create instruction sets for different use cases or AI platforms
+
+---
+
+### Contributing to Instructions
+
+**When updating instruction layer:**
+
+1. Maintain consistency across both formats (Skills + Cursor Rules)
+2. Test with actual LLM interactions
+3. Focus on progressive disclosure (don't overwhelm with all info at once)
+4. Include decision trees to guide when to use what
+5. Provide concrete examples, not abstract principles
+
+**Example contributions:**
+- Add new selector patterns discovered in real usage
+- Improve decision trees for tool selection
+- Add troubleshooting sections for common issues
+- Create specialized guides for specific app types (SPAs, legacy apps, etc.)
+
+**File locations to update:**
+- `SKILL.md` - Update core skill if changing overall workflow
+- `guides/*.md` - Update specific guides for detailed changes
+- `.cursor/rules/` (if present) - Keep in sync with Skills format
+
+---
 
 ## Architecture & Design Reference
 

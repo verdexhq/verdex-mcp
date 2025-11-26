@@ -1,6 +1,13 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.5] - 2025-11-26
+
+### Documentation
+- **Enhanced LLM instruction layer**: Reorganized SKILL.md with progressive disclosure strategy
+- **New comprehensive guides**: Added selector-writing.md, workflow-discovery.md, and playwright-patterns.md to /guides directory
+- **Cursor rules synchronization**: Added .cursor/rules/ directory with workspace-level rules that mirror the guides
+- **Improved CONTRIBUTING.md**: Added detailed instruction layer contribution guidelines
+- **Deprecated legacy guide**: Moved VERDEX_SELECTOR_GUIDE.md to .archive/ (superseded by modular guides)
 
 ### Changed (Minor Breaking)
 - **Ref persistence across snapshots:** Element refs now persist within a page session
@@ -13,6 +20,15 @@
 ### Fixed
 - Fixed conversational workflow where refs broke after snapshots
 - Fixed browser back/forward button causing ref conflicts
+
+### Added
+- SECURITY.md with vulnerability reporting process
+- CODE_OF_CONDUCT.md for community guidelines
+
+## [0.1.4] - 2025-11-18
+
+### Changed
+- Package maintenance and documentation updates
 
 ## [0.1.3] - 2025-10-08
 

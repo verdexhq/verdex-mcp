@@ -1,0 +1,1305 @@
+# Idiomatic Playwright Test Patterns
+
+A comprehensive guide for writing clean, maintainable, and production-ready Playwright E2E tests.
+
+---
+
+## Table of Contents
+
+1. [Core Principles](#core-principles)
+2. [Test File Structure](#test-file-structure)
+3. [Assertion Patterns](#assertion-patterns)
+4. [Navigation and Waiting](#navigation-and-waiting)
+5. [Authentication Strategies](#authentication-strategies)
+6. [Test Organization](#test-organization)
+7. [Page Object Models](#page-object-models)
+8. [Test Data Management](#test-data-management)
+9. [Error Handling](#error-handling)
+10. [Common Patterns Library](#common-patterns-library)
+11. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
+12. [Complete Examples](#complete-examples)
+
+---
+
+## Core Principles
+
+### ✅ Idiomatic Playwright Testing
+
+1. **Auto-waiting is your friend** - Trust Playwright's built-in waiting
+2. **Explicit is better than implicit** - Make intentions clear
+3. **Arrange-Act-Assert** - Clear test structure
+4. **Independent tests** - Each test can run alone
+5. **Descriptive names** - Tests are documentation
+6. **Minimal setup** - Only what's necessary
+7. **Stable selectors** - Role-first, semantic locators
+
+### ❌ Never Do These
+
+- ❌ Manual waits (`page.waitForTimeout(5000)`) except for debugging
+- ❌ Broad `try/catch` blocks that hide failures
+- ❌ Tests that depend on other tests
+- ❌ Hard-coded URLs and credentials in test files
+- ❌ Generic test names like "test 1" or "works correctly"
+- ❌ Unnecessary `waitForSelector` (built into locators)
+
+---
+
+## Test File Structure
+
+### Basic Test File Template
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Feature Name', () => {
+  test.beforeEach(async ({ page }) => {
+    // Setup before each test
+    await page.goto('/starting-point');
+  });
+
+  test('should do specific thing', async ({ page }) => {
+    // Arrange: Set up test data/state
+    
+    // Act: Perform user actions
+    
+    // Assert: Verify expected outcomes
+  });
+
+  test('should handle error case', async ({ page }) => {
+    // Test error scenarios
+  });
+});
+```
+
+---
+
+### Complete Test File Example
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Product Shopping Flow', () => {
+  test.beforeEach(async ({ page }) => {
+    // Navigate to products page before each test
+    await page.goto('https://shop.example.com/products');
+  });
+
+  test('should add product to cart successfully', async ({ page }) => {
+    // Arrange: Verify starting state
+    await expect(page.getByRole('link', { name: /Cart \(0\)/ })).toBeVisible();
+
+    // Act: Add product to cart
+    await page
+      .getByTestId('product-card')
+      .filter({ hasText: 'iPhone 15 Pro' })
+      .getByRole('button', { name: 'Add to Cart' })
+      .click();
+
+    // Assert: Verify cart updated
+    await expect(page.getByText('Item added to cart')).toBeVisible();
+    await expect(page.getByRole('link', { name: /Cart \(1\)/ })).toBeVisible();
+    
+    // Assert: Button state changed
+    await expect(
+      page
+        .getByTestId('product-card')
+        .filter({ hasText: 'iPhone 15 Pro' })
+        .getByRole('button', { name: /Added/ })
+    ).toBeVisible();
+  });
+
+  test('should show validation error for out of stock product', async ({ page }) => {
+    // Arrange: Find out of stock product
+    const outOfStockProduct = page
+      .getByTestId('product-card')
+      .filter({ hasText: 'Out of Stock' });
+
+    // Act: Attempt to add to cart
+    await outOfStockProduct
+      .getByRole('button', { name: 'Add to Cart' })
+      .click();
+
+    // Assert: Error message appears
+    await expect(page.getByText('This item is currently unavailable')).toBeVisible();
+    
+    // Assert: Cart count unchanged
+    await expect(page.getByRole('link', { name: /Cart \(0\)/ })).toBeVisible();
+  });
+});
+```
+
+---
+
+## Assertion Patterns
+
+### URL Assertions
+
+```typescript
+// Exact URL
+await expect(page).toHaveURL('https://example.com/dashboard');
+
+// URL pattern
+await expect(page).toHaveURL(/\/dashboard$/);
+
+// URL contains
+await expect(page).toHaveURL(/checkout/);
+
+// URL with query params
+await expect(page).toHaveURL('https://example.com/search?q=laptop');
+```
+
+---
+
+### Visibility Assertions
+
+```typescript
+// Element is visible
+await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
+
+// Element is hidden
+await expect(page.getByText('Loading...')).toBeHidden();
+
+// Element exists but may not be visible (use sparingly)
+await expect(page.getByTestId('hidden-content')).toBeAttached();
+```
+
+---
+
+### Content Assertions
+
+```typescript
+// Exact text match
+await expect(page.getByRole('heading', { name: 'Welcome' })).toHaveText('Welcome');
+
+// Partial text match
+await expect(page.getByRole('heading')).toContainText('Welcome');
+
+// Text with regex
+await expect(page.getByTestId('price')).toHaveText(/\$\d+\.\d{2}/);
+
+// Multiple elements with text array
+await expect(page.getByRole('listitem')).toHaveText(['Item 1', 'Item 2', 'Item 3']);
+```
+
+---
+
+### Count Assertions
+
+```typescript
+// Exact count
+await expect(page.getByRole('article')).toHaveCount(6);
+
+// At least / at most
+const products = page.getByTestId('product-card');
+expect(await products.count()).toBeGreaterThanOrEqual(1);
+expect(await products.count()).toBeLessThanOrEqual(50);
+```
+
+---
+
+### State Assertions
+
+```typescript
+// Disabled/enabled
+await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled();
+await expect(page.getByRole('button', { name: 'Submit' })).toBeEnabled();
+
+// Checked/unchecked
+await expect(page.getByRole('checkbox', { name: 'Terms' })).toBeChecked();
+await expect(page.getByRole('checkbox', { name: 'Newsletter' })).not.toBeChecked();
+
+// Focused
+await expect(page.getByLabel('Email')).toBeFocused();
+
+// Editable
+await expect(page.getByRole('textbox', { name: 'Name' })).toBeEditable();
+```
+
+---
+
+### Attribute Assertions
+
+```typescript
+// Has attribute
+await expect(page.getByTestId('email-input')).toHaveAttribute('type', 'email');
+
+// Has class (use sparingly, prefer data-testid)
+await expect(page.getByTestId('alert')).toHaveClass(/error/);
+
+// Has value (form inputs)
+await expect(page.getByLabel('Email')).toHaveValue('test@example.com');
+
+// ARIA attributes
+await expect(page.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+```
+
+---
+
+### Multiple Assertions Pattern
+
+```typescript
+test('should display user profile correctly', async ({ page }) => {
+  await page.goto('/profile');
+
+  // Group related assertions
+  const profileSection = page.getByTestId('user-profile');
+  
+  await expect(profileSection.getByRole('heading')).toHaveText('John Doe');
+  await expect(profileSection.getByText('john@example.com')).toBeVisible();
+  await expect(profileSection.getByText('Member since 2023')).toBeVisible();
+  
+  // Verify buttons
+  await expect(profileSection.getByRole('button', { name: 'Edit Profile' })).toBeEnabled();
+  await expect(profileSection.getByRole('button', { name: 'Delete Account' })).toBeVisible();
+});
+```
+
+---
+
+## Navigation and Waiting
+
+### Navigation Patterns
+
+```typescript
+// Basic navigation
+await page.goto('https://example.com');
+
+// Navigate and wait for specific state
+await page.goto('https://example.com', { waitUntil: 'networkidle' });
+
+// Navigate with timeout
+await page.goto('https://slow-site.com', { timeout: 60000 });
+
+// Relative navigation
+await page.goto('/products');  // Uses baseURL from config
+
+// Back/forward
+await page.goBack();
+await page.goForward();
+
+// Reload
+await page.reload();
+```
+
+---
+
+### Auto-Waiting (Preferred)
+
+```typescript
+// ✅ NO EXPLICIT WAIT NEEDED - Playwright auto-waits
+await page.getByRole('button', { name: 'Submit' }).click();
+
+// Element appears, Playwright waits automatically
+await expect(page.getByText('Success!')).toBeVisible();
+
+// Form submission and navigation
+await page.getByRole('button', { name: 'Login' }).click();
+await expect(page).toHaveURL(/dashboard/);  // Auto-waits for navigation
+```
+
+---
+
+### When Explicit Waiting is Needed
+
+```typescript
+// Wait for API response to complete
+await page.waitForResponse(response => 
+  response.url().includes('/api/products') && response.status() === 200
+);
+
+// Wait for specific network state
+await page.waitForLoadState('networkidle');
+
+// Wait for function to return truthy
+await page.waitForFunction(() => window.dataLoaded === true);
+
+// Wait for specific URL
+await page.waitForURL('**/dashboard');
+```
+
+---
+
+### Handling Dynamic Content
+
+```typescript
+// ✅ Good: Auto-waiting handles most cases
+test('should load more products', async ({ page }) => {
+  await page.goto('/products');
+  
+  // Initial products
+  await expect(page.getByTestId('product-card')).toHaveCount(10);
+  
+  // Click load more
+  await page.getByRole('button', { name: 'Load More' }).click();
+  
+  // Playwright waits until count changes
+  await expect(page.getByTestId('product-card')).toHaveCount(20);
+});
+
+// ⚠️ For WebSocket/streaming data, might need explicit wait
+test('should receive real-time updates', async ({ page }) => {
+  await page.goto('/live-feed');
+  
+  // Wait for WebSocket connection
+  await page.waitForFunction(() => window.ws?.readyState === 1);
+  
+  // Now assert on updates
+  await expect(page.getByText('Connected')).toBeVisible();
+});
+```
+
+---
+
+## Authentication Strategies
+
+### Strategy 1: Login via UI (Slow but Comprehensive)
+
+```typescript
+test.describe('User Dashboard', () => {
+  test.beforeEach(async ({ page }) => {
+    // Login before each test
+    await page.goto('/login');
+    await page.getByLabel('Email').fill('test@example.com');
+    await page.getByLabel('Password').fill('password123');
+    await page.getByRole('button', { name: 'Login' }).click();
+    
+    await expect(page).toHaveURL(/dashboard/);
+  });
+
+  test('should display user info', async ({ page }) => {
+    // Test assumes logged-in state
+  });
+});
+```
+
+**Pros**: Tests full login flow
+**Cons**: Slow, runs login for every test
+
+---
+
+### Strategy 2: Session Storage (Fast, Recommended)
+
+```typescript
+// auth.setup.ts
+import { test as setup } from '@playwright/test';
+
+const authFile = '.auth/user.json';
+
+setup('authenticate', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('test@example.com');
+  await page.getByLabel('Password').fill('password123');
+  await page.getByRole('button', { name: 'Login' }).click();
+  
+  await expect(page).toHaveURL(/dashboard/);
+  
+  // Save authentication state
+  await page.context().storageState({ path: authFile });
+});
+
+// playwright.config.ts
+export default defineConfig({
+  projects: [
+    { name: 'setup', testMatch: /.*\.setup\.ts/ },
+    {
+      name: 'chromium',
+      use: { 
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['setup'],
+    },
+  ],
+});
+
+// Now all tests start authenticated!
+test('should access protected page', async ({ page }) => {
+  await page.goto('/dashboard');  // Already logged in
+  await expect(page.getByText('Welcome back')).toBeVisible();
+});
+```
+
+**Pros**: Very fast, runs once
+**Cons**: Doesn't test login flow repeatedly
+
+---
+
+### Strategy 3: API Authentication
+
+```typescript
+test.beforeEach(async ({ page, request }) => {
+  // Get token via API
+  const response = await request.post('/api/auth/login', {
+    data: {
+      email: 'test@example.com',
+      password: 'password123'
+    }
+  });
+  
+  const { token } = await response.json();
+  
+  // Set token in context
+  await page.addInitScript(token => {
+    localStorage.setItem('authToken', token);
+  }, token);
+  
+  await page.goto('/dashboard');
+});
+```
+
+**Pros**: Fast, bypasses UI
+**Cons**: Requires API access
+
+---
+
+### Strategy 4: Multiple User Fixtures
+
+```typescript
+// fixtures.ts
+import { test as base } from '@playwright/test';
+
+type MyFixtures = {
+  authenticatedPage: Page;
+  adminPage: Page;
+};
+
+export const test = base.extend<MyFixtures>({
+  authenticatedPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: '.auth/user.json' });
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+  
+  adminPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: '.auth/admin.json' });
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+});
+
+// Use in tests
+test('user can view products', async ({ authenticatedPage }) => {
+  await authenticatedPage.goto('/products');
+  // ...
+});
+
+test('admin can delete products', async ({ adminPage }) => {
+  await adminPage.goto('/admin/products');
+  // ...
+});
+```
+
+---
+
+## Test Organization
+
+### Grouping with describe
+
+```typescript
+test.describe('Shopping Cart', () => {
+  test.describe('Adding Items', () => {
+    test('should add single item', async ({ page }) => {});
+    test('should add multiple items', async ({ page }) => {});
+    test('should handle out of stock', async ({ page }) => {});
+  });
+
+  test.describe('Removing Items', () => {
+    test('should remove single item', async ({ page }) => {});
+    test('should clear entire cart', async ({ page }) => {});
+  });
+
+  test.describe('Cart Calculations', () => {
+    test('should calculate subtotal correctly', async ({ page }) => {});
+    test('should apply discount codes', async ({ page }) => {});
+  });
+});
+```
+
+---
+
+### Conditional Tests
+
+```typescript
+// Skip tests based on condition
+test.skip(process.env.CI !== 'true', 'Only run in CI', () => {
+  // CI-only test
+});
+
+// Run only in certain browsers
+test('should use Chrome API', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Chrome-only test');
+  // Chrome-specific test
+});
+
+// Annotate tests
+test('flaky test', async ({ page }) => {
+  test.fixme();  // Known issue, will skip
+  // or
+  test.slow();   // Extends timeout 3x
+});
+```
+
+---
+
+### Shared Setup
+
+```typescript
+test.describe('User Settings', () => {
+  test.beforeAll(async ({ browser }) => {
+    // Runs once before all tests in this describe
+    // E.g., seed database
+  });
+
+  test.beforeEach(async ({ page }) => {
+    // Runs before each test
+    await page.goto('/settings');
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Cleanup after each test
+    // E.g., reset changed settings
+  });
+
+  test.afterAll(async () => {
+    // Runs once after all tests
+    // E.g., cleanup test data
+  });
+
+  test('test 1', async ({ page }) => {});
+  test('test 2', async ({ page }) => {});
+});
+```
+
+---
+
+## Page Object Models
+
+### When to Use Page Objects
+
+**Use POM when**:
+- ✅ Complex, multi-step flows used across tests
+- ✅ Stable application structure
+- ✅ Many tests interact with same pages
+- ✅ Team prefers structured abstraction
+
+**Skip POM when**:
+- ✅ Simple, one-off tests
+- ✅ Rapidly changing UI
+- ✅ Small test suite
+- ✅ Inline selectors are clear enough
+
+---
+
+### Page Object Example
+
+```typescript
+// pages/ProductsPage.ts
+import { Page, Locator, expect } from '@playwright/test';
+
+export class ProductsPage {
+  readonly page: Page;
+  readonly productCards: Locator;
+  readonly cartLink: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.productCards = page.getByTestId('product-card');
+    this.cartLink = page.getByRole('link', { name: /Cart/ });
+  }
+
+  async goto() {
+    await this.page.goto('/products');
+  }
+
+  async addProductToCart(productName: string) {
+    await this.productCards
+      .filter({ hasText: productName })
+      .getByRole('button', { name: 'Add to Cart' })
+      .click();
+  }
+
+  async getCartCount(): Promise<number> {
+    const text = await this.cartLink.textContent();
+    const match = text?.match(/\((\d+)\)/);
+    return match ? parseInt(match[1]) : 0;
+  }
+
+  async expectProductVisible(productName: string) {
+    await expect(
+      this.productCards.filter({ hasText: productName })
+    ).toBeVisible();
+  }
+}
+
+// Use in test
+import { ProductsPage } from './pages/ProductsPage';
+
+test('should add product to cart', async ({ page }) => {
+  const productsPage = new ProductsPage(page);
+  
+  await productsPage.goto();
+  await productsPage.addProductToCart('iPhone 15 Pro');
+  
+  expect(await productsPage.getCartCount()).toBe(1);
+});
+```
+
+---
+
+### Component Object Pattern
+
+```typescript
+// components/ProductCard.ts
+import { Locator, expect } from '@playwright/test';
+
+export class ProductCard {
+  readonly container: Locator;
+  readonly title: Locator;
+  readonly price: Locator;
+  readonly addToCartButton: Locator;
+
+  constructor(container: Locator) {
+    this.container = container;
+    this.title = container.getByRole('heading');
+    this.price = container.getByTestId('price');
+    this.addToCartButton = container.getByRole('button', { name: 'Add to Cart' });
+  }
+
+  async addToCart() {
+    await this.addToCartButton.click();
+  }
+
+  async expectOutOfStock() {
+    await expect(this.container.getByText('Out of Stock')).toBeVisible();
+    await expect(this.addToCartButton).toBeDisabled();
+  }
+}
+
+// Use in test
+test('should interact with product card', async ({ page }) => {
+  await page.goto('/products');
+  
+  const firstProductCard = new ProductCard(
+    page.getByTestId('product-card').first()
+  );
+  
+  await firstProductCard.addToCart();
+  await expect(page.getByText('Item added')).toBeVisible();
+});
+```
+
+---
+
+## Test Data Management
+
+### Environment Variables
+
+```typescript
+// .env
+BASE_URL=https://staging.example.com
+TEST_USER_EMAIL=test@example.com
+TEST_USER_PASSWORD=password123
+
+// playwright.config.ts
+import dotenv from 'dotenv';
+dotenv.config();
+
+export default defineConfig({
+  use: {
+    baseURL: process.env.BASE_URL,
+  },
+});
+
+// Use in tests
+test('should login', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(process.env.TEST_USER_EMAIL!);
+  await page.getByLabel('Password').fill(process.env.TEST_USER_PASSWORD!);
+  await page.getByRole('button', { name: 'Login' }).click();
+});
+```
+
+---
+
+### Test Data Files
+
+```typescript
+// testData/products.ts
+export const testProducts = {
+  inStock: {
+    name: 'iPhone 15 Pro',
+    price: '$999',
+    sku: 'IPH15PRO',
+  },
+  outOfStock: {
+    name: 'Discontinued Item',
+    price: '$0',
+    sku: 'DISCONTINUED',
+  },
+};
+
+// Use in tests
+import { testProducts } from './testData/products';
+
+test('should add in-stock product', async ({ page }) => {
+  await page.goto('/products');
+  
+  await page
+    .getByTestId('product-card')
+    .filter({ hasText: testProducts.inStock.name })
+    .getByRole('button', { name: 'Add to Cart' })
+    .click();
+  
+  await expect(page.getByText(`${testProducts.inStock.name} added`)).toBeVisible();
+});
+```
+
+---
+
+### Fixtures for Test Data
+
+```typescript
+// fixtures/testData.ts
+import { test as base } from '@playwright/test';
+
+type TestData = {
+  testUser: { email: string; password: string };
+  testProduct: { name: string; price: string };
+};
+
+export const test = base.extend<TestData>({
+  testUser: async ({}, use) => {
+    await use({
+      email: 'test@example.com',
+      password: 'TestPass123',
+    });
+  },
+
+  testProduct: async ({}, use) => {
+    await use({
+      name: 'iPhone 15 Pro',
+      price: '$999',
+    });
+  },
+});
+
+// Use in tests
+test('should purchase product', async ({ page, testUser, testProduct }) => {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(testUser.email);
+  await page.getByLabel('Password').fill(testUser.password);
+  await page.getByRole('button', { name: 'Login' }).click();
+  
+  await page.goto('/products');
+  await page
+    .getByTestId('product-card')
+    .filter({ hasText: testProduct.name })
+    .getByRole('button', { name: 'Add to Cart' })
+    .click();
+});
+```
+
+---
+
+## Error Handling
+
+### Soft Assertions
+
+```typescript
+test('should validate form fields', async ({ page }) => {
+  await page.goto('/checkout');
+  
+  // Continue test even if some assertions fail
+  await expect.soft(page.getByLabel('Email')).toBeVisible();
+  await expect.soft(page.getByLabel('Address')).toBeVisible();
+  await expect.soft(page.getByLabel('City')).toBeVisible();
+  await expect.soft(page.getByLabel('Zip')).toBeVisible();
+  
+  // All soft assertions are reported at end
+});
+```
+
+---
+
+### Custom Error Messages
+
+```typescript
+test('should show correct product count', async ({ page }) => {
+  await page.goto('/products');
+  
+  const productCount = await page.getByTestId('product-card').count();
+  
+  expect(productCount, 'Expected at least 6 products on page').toBeGreaterThanOrEqual(6);
+});
+```
+
+---
+
+### Retries for Flaky Tests
+
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  retries: process.env.CI ? 2 : 0,  // Retry twice in CI
+});
+
+// Or per test
+test('sometimes flaky test', async ({ page }) => {
+  test.retry(2);  // Retry this specific test
+  // ...
+});
+```
+
+---
+
+### Screenshots on Failure
+
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  use: {
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+});
+
+// Or manually
+test('should complete checkout', async ({ page }) => {
+  try {
+    await page.goto('/checkout');
+    // ... test steps ...
+  } catch (error) {
+    await page.screenshot({ path: 'checkout-failure.png', fullPage: true });
+    throw error;
+  }
+});
+```
+
+---
+
+## Common Patterns Library
+
+### Pattern: Fill and Submit Form
+
+```typescript
+test('should submit contact form', async ({ page }) => {
+  await page.goto('/contact');
+  
+  // Fill form fields
+  await page.getByLabel('Name').fill('John Doe');
+  await page.getByLabel('Email').fill('john@example.com');
+  await page.getByLabel('Message').fill('Hello, I have a question...');
+  
+  // Submit
+  await page.getByRole('button', { name: 'Send Message' }).click();
+  
+  // Verify success
+  await expect(page.getByText('Message sent successfully')).toBeVisible();
+  await expect(page).toHaveURL(/thank-you/);
+});
+```
+
+---
+
+### Pattern: Multi-Step Workflow
+
+```typescript
+test('should complete checkout flow', async ({ page }) => {
+  // Step 1: Add to cart
+  await page.goto('/products');
+  await page
+    .getByTestId('product-card')
+    .filter({ hasText: 'iPhone 15 Pro' })
+    .getByRole('button', { name: 'Add to Cart' })
+    .click();
+  
+  // Step 2: View cart
+  await page.getByRole('link', { name: /Cart/ }).click();
+  await expect(page).toHaveURL(/cart/);
+  await expect(page.getByText('iPhone 15 Pro')).toBeVisible();
+  
+  // Step 3: Proceed to checkout
+  await page.getByRole('button', { name: 'Proceed to Checkout' }).click();
+  await expect(page).toHaveURL(/checkout/);
+  
+  // Step 4: Fill shipping
+  await page.getByLabel('Email').fill('test@example.com');
+  await page.getByLabel('Address').fill('123 Main St');
+  await page.getByRole('button', { name: 'Continue to Payment' }).click();
+  
+  // Step 5: Payment
+  await expect(page).toHaveURL(/checkout\/payment/);
+  // ... payment steps ...
+});
+```
+
+---
+
+### Pattern: Testing Search/Filter
+
+```typescript
+test('should filter products by category', async ({ page }) => {
+  await page.goto('/products');
+  
+  // Initial state
+  const allProducts = page.getByTestId('product-card');
+  const initialCount = await allProducts.count();
+  expect(initialCount).toBeGreaterThan(0);
+  
+  // Apply filter
+  await page.getByRole('checkbox', { name: 'Electronics' }).check();
+  
+  // Wait for filtered results
+  await page.waitForResponse(response => 
+    response.url().includes('/api/products') && response.status() === 200
+  );
+  
+  // Verify filtered count
+  const filteredCount = await allProducts.count();
+  expect(filteredCount).toBeLessThan(initialCount);
+  
+  // Verify all visible products match filter
+  const products = await allProducts.all();
+  for (const product of products) {
+    await expect(product.getByText('Electronics')).toBeVisible();
+  }
+});
+```
+
+---
+
+### Pattern: Modal/Dialog Interaction
+
+```typescript
+test('should open and interact with modal', async ({ page }) => {
+  await page.goto('/products');
+  
+  // Open modal
+  await page.getByRole('button', { name: 'Quick View' }).first().click();
+  
+  // Verify modal is visible
+  const modal = page.getByRole('dialog');
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('heading', { name: /Product Details/ })).toBeVisible();
+  
+  // Interact within modal
+  await modal.getByRole('button', { name: 'Add to Cart' }).click();
+  
+  // Verify action
+  await expect(modal.getByText('Added to cart')).toBeVisible();
+  
+  // Close modal
+  await modal.getByRole('button', { name: 'Close' }).click();
+  await expect(modal).toBeHidden();
+});
+```
+
+---
+
+### Pattern: File Upload
+
+```typescript
+test('should upload profile picture', async ({ page }) => {
+  await page.goto('/profile/edit');
+  
+  // Select file
+  const fileInput = page.getByLabel('Profile Picture');
+  await fileInput.setInputFiles('testData/profile.jpg');
+  
+  // Submit
+  await page.getByRole('button', { name: 'Save' }).click();
+  
+  // Verify upload
+  await expect(page.getByText('Profile updated')).toBeVisible();
+  await expect(page.getByTestId('profile-image')).toHaveAttribute('src', /profile/);
+});
+```
+
+---
+
+### Pattern: Drag and Drop
+
+```typescript
+test('should reorder items via drag and drop', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  const firstItem = page.getByTestId('draggable-item').first();
+  const lastItem = page.getByTestId('draggable-item').last();
+  
+  // Get initial text
+  const firstText = await firstItem.textContent();
+  
+  // Drag first to last position
+  await firstItem.dragTo(lastItem);
+  
+  // Verify order changed
+  const newLastItem = page.getByTestId('draggable-item').last();
+  await expect(newLastItem).toHaveText(firstText!);
+});
+```
+
+---
+
+## Anti-Patterns to Avoid
+
+### ❌ Hard-coded Waits
+
+```typescript
+// BAD
+await page.waitForTimeout(5000);  // Arbitrary wait
+await expect(page.getByText('Success')).toBeVisible();
+
+// GOOD
+await expect(page.getByText('Success')).toBeVisible();  // Auto-waits
+```
+
+---
+
+### ❌ Overly Broad Selectors
+
+```typescript
+// BAD
+await page.locator('button').nth(5).click();
+
+// GOOD
+await page.getByRole('button', { name: 'Submit Order' }).click();
+```
+
+---
+
+### ❌ Test Dependencies
+
+```typescript
+// BAD - Test 2 depends on Test 1
+test('test 1: create user', async ({ page }) => {
+  // Creates user "test@example.com"
+});
+
+test('test 2: login as user', async ({ page }) => {
+  // Assumes user from test 1 exists
+});
+
+// GOOD - Independent tests
+test('test 1: create user', async ({ page }) => {
+  // Creates AND cleans up
+});
+
+test('test 2: login as user', async ({ page }) => {
+  // Creates its own user first
+});
+```
+
+---
+
+### ❌ Generic Test Names
+
+```typescript
+// BAD
+test('test 1', async ({ page }) => {});
+test('it works', async ({ page }) => {});
+
+// GOOD
+test('should add product to cart and update cart count', async ({ page }) => {});
+test('should show validation error for invalid email format', async ({ page }) => {});
+```
+
+---
+
+### ❌ Ignoring Test Failures
+
+```typescript
+// BAD
+try {
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.getByText('Success')).toBeVisible();
+} catch {
+  // Silently ignore failure
+}
+
+// GOOD - Let failures fail, or use soft assertions if appropriate
+await page.getByRole('button', { name: 'Submit' }).click();
+await expect(page.getByText('Success')).toBeVisible();
+```
+
+---
+
+## Complete Examples
+
+### Example 1: E-commerce Checkout Test
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Checkout Flow', () => {
+  test.beforeEach(async ({ page }) => {
+    // Start from products page
+    await page.goto('/products');
+  });
+
+  test('should complete full purchase as guest', async ({ page }) => {
+    // Add product to cart
+    await page
+      .getByTestId('product-card')
+      .filter({ hasText: 'iPhone 15 Pro' })
+      .getByRole('button', { name: 'Add to Cart' })
+      .click();
+    
+    await expect(page.getByText('Item added to cart')).toBeVisible();
+    
+    // Go to cart
+    await page.getByRole('link', { name: /Cart \(1\)/ }).click();
+    await expect(page).toHaveURL(/cart/);
+    
+    // Verify cart contents
+    await expect(page.getByRole('heading', { name: 'Shopping Cart' })).toBeVisible();
+    await expect(page.getByText('iPhone 15 Pro')).toBeVisible();
+    await expect(page.getByTestId('cart-total')).toContainText('$999');
+    
+    // Proceed to checkout
+    await page.getByRole('button', { name: 'Proceed to Checkout' }).click();
+    await expect(page).toHaveURL(/checkout/);
+    
+    // Fill shipping information
+    await page.getByLabel('Email').fill('test@example.com');
+    await page.getByLabel('First Name').fill('John');
+    await page.getByLabel('Last Name').fill('Doe');
+    await page.getByLabel('Address').fill('123 Main St');
+    await page.getByLabel('City').fill('New York');
+    await page.getByLabel('ZIP Code').fill('10001');
+    
+    // Continue to payment
+    await page.getByRole('button', { name: 'Continue to Payment' }).click();
+    await expect(page).toHaveURL(/checkout\/payment/);
+    
+    // Fill payment (test mode)
+    await page.getByLabel('Card Number').fill('4242424242424242');
+    await page.getByLabel('Expiry').fill('12/25');
+    await page.getByLabel('CVC').fill('123');
+    
+    // Place order
+    await page.getByRole('button', { name: 'Place Order' }).click();
+    
+    // Verify confirmation
+    await expect(page).toHaveURL(/order-confirmation/);
+    await expect(page.getByRole('heading', { name: /Order Confirmed/ })).toBeVisible();
+    await expect(page.getByText(/Order #ORD-\d+/)).toBeVisible();
+    await expect(page.getByText('iPhone 15 Pro')).toBeVisible();
+  });
+});
+```
+
+---
+
+### Example 2: User Authentication Test
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('User Authentication', () => {
+  test('should login with valid credentials', async ({ page }) => {
+    await page.goto('/login');
+    
+    // Fill login form
+    await page.getByLabel('Email').fill('test@example.com');
+    await page.getByLabel('Password').fill('ValidPassword123');
+    
+    // Submit
+    await page.getByRole('button', { name: 'Log In' }).click();
+    
+    // Verify redirect and logged-in state
+    await expect(page).toHaveURL(/dashboard/);
+    await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
+  });
+
+  test('should show error for invalid credentials', async ({ page }) => {
+    await page.goto('/login');
+    
+    await page.getByLabel('Email').fill('wrong@example.com');
+    await page.getByLabel('Password').fill('wrongpassword');
+    await page.getByRole('button', { name: 'Log In' }).click();
+    
+    // Should stay on login page
+    await expect(page).toHaveURL(/login/);
+    
+    // Error message visible
+    await expect(page.getByText(/Invalid credentials/i)).toBeVisible();
+    
+    // Still on login form
+    await expect(page.getByLabel('Email')).toBeVisible();
+  });
+
+  test('should validate email format', async ({ page }) => {
+    await page.goto('/login');
+    
+    await page.getByLabel('Email').fill('not-an-email');
+    await page.getByLabel('Password').fill('password123');
+    await page.getByRole('button', { name: 'Log In' }).click();
+    
+    // Client-side validation error
+    await expect(page.getByText(/Please enter a valid email/i)).toBeVisible();
+    await expect(page.getByLabel('Email')).toHaveAttribute('aria-invalid', 'true');
+  });
+});
+```
+
+---
+
+## Quick Reference
+
+### Test Structure Template
+
+```typescript
+test.describe('Feature', () => {
+  test.beforeEach(async ({ page }) => {
+    // Setup
+  });
+
+  test('should do expected thing', async ({ page }) => {
+    // Arrange: Set up state
+    // Act: Perform actions
+    // Assert: Verify outcomes
+  });
+});
+```
+
+### Common Assertions
+
+```typescript
+await expect(page).toHaveURL(/expected/);
+await expect(element).toBeVisible();
+await expect(element).toHaveText('expected');
+await expect(element).toBeDisabled();
+await expect(element).toHaveCount(5);
+```
+
+### Navigation
+
+```typescript
+await page.goto('/path');
+await page.getByRole('link').click();
+await expect(page).toHaveURL(/new-path/);
+```
+
+---
+
+## Next Steps
+
+You now have the patterns to write production-ready Playwright tests! 
+
+**Workflow**:
+1. Use `workflow-discovery.md` to explore and map the user journey
+2. Use `selector-writing.md` to build stable selectors
+3. Use this guide to structure idiomatic test code
+
+**Remember**:
+- Trust Playwright's auto-waiting
+- Write independent, focused tests
+- Use descriptive names
+- Prefer semantic selectors
+- Keep tests maintainable
+
+Happy testing! 🎭
+

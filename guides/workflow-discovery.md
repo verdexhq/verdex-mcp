@@ -1,0 +1,1171 @@
+# Workflow Discovery & Exploration with Verdex
+
+A comprehensive guide for interactively exploring web applications and mapping user journeys before writing production test code.
+
+---
+
+## Table of Contents
+
+1. [Core Philosophy](#core-philosophy)
+2. [The Exploration Workflow](#the-exploration-workflow)
+3. [Tool Reference](#tool-reference)
+4. [Interactive Techniques](#interactive-techniques)
+5. [Workflow Documentation Patterns](#workflow-documentation-patterns)
+6. [Identifying Assertion Points](#identifying-assertion-points)
+7. [Real-World Walkthroughs](#real-world-walkthroughs)
+8. [Common Scenarios](#common-scenarios)
+9. [Troubleshooting Exploration](#troubleshooting-exploration)
+10. [Transition to Selector Writing](#transition-to-selector-writing)
+
+---
+
+## Core Philosophy
+
+### 🎯 Workflow-First Thinking
+
+**Before writing any test code, you must understand:**
+1. What is the user journey from start to finish?
+2. What actions does the user take at each step?
+3. What changes in the UI after each action?
+4. What URLs or redirects occur?
+5. What should be asserted to confirm success?
+
+### The Verdex Exploration Cycle
+
+```
+Navigate → Snapshot → Analyze → Interact → Repeat
+     ↑                                        ↓
+     └────────────── Document Journey ────────┘
+```
+
+**Key Principle**: Use refs (e1, e2, e3...) for exploration, NOT for production code.
+- Refs are temporary identifiers for interactive discovery
+- They help you understand the workflow quickly
+- They get replaced with stable selectors later
+
+---
+
+## The Exploration Workflow
+
+### Step-by-Step Process
+
+#### 1. **Initialize Browser Session**
+
+```typescript
+await browser_initialize()
+```
+
+**Purpose**: Start a fresh browser context for exploration
+
+---
+
+#### 2. **Navigate to Starting Point**
+
+```typescript
+await browser_navigate("https://app.example.com/login")
+```
+
+**What to note:**
+- Starting URL
+- Initial page state
+- Any redirects (e.g., already logged in → dashboard)
+
+---
+
+#### 3. **Take Snapshot - See What's Available**
+
+Snapshot happens automatically after `browser_navigate`, but you can request more:
+
+```typescript
+await browser_snapshot()
+```
+
+**What you get:**
+```
+heading "Welcome to ShopFast" [level=1]
+textbox "Email" [ref=e1]
+textbox "Password" [ref=e2]
+button "Log In" [ref=e3]
+link "Forgot password?" [ref=e4]
+link "Sign up" [ref=e5]
+```
+
+**What to document:**
+- Available interactive elements (with refs)
+- Current page content/state
+- What's visible vs hidden
+- Any error messages or empty states
+
+---
+
+#### 4. **Interact Using Refs**
+
+```typescript
+// Type into inputs
+await browser_type("e1", "test@example.com")
+await browser_type("e2", "password123")
+
+// Click buttons/links
+await browser_click("e3")  // Click "Log In"
+```
+
+**Why use refs?**
+- Fast - no selector writing needed
+- Exploratory - just follow the workflow
+- Temporary - you'll replace them later
+
+---
+
+#### 5. **Snapshot After Each Action**
+
+```typescript
+await browser_snapshot()
+```
+
+**Critical: Always snapshot after interactions to see:**
+- Did the page change?
+- New URL?
+- New elements appeared?
+- Old elements disappeared?
+- Any errors or success messages?
+
+---
+
+#### 6. **Document the Journey**
+
+As you explore, create a workflow map:
+
+```markdown
+## Workflow: User Login to Product Purchase
+
+### Step 1: Login
+- URL: /login
+- Actions:
+  - Type email into textbox [ref=e1]
+  - Type password into textbox [ref=e2]
+  - Click "Log In" button [ref=e3]
+- Expected outcome:
+  - Redirect to /dashboard
+  - See "Welcome, Test User" heading
+  - "My Orders" link appears [ref=e8]
+
+### Step 2: Navigate to Products
+- URL: /dashboard
+- Actions:
+  - Click "Products" link [ref=e12]
+- Expected outcome:
+  - URL changes to /products
+  - Product grid visible
+  - 6+ product cards appear
+
+### Step 3: Add Product to Cart
+- URL: /products
+- Actions:
+  - Click "Add to Cart" for iPhone [ref=e25]
+- Expected outcome:
+  - Cart count badge shows "1"
+  - Success toast appears
+  - Button changes to "Added"
+```
+
+---
+
+## Tool Reference
+
+### `browser_initialize()`
+
+**When to use**: Start of every exploration session
+
+**Returns**: Browser ready for navigation
+
+**Notes**: 
+- Creates clean browser context
+- No cookies or cached state
+- Fresh session each time
+
+---
+
+### `browser_navigate(url)`
+
+**When to use**: 
+- Starting exploration
+- Following external links
+- Testing direct URL access
+- After form submissions that might redirect
+
+**Example**:
+```typescript
+await browser_navigate("https://shop.example.com")
+await browser_navigate("https://shop.example.com/products")
+await browser_navigate("https://shop.example.com/checkout")
+```
+
+**What you get**:
+- Automatic snapshot after navigation
+- Current page state with refs
+- Confirmation of successful navigation
+
+**Pro tip**: Always note if redirects occur
+
+---
+
+### `browser_snapshot()`
+
+**When to use**:
+- After clicks/interactions
+- After form submissions
+- After waiting for dynamic content
+- When you need to see current state
+- Before making decisions about next action
+
+**What you get**:
+```
+Accessibility tree view showing:
+- Headings
+- Buttons with refs
+- Links with refs  
+- Inputs with refs
+- Images with alt text
+- Landmarks (nav, main, aside)
+```
+
+**Pro tip**: Take snapshots liberally - they're cheap and informative
+
+---
+
+### `browser_click(ref)`
+
+**When to use**: Clicking any interactive element
+
+**Examples**:
+```typescript
+await browser_click("e5")  // Click button
+await browser_click("e12") // Click link
+await browser_click("e3")  // Click checkbox
+```
+
+**After clicking**:
+- Always take a snapshot
+- Check for URL changes
+- Look for new/removed elements
+- Verify expected state change
+
+---
+
+### `browser_type(ref, text)`
+
+**When to use**: Filling form inputs
+
+**Examples**:
+```typescript
+await browser_type("e1", "john@example.com")
+await browser_type("e2", "SecurePass123")
+await browser_type("e5", "New York")
+```
+
+**Pro tips**:
+- Type realistic test data
+- Note what input validation occurs
+- Check if autocomplete appears
+- Observe any field-level errors
+
+---
+
+### `wait_for_browser(milliseconds)`
+
+**When to use**:
+- After actions that trigger AJAX requests
+- Before taking snapshot of dynamic content
+- After animations/transitions
+- When content is loading asynchronously
+
+**Example**:
+```typescript
+await browser_click("e10")  // Click "Load More"
+await wait_for_browser(2000) // Wait for content to load
+await browser_snapshot()     // See newly loaded content
+```
+
+**Pro tip**: Start with 2000ms (2 seconds) and adjust based on observed behavior
+
+---
+
+## Interactive Techniques
+
+### Technique 1: Linear Path Exploration
+
+**Use case**: Happy path, straightforward workflow
+
+```typescript
+// 1. Start at beginning
+await browser_navigate("https://app.example.com")
+
+// 2. Follow the path linearly
+await browser_click("e3")  // Login button
+await browser_snapshot()
+
+await browser_type("e1", "test@example.com")
+await browser_type("e2", "password")
+await browser_click("e4")  // Submit
+await browser_snapshot()
+
+// 3. Document each step as you go
+```
+
+**Document as**:
+```
+Step 1 → Step 2 → Step 3 → Success
+```
+
+---
+
+### Technique 2: Branching Path Exploration
+
+**Use case**: Multiple possible user paths
+
+```typescript
+// Explore Path A: Guest checkout
+await browser_navigate("https://shop.example.com/checkout")
+await browser_click("e5")  // "Continue as Guest"
+await browser_snapshot()
+// ... document Path A ...
+
+// Explore Path B: Login first
+await browser_navigate("https://shop.example.com/checkout")
+await browser_click("e6")  // "Log In"
+await browser_snapshot()
+// ... document Path B ...
+```
+
+**Document as**:
+```
+Checkout Entry
+├── Path A: Guest Checkout
+│   └── Fill form → Pay → Confirm
+└── Path B: Logged In Checkout  
+    └── Verify address → Pay → Confirm
+```
+
+---
+
+### Technique 3: State-Based Exploration
+
+**Use case**: Understanding different states (empty, loaded, error)
+
+```typescript
+// State 1: Empty cart
+await browser_navigate("https://shop.example.com/cart")
+await browser_snapshot()
+// Document: "Cart empty" message, "Continue Shopping" button
+
+// State 2: Cart with items
+await browser_navigate("https://shop.example.com/products")
+await browser_click("e25")  // Add item
+await browser_navigate("https://shop.example.com/cart")
+await browser_snapshot()
+// Document: Product cards, quantity controls, checkout button
+
+// State 3: Cart after removal
+await browser_click("e30")  // Remove item
+await browser_snapshot()
+// Document: Back to empty state
+```
+
+---
+
+### Technique 4: Error Path Exploration
+
+**Use case**: Understanding validation and error handling
+
+```typescript
+// Trigger validation errors
+await browser_navigate("https://app.example.com/login")
+await browser_type("e1", "invalid-email")  // No @ symbol
+await browser_click("e3")  // Submit
+await browser_snapshot()
+// Document: "Invalid email format" error appears
+
+// Trigger server errors
+await browser_type("e1", "nonexistent@example.com")
+await browser_type("e2", "wrong-password")
+await browser_click("e3")
+await browser_snapshot()
+// Document: "Invalid credentials" error appears
+```
+
+---
+
+## Workflow Documentation Patterns
+
+### Pattern 1: Sequential Journey Map
+
+**Best for**: Linear workflows (checkout, onboarding, forms)
+
+```markdown
+## Workflow: E-commerce Checkout
+
+### Step 1: View Cart
+- **URL**: /cart
+- **Preconditions**: Cart has 2 items
+- **Snapshot shows**:
+  - 2 product cards
+  - "Proceed to Checkout" button [ref=e15]
+  - Total: $58.98
+- **Actions**: Click e15
+- **Expected outcome**: Navigate to /checkout
+
+### Step 2: Shipping Information
+- **URL**: /checkout
+- **Snapshot shows**:
+  - "Shipping Address" heading
+  - Email input [ref=e5]
+  - Address fields [refs e6-e10]
+  - "Continue to Payment" button [ref=e11] (disabled)
+- **Actions**:
+  - Type email into e5
+  - Fill address fields e6-e10
+  - Click e11
+- **Expected outcome**: 
+  - e11 becomes enabled after filling
+  - Navigate to /checkout/payment
+
+### Step 3: Payment
+[... continue ...]
+```
+
+---
+
+### Pattern 2: State Transition Diagram
+
+**Best for**: Complex states (dashboards, multi-tab interfaces)
+
+```markdown
+## Workflow: Order Management States
+
+### State: No Orders
+- **How to reach**: New user account
+- **Snapshot shows**:
+  - "No orders yet" message
+  - "Browse Products" link [ref=e3]
+- **Transitions**:
+  - Click e3 → State: Product Browsing
+
+### State: Active Orders
+- **How to reach**: After placing order
+- **Snapshot shows**:
+  - Order cards with status badges
+  - "Track Order" buttons [refs vary]
+  - "Reorder" buttons [refs vary]
+- **Transitions**:
+  - Click "Track Order" → State: Order Details
+  - Wait for delivery → State: Order History
+
+### State: Order Details
+[... continue ...]
+```
+
+---
+
+### Pattern 3: Decision Tree
+
+**Best for**: Branching workflows (authentication, permissions)
+
+```markdown
+## Workflow: Access Control
+
+### Entry Point: Dashboard
+- **Snapshot shows**:
+  - "Admin Panel" link [ref=e8] (conditional)
+  - "My Profile" link [ref=e9]
+  - "Logout" button [ref=e10]
+
+**Decision: User Role?**
+
+├── **If Admin**:
+│   - e8 is visible
+│   - Click e8 → Admin Panel
+│   - Snapshot shows admin tools
+│
+└── **If Regular User**:
+    - e8 is NOT visible
+    - Only e9 and e10 available
+    - Click e8 → Error or redirect
+```
+
+---
+
+### Pattern 4: Error Scenario Matrix
+
+**Best for**: Testing edge cases and validation
+
+```markdown
+## Workflow: Login Error Scenarios
+
+| Scenario | Input | Action | Expected Outcome | Ref |
+|----|----|-----|---|-----|
+| **Empty email** | email="" | Click e3 | "Email required" error | e4 |
+| **Invalid format** | email="notanemail" | Click e3 | "Invalid email" error | e4 |
+| **Empty password** | pwd="" | Click e3 | "Password required" error | e5 |
+| **Wrong credentials** | valid inputs | Click e3 | "Invalid credentials" error | e6 |
+| **Account locked** | locked account | Click e3 | "Account locked" message | e7 |
+```
+
+---
+
+## Identifying Assertion Points
+
+### What Makes a Good Assertion?
+
+**Assertions should verify:**
+1. ✅ **Navigation**: URL changed correctly
+2. ✅ **Content**: Expected text/elements visible
+3. ✅ **State**: UI reflects the action taken
+4. ✅ **Data**: Correct information displayed
+5. ✅ **Errors**: Appropriate feedback shown
+
+---
+
+### Assertion Discovery Checklist
+
+After each interaction, ask:
+
+**URL Assertions**:
+- [ ] Did the URL change as expected?
+- [ ] Are query parameters correct?
+- [ ] Did redirect happen (if expected)?
+
+**Visibility Assertions**:
+- [ ] What new elements appeared?
+- [ ] What elements disappeared?
+- [ ] Is expected content visible?
+
+**Content Assertions**:
+- [ ] Does heading match expected state?
+- [ ] Is success/error message shown?
+- [ ] Is user data displayed correctly?
+
+**State Assertions**:
+- [ ] Are buttons enabled/disabled correctly?
+- [ ] Are checkboxes checked/unchecked?
+- [ ] Are form fields populated?
+
+**Count Assertions**:
+- [ ] Are the right number of items displayed?
+- [ ] Did cart count update?
+- [ ] Are pagination numbers correct?
+
+---
+
+### Assertion Examples from Exploration
+
+#### Example 1: After Login
+
+**Snapshot shows**:
+```
+heading "Welcome, John Doe" [level=1]
+link "My Orders" [ref=e8]
+link "Settings" [ref=e9]
+button "Logout" [ref=e10]
+```
+
+**Assertions to make**:
+```typescript
+await expect(page).toHaveURL(/\/dashboard/)
+await expect(page.getByRole('heading', { name: /Welcome, John Doe/ })).toBeVisible()
+await expect(page.getByRole('link', { name: 'My Orders' })).toBeVisible()
+await expect(page.getByRole('link', { name: 'Logout' })).toBeVisible()
+```
+
+---
+
+#### Example 2: After Adding to Cart
+
+**Snapshot shows**:
+```
+button "Added ✓" [ref=e25] (was "Add to Cart")
+text "Item added to cart"
+link "Cart (1)" [ref=e30] (was "Cart (0)")
+```
+
+**Assertions to make**:
+```typescript
+await expect(page.getByRole('button', { name: /Added/ })).toBeVisible()
+await expect(page.getByText('Item added to cart')).toBeVisible()
+await expect(page.getByRole('link', { name: /Cart \(1\)/ })).toBeVisible()
+```
+
+---
+
+#### Example 3: Form Validation Error
+
+**Snapshot shows**:
+```
+textbox "Email" [ref=e1] [invalid]
+text "Please enter a valid email address"
+button "Submit" [ref=e3] [disabled]
+```
+
+**Assertions to make**:
+```typescript
+await expect(page.getByRole('textbox', { name: 'Email' })).toHaveAttribute('aria-invalid', 'true')
+await expect(page.getByText('Please enter a valid email address')).toBeVisible()
+await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled()
+```
+
+---
+
+## Real-World Walkthroughs
+
+### Walkthrough 1: E-commerce Product Purchase
+
+**Goal**: Map the journey from homepage to order confirmation
+
+#### Discovery Session:
+
+```typescript
+// Step 1: Start at homepage
+await browser_initialize()
+await browser_navigate("https://shop.example.com")
+```
+
+**Snapshot shows**:
+```
+heading "Featured Products" [level=2]
+link "View All Products" [ref=e5]
+button "Add to Cart" [ref=e10] (Product 1)
+button "Add to Cart" [ref=e11] (Product 2)
+...
+```
+
+**Document**:
+```markdown
+### Step 1: Homepage
+- URL: /
+- Key elements: Featured products, navigation
+- Target action: Click "View All Products" [e5]
+- Assertion: Should navigate to /products
+```
+
+```typescript
+// Step 2: Navigate to products
+await browser_click("e5")
+await browser_snapshot()
+```
+
+**Snapshot shows**:
+```
+heading "All Products" [level=1]
+text "Showing 12 products"
+article [ref=e15] (Product: iPhone 15 Pro - $999)
+  button "Add to Cart" [ref=e25]
+article [ref=e16] (Product: MacBook Pro - $1,999)
+  button "Add to Cart" [ref=e26]
+...
+```
+
+**Document**:
+```markdown
+### Step 2: Products Page
+- URL: /products
+- Products visible: 12
+- Target action: Add iPhone to cart [e25]
+- Assertion: Cart count updates, success message appears
+```
+
+```typescript
+// Step 3: Add to cart
+await browser_click("e25")
+await wait_for_browser(1000)
+await browser_snapshot()
+```
+
+**Snapshot shows**:
+```
+text "iPhone 15 Pro added to cart"
+link "Cart (1)" [ref=e30]
+button "Added ✓" [ref=e25]
+```
+
+**Document**:
+```markdown
+### Step 3: Add to Cart Action
+- Previous URL: /products (stays on page)
+- Success message: "iPhone 15 Pro added to cart"
+- Cart badge: Now shows (1)
+- Button state: Changed to "Added ✓"
+- Assertion: All above changes occurred
+```
+
+```typescript
+// Step 4: Go to cart
+await browser_click("e30")
+await browser_snapshot()
+```
+
+**Snapshot shows**:
+```
+heading "Shopping Cart" [level=1]
+article (Cart Item)
+  heading "iPhone 15 Pro" [level=3]
+  text "$999"
+  button "-" [ref=e35] (decrease quantity)
+  text "1" (quantity)
+  button "+" [ref=e36] (increase quantity)
+  button "Remove" [ref=e37]
+text "Subtotal: $999"
+button "Proceed to Checkout" [ref=e40]
+```
+
+**Document**:
+```markdown
+### Step 4: Cart Page
+- URL: /cart
+- Items: 1 (iPhone 15 Pro)
+- Quantity controls: -, +, Remove
+- Subtotal: $999
+- Target action: Click "Proceed to Checkout" [e40]
+- Assertion: Navigate to /checkout
+```
+
+**Continue exploration** → Checkout form → Payment → Confirmation
+
+**Final workflow map**:
+```
+Home → Products → Add to Cart → View Cart → 
+Checkout → Shipping → Payment → Confirmation
+```
+
+---
+
+### Walkthrough 2: User Authentication Flow
+
+**Goal**: Map login, session state, and logout
+
+```typescript
+// Explore logged-out state
+await browser_initialize()
+await browser_navigate("https://app.example.com")
+```
+
+**Snapshot shows**:
+```
+button "Log In" [ref=e3]
+button "Sign Up" [ref=e4]
+text "Welcome, Guest"
+```
+
+**Document**: Guest state - no access to protected features
+
+```typescript
+// Test login flow
+await browser_click("e3")
+await browser_snapshot()
+```
+
+**Snapshot shows**:
+```
+heading "Log In" [level=1]
+textbox "Email" [ref=e1]
+textbox "Password" [ref=e2]
+button "Submit" [ref=e5]
+link "Forgot password?" [ref=e6]
+```
+
+```typescript
+// Fill and submit
+await browser_type("e1", "test@example.com")
+await browser_type("e2", "ValidPassword123")
+await browser_click("e5")
+await wait_for_browser(1000)
+await browser_snapshot()
+```
+
+**Snapshot shows**:
+```
+heading "Dashboard" [level=1]
+text "Welcome, Test User"
+link "My Account" [ref=e10]
+button "Logout" [ref=e11]
+```
+
+**Document**: Successful login → Dashboard with user context
+
+```typescript
+// Test logout
+await browser_click("e11")
+await browser_snapshot()
+```
+
+**Snapshot shows**: Back to guest state
+
+**Workflow map**:
+```
+Guest State → Login Form → Submit Credentials → 
+Authenticated Dashboard → Logout → Guest State
+```
+
+---
+
+## Common Scenarios
+
+### Scenario 1: Multi-Step Form
+
+**Challenge**: Long form across multiple pages
+
+**Exploration strategy**:
+1. Navigate to form start
+2. Snapshot each page
+3. Note required fields
+4. Fill minimally valid data
+5. Document validation rules
+6. Track progress indicators
+7. Test back/forward navigation
+
+**Example**:
+```typescript
+await browser_navigate("https://app.example.com/onboarding")
+
+// Page 1: Personal Info
+await browser_snapshot()  // Note required fields
+await browser_type("e1", "John")
+await browser_type("e2", "Doe")
+await browser_click("e5")  // Next
+
+// Page 2: Contact
+await browser_snapshot()  // Note progress: 2/4
+await browser_type("e10", "john@example.com")
+await browser_click("e12")  // Next
+
+// Continue...
+```
+
+---
+
+### Scenario 2: Dynamic Content Loading
+
+**Challenge**: Content loads via AJAX/infinite scroll
+
+**Exploration strategy**:
+1. Navigate to page
+2. Snapshot initial state (note item count)
+3. Trigger load action (scroll, click "Load More")
+4. Wait for loading
+5. Snapshot after load
+6. Compare counts/content
+
+**Example**:
+```typescript
+await browser_navigate("https://app.example.com/feed")
+await browser_snapshot()
+// Shows: 10 posts
+
+await browser_click("e20")  // "Load More"
+await wait_for_browser(2000)
+await browser_snapshot()
+// Shows: 20 posts now
+
+// Document: Load More adds 10 posts
+```
+
+---
+
+### Scenario 3: Modal/Dialog Workflows
+
+**Challenge**: Overlays and dialogs
+
+**Exploration strategy**:
+1. Take snapshot before opening
+2. Click trigger to open modal
+3. Snapshot modal state
+4. Note modal-specific refs
+5. Interact within modal
+6. Close modal
+7. Verify underlying page unchanged
+
+**Example**:
+```typescript
+await browser_navigate("https://app.example.com/products")
+await browser_snapshot()
+// Note: e30 = "Quick View" button
+
+await browser_click("e30")
+await browser_snapshot()
+// New refs inside modal:
+// e35 = product image in modal
+// e36 = "Add to Cart" in modal
+// e37 = "Close" (X) button
+
+await browser_click("e36")  // Add to cart from modal
+await browser_snapshot()
+// Modal still open, success message appears
+
+await browser_click("e37")  // Close modal
+await browser_snapshot()
+// Back to products page, cart updated
+```
+
+---
+
+### Scenario 4: Search and Filter
+
+**Challenge**: Understanding search results and filtering
+
+**Exploration strategy**:
+1. Snapshot empty/default state
+2. Perform search
+3. Note result count and structure
+4. Try filters/refinements
+5. Test "No results" state
+6. Test clearing filters
+
+**Example**:
+```typescript
+await browser_navigate("https://shop.example.com/products")
+await browser_snapshot()
+// Shows: All 50 products
+
+await browser_type("e5", "iPhone")  // Search box
+await browser_click("e6")  // Search button
+await wait_for_browser(1000)
+await browser_snapshot()
+// Shows: 3 products, all iPhones
+
+// Apply filter
+await browser_click("e20")  // "Under $1000" checkbox
+await browser_snapshot()
+// Shows: 1 product now
+
+// Clear filters
+await browser_click("e21")  // "Clear all"
+await browser_snapshot()
+// Back to 3 iPhone results
+```
+
+---
+
+## Troubleshooting Exploration
+
+### Problem: Refs Changing Between Snapshots
+
+**Symptom**: `e25` was "Add to Cart" button, now it's something else
+
+**Cause**: Dynamic content or page reload reset refs
+
+**Solution**: 
+- Take new snapshot
+- Find element again with updated ref
+- This is normal - refs are temporary!
+
+---
+
+### Problem: Element Not Appearing in Snapshot
+
+**Symptom**: Button visible in browser but no ref in snapshot
+
+**Possible causes**:
+1. Element not in accessibility tree
+2. Element is `display: none` or `visibility: hidden`
+3. Element is `aria-hidden="true"`
+4. Element loaded after snapshot
+
+**Solution**:
+```typescript
+await wait_for_browser(2000)  // Wait for loading
+await browser_snapshot()      // Try again
+```
+
+If still missing: Element may need special selector (deal with it in selector phase)
+
+---
+
+### Problem: Action Didn't Work
+
+**Symptom**: Clicked button, nothing happened
+
+**Debugging steps**:
+1. Take snapshot before and after click
+2. Check if ref is still valid
+3. Try waiting longer for response
+4. Check if element is disabled
+5. Try inspecting element structure
+
+**Example**:
+```typescript
+await browser_click("e15")
+await wait_for_browser(3000)  // Wait longer
+await browser_snapshot()      // Check what changed
+```
+
+---
+
+### Problem: Lost Track of Workflow
+
+**Symptom**: Too many clicks, don't know where I am
+
+**Solution**:
+1. Take snapshot to see current state
+2. Look at headings and navigation
+3. Start over with fresh browser session
+4. Document as you go (not after!)
+
+```typescript
+await browser_initialize()  // Fresh start
+// Begin again with documentation
+```
+
+---
+
+## Transition to Selector Writing
+
+### When to Stop Exploring
+
+You're ready to write selectors when:
+- ✅ Complete workflow is documented
+- ✅ All steps and actions are clear
+- ✅ Assertion points are identified
+- ✅ You have refs for key interactive elements
+- ✅ Edge cases and error paths are known
+
+### Preparing for Selector Phase
+
+**Create a ref-to-action map**:
+
+```markdown
+## Actions Needing Selectors
+
+1. **Login button** [ref=e3]
+   - Location: /login page
+   - Text: "Log In"
+   - Unique on page: YES → Simple selector
+
+2. **Product "Add to Cart"** [ref=e25]
+   - Location: /products page
+   - Text: "Add to Cart"
+   - Unique on page: NO → Need container scoping + filtering
+
+3. **Cart checkout** [ref=e40]
+   - Location: /cart page
+   - Text: "Proceed to Checkout"
+   - Unique on page: YES → Simple selector
+
+4. **Shipping email input** [ref=e5]
+   - Location: /checkout page
+   - Label: "Email address"
+   - Unique on page: YES → Use getByLabel
+```
+
+### What to Pass to Selector Phase
+
+For each element:
+- ✅ Ref number (e.g., e25)
+- ✅ Page/URL where it appears
+- ✅ Element text/label
+- ✅ Whether it's unique or repeated
+- ✅ Purpose in the workflow
+
+**Now proceed to**: `selector-writing.md` to build stable selectors
+
+---
+
+## Complete Exploration Checklist
+
+Before moving to selector writing:
+
+### Workflow Understanding
+- [ ] Start and end points are clear
+- [ ] All user actions are documented
+- [ ] URL changes are noted
+- [ ] State transitions are mapped
+- [ ] Success and error paths are explored
+
+### Element Discovery
+- [ ] All interactive elements have refs
+- [ ] Unique vs repeated elements are identified
+- [ ] Form inputs and labels are documented
+- [ ] Buttons and their states are noted
+- [ ] Links and navigation are mapped
+
+### Assertion Planning
+- [ ] URL assertions are identified
+- [ ] Content visibility checks are noted
+- [ ] State changes are documented
+- [ ] Error messages are captured
+- [ ] Success confirmations are noted
+
+### Edge Cases
+- [ ] Empty states explored
+- [ ] Error scenarios tested
+- [ ] Validation rules understood
+- [ ] Loading states observed
+- [ ] Disabled/enabled state changes noted
+
+---
+
+## Quick Reference
+
+### Exploration Commands
+
+```typescript
+// Start session
+await browser_initialize()
+
+// Navigate to page
+await browser_navigate("https://example.com/page")
+
+// See what's on page
+await browser_snapshot()
+
+// Interact with elements
+await browser_click("e5")           // Click button/link
+await browser_type("e1", "text")    // Fill input
+
+// Wait for dynamic content
+await wait_for_browser(2000)  // Wait 2 seconds
+
+// Check results
+await browser_snapshot()  // See what changed
+```
+
+### Documentation Template
+
+```markdown
+### Step N: [Step Name]
+- **URL**: /current/path
+- **Preconditions**: [What must be true]
+- **Snapshot shows**:
+  - Key element 1 [ref=eX]
+  - Key element 2 [ref=eY]
+  - Current state indicators
+- **Actions**:
+  - Click/type/interact
+- **Expected outcome**:
+  - What should change
+  - New URL (if applicable)
+  - New content visible
+- **Assertions needed**:
+  - What to verify in test
+```
+
+---
+
+## Next Steps
+
+After completing workflow discovery:
+
+1. **Review** your workflow documentation
+2. **Identify** which elements need stable selectors
+3. **Proceed to** `selector-writing.md`
+4. **Use** refs to find elements with `resolve_container`, `inspect_pattern`
+5. **Build** stable selectors using Container → Content → Role pattern
+6. **Write** idiomatic Playwright tests (see `playwright-patterns.md`)
+
+---
+
+**Remember**: 
+- Exploration is iterative - go back and refine
+- Documentation is key - future you will thank present you
+- Refs are temporary - they're for discovery, not production
+- Workflow first, selectors second, test code third
+
+Happy exploring! 🚀
+
