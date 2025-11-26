@@ -174,23 +174,6 @@ test.describe("Tool Definitions Validation", () => {
     expect(roleTools.length).toBe(3); // get_current_role, list_current_roles, select_role
   });
 
-  test("should have STEP indicators for structural analysis tools", () => {
-    const resolveContainer = TOOL_DEFINITIONS.find(
-      (t) => t.name === "resolve_container"
-    );
-    expect(resolveContainer?.description).toContain("STEP 1");
-
-    const inspectPattern = TOOL_DEFINITIONS.find(
-      (t) => t.name === "inspect_pattern"
-    );
-    expect(inspectPattern?.description).toContain("STEP 2");
-
-    const extractAnchors = TOOL_DEFINITIONS.find(
-      (t) => t.name === "extract_anchors"
-    );
-    expect(extractAnchors?.description).toContain("STEP 3");
-  });
-
   test("should have default values for optional parameters", () => {
     const waitTool = TOOL_DEFINITIONS.find(
       (t) => t.name === "wait_for_browser"

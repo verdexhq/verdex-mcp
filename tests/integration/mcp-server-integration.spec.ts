@@ -54,7 +54,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
 
     // Navigate to a page
     // @ts-ignore
-    const snapshot = await server.browser.navigate("https://example.com");
+    const snapshot = await server.browser.navigate(DEMO_PAGE_PATH);
 
     // Verify the bridge worked - snapshot should have data
     expect(snapshot).toBeDefined();
@@ -72,7 +72,7 @@ test.describe("MCP Server Integration with Bundled Bridge", () => {
     // @ts-ignore
     await server.browser.initialize();
     // @ts-ignore
-    await server.browser.navigate("https://example.com");
+    await server.browser.navigate(DEMO_PAGE_PATH);
 
     // Take snapshot through browser instance (simulates MCP tool call)
     // @ts-ignore

@@ -31,13 +31,15 @@ test.describe("Navigation Lifecycle", () => {
   });
 
   test("should capture navigation success metadata", async () => {
-    const snapshot = await browser.navigate("https://example.com");
+    const testUrl =
+      "data:text/html,<html><head><title>Test Page</title></head><body><h1>Test</h1></body></html>";
+    const snapshot = await browser.navigate(testUrl);
 
     // Should have navigation metadata
     expect(snapshot.navigation).toBeDefined();
     expect(snapshot.navigation?.success).toBe(true);
-    expect(snapshot.navigation?.requestedUrl).toBe("https://example.com");
-    expect(snapshot.navigation?.finalUrl).toContain("example.com");
+    expect(snapshot.navigation?.requestedUrl).toBe(testUrl);
+    expect(snapshot.navigation?.finalUrl).toContain("data:text/html");
     expect(snapshot.navigation?.pageTitle).toBeTruthy();
     expect(snapshot.navigation?.loadTime).toBeGreaterThan(0);
     expect(snapshot.navigation?.statusCode).toBe(200);
@@ -65,7 +67,9 @@ test.describe("Navigation Lifecycle", () => {
   });
 
   test("should track load time", async () => {
-    const snapshot = await browser.navigate("https://example.com");
+    const snapshot = await browser.navigate(
+      "data:text/html,<h1>Test Page</h1>"
+    );
 
     expect(snapshot.navigation?.loadTime).toBeDefined();
     expect(snapshot.navigation?.loadTime).toBeGreaterThan(0);
@@ -197,7 +201,9 @@ test.describe("Navigation Lifecycle", () => {
   });
 
   test("should capture content type when available", async () => {
-    const snapshot = await browser.navigate("https://example.com");
+    const snapshot = await browser.navigate(
+      "data:text/html,<h1>Test Page</h1>"
+    );
 
     expect(snapshot.navigation?.contentType).toBeDefined();
     expect(snapshot.navigation?.contentType).toContain("text/html");
@@ -205,7 +211,9 @@ test.describe("Navigation Lifecycle", () => {
 
   test("should include timestamp in navigation metadata", async () => {
     const beforeNav = Date.now();
-    const snapshot = await browser.navigate("https://example.com");
+    const snapshot = await browser.navigate(
+      "data:text/html,<h1>Test Page</h1>"
+    );
     const afterNav = Date.now();
 
     expect(snapshot.navigation?.timestamp).toBeDefined();
@@ -343,10 +351,12 @@ test.describe("Navigation Lifecycle", () => {
   });
 
   test("should track navigation to external sites", async () => {
-    // Navigate to example.com
-    const snapshot1 = await browser.navigate("https://example.com");
+    // Navigate to test page
+    const snapshot1 = await browser.navigate(
+      "data:text/html,<h1>Page One</h1>"
+    );
     expect(snapshot1.navigation?.success).toBe(true);
-    expect(snapshot1.navigation?.finalUrl).toContain("example.com");
+    expect(snapshot1.navigation?.finalUrl).toContain("data:text/html");
 
     // Navigate to iana.org
     const snapshot2 = await browser.navigate(
