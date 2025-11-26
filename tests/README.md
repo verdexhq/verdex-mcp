@@ -224,7 +224,7 @@ test.describe("Feature Name", () => {
 6. ✅ Use semantic selectors (no brittle XPath/CSS)
 
 ### Anti-Patterns to Avoid:
-- ❌ Tests that depend on external services (except example.com)
+- ❌ Tests that depend on external services or network access
 - ❌ Tests with hardcoded timeouts (use await instead)
 - ❌ Tests that share state between test cases
 - ❌ Tests with vague assertions (use specific expectations)

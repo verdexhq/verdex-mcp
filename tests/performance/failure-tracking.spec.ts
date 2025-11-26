@@ -19,7 +19,7 @@ test.describe("Failure Tracking", () => {
       <html>
         <body>
           <h1>Main</h1>
-          <iframe src="https://example.com"></iframe>
+          <iframe src="about:blank"></iframe>
         </body>
       </html>
     `;
@@ -47,7 +47,7 @@ test.describe("Failure Tracking", () => {
       <!DOCTYPE html>
       <html>
         <body>
-          <iframe src="https://example.com"></iframe>
+          <iframe src="about:blank"></iframe>
         </body>
       </html>
     `;
@@ -114,7 +114,7 @@ test.describe("Failure Tracking", () => {
       <html>
         <body>
           <h1>Main Content</h1>
-          <iframe id="test-frame" src="https://example.com"></iframe>
+          <iframe id="test-frame" src="about:blank"></iframe>
         </body>
       </html>
     `;

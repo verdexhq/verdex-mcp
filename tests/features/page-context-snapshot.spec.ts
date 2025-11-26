@@ -36,12 +36,14 @@ test.describe("Page Context in Snapshots", () => {
 
   test.skip("pageContext should reflect pushState SPA navigation", async () => {
     // TODO: This test accesses browser internals - needs refactoring to use public API
-    // Use real URL since pushState doesn't work on data: URLs (security restriction)
-    await browser.navigate("https://example.com");
+    // NOTE: pushState doesn't work on data: URLs due to security restrictions
+    // Would need to use file:// URL or local test server if re-enabled
+    const testUrl = "data:text/html,<html><head><title>SPA Test</title></head><body><h1>Test</h1></body></html>";
+    await browser.navigate(testUrl);
 
     const initialSnapshot = await browser.snapshot();
     const initialUrl = initialSnapshot.pageContext?.url;
-    expect(initialUrl).toBe("https://example.com/");
+    expect(initialUrl).toContain("data:text/html");
 
     // Inject pushState navigation
     const context = await (browser as any).ensureCurrentRoleContext();
@@ -51,7 +53,7 @@ test.describe("Page Context in Snapshots", () => {
 
     // Verify pageContext reflects the SPA navigation
     const snapshot = await browser.snapshot();
-    expect(snapshot.pageContext?.url).toBe("https://example.com/spa-route");
+    expect(snapshot.pageContext?.url).toContain("/spa-route");
   });
 
   test("navigate should include both navigation and pageContext", async () => {
@@ -126,12 +128,13 @@ test.describe("Page Context in Snapshots", () => {
     expect(snapshot.navigation).toBeUndefined();
   });
 
-  test("pageContext should work with real URLs", async () => {
-    const snapshot = await browser.navigate("https://example.com");
+  test("pageContext should work with structured HTML", async () => {
+    const testUrl = "data:text/html,<html><head><title>Test Page Title</title></head><body><h1>Content</h1></body></html>";
+    const snapshot = await browser.navigate(testUrl);
 
     expect(snapshot.pageContext).toBeDefined();
-    expect(snapshot.pageContext?.url).toBe("https://example.com/");
-    expect(snapshot.pageContext?.title).toBeTruthy();
+    expect(snapshot.pageContext?.url).toContain("data:text/html");
+    expect(snapshot.pageContext?.title).toBe("Test Page Title");
     expect(typeof snapshot.pageContext?.title).toBe("string");
   });
 });

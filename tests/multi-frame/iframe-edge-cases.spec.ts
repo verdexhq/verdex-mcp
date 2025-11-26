@@ -20,7 +20,7 @@ test.describe("Iframe Edge Cases", () => {
     // Both are valid graceful degradation
     const html = `
       <button>Main Content</button>
-      <iframe src="https://example.com"></iframe>
+      <iframe src="about:blank"></iframe>
       <button>After Frame</button>
     `;
 
