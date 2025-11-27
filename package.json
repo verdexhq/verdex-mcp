@@ -10,7 +10,8 @@
   },
   "files": [
     "dist/",
-    ".cursor/"
+    ".cursor/",
+    ".claude/"
   ],
   "exports": {
     ".": {

@@ -62,9 +62,15 @@ mkdir -p .cursor/rules
 cp node_modules/@verdex/mcp/.cursor/rules/*.mdc .cursor/rules/
 ```
 
-**For Claude Desktop:**
-- Reference the `SKILL.md` file in your Claude skills configuration
-- Or share relevant guides from `guides/` directory as needed
+**For Claude (All Platforms):**
+
+The Skill is located at: `node_modules/@verdex/mcp/.claude/skills/verdex-playwright-complete/`
+
+This universal directory structure works across **all Claude implementations**:
+- ✅ **Claude Code** - Auto-discovers skills in `.claude/skills/`
+- ✅ **Claude Agent SDK** - Reads from `.claude/skills/` (required location)
+- ✅ **Claude.ai** - ZIP and upload the skill directory via Settings > Features
+- ✅ **Claude API** - Upload skill contents via Skills API
 
 These configurations prevent fragile selectors like `.nth(8)` and teach the Container → Content → Role pattern. See [AI Assistant Configuration](#ai-assistant-configuration-recommended) for details.
 
@@ -212,30 +218,42 @@ Verdex includes a comprehensive skill file designed for Claude Desktop and simil
 
 - **`SKILL.md`** - Complete workflow combining all three phases (Explore → Select → Test)
 
-The skill references detailed guides in the `guides/` directory:
-- `guides/workflow-discovery.md` - Interactive exploration and journey mapping
-- `guides/selector-writing.md` - Building stable selectors
-- `guides/playwright-patterns.md` - Writing idiomatic tests
+The skill references detailed guides in the `.claude/skills/verdex-playwright-complete/guides/` directory:
+- `workflow-discovery.md` - Interactive exploration and journey mapping
+- `selector-writing.md` - Building stable selectors
+- `playwright-patterns.md` - Writing idiomatic tests
 
-**Setup for Claude Desktop:**
+**Universal Directory Structure:**
 
-1. **Add skill to your Claude Desktop configuration:**
-   ```json
-   {
-     "skills": [
-       {
-         "name": "verdex-playwright-complete",
-         "path": "node_modules/@verdex/mcp/SKILL.md"
-       }
-     ]
-   }
-   ```
+```
+node_modules/@verdex/mcp/.claude/skills/verdex-playwright-complete/
+├── SKILL.md
+└── guides/
+    ├── workflow-discovery.md
+    ├── selector-writing.md
+    └── playwright-patterns.md
+```
 
-2. **Or reference the guides directly:**
-   - The guides in `node_modules/@verdex/mcp/guides/` can be shared with Claude
-   - Claude can read them on-demand for detailed instructions
+**Works Across ALL Claude Platforms (No Setup Required!):**
 
-**How it works:** Claude Desktop loads the skill file at the start of conversations, providing context about Verdex workflows and best practices. The skill uses progressive disclosure—referencing detailed guides only when needed.
+| Platform | How It Works | Setup |
+|----------|-------------|--------|
+| **Claude Code** | Auto-discovers `.claude/skills/` | ✅ None - works automatically |
+| **Claude Agent SDK** | Reads from `.claude/skills/` (required) | ✅ None - already in correct location |
+| **Claude.ai** | Upload as ZIP | ZIP the skill directory, upload via Settings > Features |
+| **Claude API** | Upload via API | Use Skills API with contents from `.claude/skills/verdex-playwright-complete/` |
+
+**How it works:** 
+- Claude loads the skill file at the start of conversations
+- Provides context about Verdex workflows and best practices
+- Uses progressive disclosure—references detailed guides only when needed
+- The `.claude/skills/` location satisfies ALL platforms' requirements
+
+**Why this structure?**
+- ✅ **Universal** - Works for all Claude platforms without modification
+- ✅ **No installation scripts** - Already in the correct location
+- ✅ **Standards-compliant** - Follows Claude Agent SDK directory requirements
+- ✅ **Progressive disclosure** - Main SKILL.md references detailed guides as needed
 
 ---
 
@@ -244,7 +262,7 @@ The skill references detailed guides in the `guides/` directory:
 If your AI assistant doesn't support cursor rules or Claude skills:
 
 1. **Reference the guides directory:**
-   - Share relevant guides from `node_modules/@verdex/mcp/guides/` with your AI assistant
+   - Share relevant guides from `node_modules/@verdex/mcp/.claude/skills/verdex-playwright-complete/guides/` with your AI assistant
    - Guides are written in clear, standalone markdown format
 
 2. **Manual context sharing:**
@@ -528,9 +546,9 @@ For full guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
 - **[Claude Skill](SKILL.md)** - Complete Playwright workflow (Explore → Select → Test)
 
 **Detailed Guides (Referenced by both):**
-- **[Workflow Discovery Guide](guides/workflow-discovery.md)** - Interactive exploration and journey mapping
-- **[Selector Writing Guide](guides/selector-writing.md)** - Building stable, maintainable selectors
-- **[Playwright Patterns Guide](guides/playwright-patterns.md)** - Writing production-ready tests
+- **[Workflow Discovery Guide](.claude/skills/verdex-playwright-complete/guides/workflow-discovery.md)** - Interactive exploration and journey mapping
+- **[Selector Writing Guide](.claude/skills/verdex-playwright-complete/guides/selector-writing.md)** - Building stable, maintainable selectors
+- **[Playwright Patterns Guide](.claude/skills/verdex-playwright-complete/guides/playwright-patterns.md)** - Writing production-ready tests
 
 ### Links
 - **GitHub**: https://github.com/verdexhq/verdex-mcp
