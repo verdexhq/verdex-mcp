@@ -52,16 +52,21 @@ Add this configuration to your MCP settings file:
 
 The `npx` command will automatically download and run the latest version—no installation required!
 
-### 2. Set up cursor rules (recommended)
+### 2. Configure your AI assistant (recommended)
 
-Copy the included cursor rules to teach your AI assistant best practices:
+Choose the configuration approach for your AI assistant:
 
+**For Cursor IDE:**
 ```bash
 mkdir -p .cursor/rules
 cp node_modules/@verdex/mcp/.cursor/rules/*.mdc .cursor/rules/
 ```
 
-These rules prevent fragile selectors like `.nth(8)` and teach the Container → Content → Role pattern. See [Configuration](#cursor-rules-setup-recommended) for details.
+**For Claude Desktop:**
+- Reference the `SKILL.md` file in your Claude skills configuration
+- Or share relevant guides from `guides/` directory as needed
+
+These configurations prevent fragile selectors like `.nth(8)` and teach the Container → Content → Role pattern. See [AI Assistant Configuration](#ai-assistant-configuration-recommended) for details.
 
 ### 3. Use with your AI coding assistant
 
@@ -157,48 +162,100 @@ Add to your MCP settings file (e.g., `~/Library/Application Support/Code/User/gl
 }
 ```
 
-### Cursor Rules Setup (Recommended)
+### AI Assistant Configuration (Recommended)
 
-Verdex tools work best when paired with cursor rules that teach AI assistants robust selector patterns and workflow methodology. These rules are **essential for optimal results** and prevent common pitfalls like positional selectors.
+Verdex tools work best when paired with configuration that teaches AI assistants robust selector patterns and workflow methodology. This configuration is **essential for optimal results** and prevents common pitfalls like positional selectors.
 
-**Why cursor rules matter:**
+**Why AI configuration matters:**
 - 🎯 **Selector patterns** - Teaches the Container → Content → Role methodology
 - ⚠️ **Anti-patterns** - Prevents fragile `.nth()`, `.first()`, `.last()` selectors
 - 🔄 **Workflow discovery** - Guides page exploration and workflow mapping
 - ✅ **Idiomatic tests** - Ensures Playwright best practices
 
-**Included rules:**
+Verdex provides **two configuration approaches** depending on your AI assistant:
+
+---
+
+#### For Cursor IDE Users
+
+**Cursor Rules** (`.cursor/rules/` directory)
+
+Verdex includes three specialized cursor rules that integrate directly with Cursor IDE:
+
 - **`playwright-test-patterns-guide.mdc`** - Test structure, assertions, authentication patterns
 - **`selector-writing-guide.mdc`** - Container → Content → Role pattern, anti-patterns to avoid
 - **`workflow-discovery-guide.mdc`** - Page exploration techniques, workflow mapping
 
-**Setup for Cursor:**
+**Setup:**
 
-The cursor rules are included in the package. To use them:
-
-1. **Option A: Copy to your project** (Recommended for project-specific setup)
+1. **Copy rules to your project** (Recommended for project-specific setup)
    ```bash
-   # Copy from node_modules after npx install
+   # After installing with npx, copy from node_modules
    mkdir -p .cursor/rules
    cp node_modules/@verdex/mcp/.cursor/rules/*.mdc .cursor/rules/
    ```
 
-2. **Option B: Reference from package** (For global use across projects)
-   ```bash
-   # Add to your Cursor settings to reference the installed package rules
-   # Location: node_modules/@verdex/mcp/.cursor/rules/
-   ```
-
-3. **Verify rules are loaded:**
+2. **Verify rules are loaded:**
    - Open Cursor
    - Check that rules appear in your Cursor rules list
    - Ask your AI assistant: "What cursor rules are available?"
 
-**Setup for Claude Desktop / Other IDEs:**
+**How it works:** Cursor automatically loads `.mdc` files from `.cursor/rules/` and makes them available to the AI assistant during conversations.
 
-For Claude Desktop or other AI assistants, reference these guides manually or set up similar rule mechanisms if available.
+---
 
-**⚠️ Important**: Without cursor rules, AI assistants may generate fragile selectors. These rules encode best practices from extensive Playwright testing experience.
+#### For Claude Desktop / Other AI Assistants
+
+**Claude Skill** (`SKILL.md`)
+
+Verdex includes a comprehensive skill file designed for Claude Desktop and similar AI assistants that support skill-based configuration:
+
+- **`SKILL.md`** - Complete workflow combining all three phases (Explore → Select → Test)
+
+The skill references detailed guides in the `guides/` directory:
+- `guides/workflow-discovery.md` - Interactive exploration and journey mapping
+- `guides/selector-writing.md` - Building stable selectors
+- `guides/playwright-patterns.md` - Writing idiomatic tests
+
+**Setup for Claude Desktop:**
+
+1. **Add skill to your Claude Desktop configuration:**
+   ```json
+   {
+     "skills": [
+       {
+         "name": "verdex-playwright-complete",
+         "path": "node_modules/@verdex/mcp/SKILL.md"
+       }
+     ]
+   }
+   ```
+
+2. **Or reference the guides directly:**
+   - The guides in `node_modules/@verdex/mcp/guides/` can be shared with Claude
+   - Claude can read them on-demand for detailed instructions
+
+**How it works:** Claude Desktop loads the skill file at the start of conversations, providing context about Verdex workflows and best practices. The skill uses progressive disclosure—referencing detailed guides only when needed.
+
+---
+
+#### For Other AI Assistants
+
+If your AI assistant doesn't support cursor rules or Claude skills:
+
+1. **Reference the guides directory:**
+   - Share relevant guides from `node_modules/@verdex/mcp/guides/` with your AI assistant
+   - Guides are written in clear, standalone markdown format
+
+2. **Manual context sharing:**
+   - Share the appropriate guide based on your task:
+     - Starting exploration? → `workflow-discovery.md`
+     - Building selectors? → `selector-writing.md`
+     - Writing tests? → `playwright-patterns.md`
+
+---
+
+**⚠️ Important**: Without proper AI assistant configuration, assistants may generate fragile selectors that break when DOM structure changes. These configuration files encode best practices from extensive Playwright testing experience.
 
 ### Multi-Role Configuration
 
@@ -536,10 +593,20 @@ For full guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
 - **[Example Tests](demo/demo-quickstart.spec.ts)** - Working Playwright test examples
 - **[Demo Page](demo/worst-case/demo-page.html)** - Realistic e-commerce page for testing
 
-### Cursor Rules (Essential)
+### AI Assistant Configuration (Essential)
+
+**For Cursor IDE:**
 - **[Playwright Test Patterns](.cursor/rules/playwright-test-patterns-guide.mdc)** - Idiomatic test structure, assertions, authentication
 - **[Selector Writing Guide](.cursor/rules/selector-writing-guide.mdc)** - Container → Content → Role pattern, avoiding anti-patterns
 - **[Workflow Discovery Guide](.cursor/rules/workflow-discovery-guide.mdc)** - Page exploration and workflow mapping techniques
+
+**For Claude Desktop:**
+- **[Claude Skill](SKILL.md)** - Complete Playwright workflow (Explore → Select → Test)
+
+**Detailed Guides (Referenced by both):**
+- **[Workflow Discovery Guide](guides/workflow-discovery.md)** - Interactive exploration and journey mapping
+- **[Selector Writing Guide](guides/selector-writing.md)** - Building stable, maintainable selectors
+- **[Playwright Patterns Guide](guides/playwright-patterns.md)** - Writing production-ready tests
 
 ### Links
 - **GitHub**: https://github.com/verdexhq/verdex-mcp
