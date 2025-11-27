@@ -2,7 +2,7 @@
   <img src="./.github/assets/verdex_logo.png" alt="Verdex Logo" width="350"/>
 </p>
 
-<p align="center"><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></p>
+<p align="center"><strong>AI-First Browser Automation for Authoring Robust Playwright Tests</strong></p>
 
 <div align="center">
 
@@ -395,16 +395,6 @@ Child 2 (button) [ref=e3]:
 
 **🎯 Purpose**: Discover text content, buttons, and ARIA roles for semantic targeting.
 
-### Token Efficiency
-
-| Approach | Tokens per Page | Coverage |
-|----------|----------------|----------|
-| Raw DOM dump | 10,000-50,000 | Complete but overwhelming |
-| A11y tree only | 1,000-3,000 | Limited to interactive elements |
-| **Verdex exploration** | **100-1,000 per call** | **Surgical, on-demand** |
-
-**Verdict**: Verdex uses ~10-50x fewer tokens than DOM dumps while providing richer structural context than an a11y tree only view.
-
 ---
 
 ## 🛠️ Available Tools
@@ -436,72 +426,6 @@ Child 2 (button) [ref=e3]:
 | `get_current_role` | Check active authentication context |
 | `list_current_roles` | View all configured roles |
 | `select_role` | Switch between authenticated sessions |
-
----
-
-## 📖 Usage Examples
-
-### Example 1: Adding a Product to Cart
-
-```javascript
-// 1. Navigate and explore
-await browser_navigate("https://shop.example.com");
-
-// 2. Find "Add to Cart" button for iPhone
-// Snapshot shows [ref=e3] button
-
-// 3. Understand structure
-await resolve_container(ref="e3");
-// → Finds [data-testid="product-card"] at Level 1
-
-// 4. Check siblings
-await inspect_pattern(ref="e3", ancestorLevel=1);
-// → Multiple product cards, differentiated by product name
-
-// 5. Explore internal structure
-await extract_anchors(ref="e3", ancestorLevel=1);
-// → h3 contains "iPhone 15 Pro", button has "Add to Cart"
-
-// 6. Generate selector
-page.getByTestId("product-card")
-    .filter({ hasText: "iPhone 15 Pro" })
-    .getByRole("button", { name: "Add to Cart" })
-```
-
-### Example 2: Multi-Role E2E Test
-
-```javascript
-// Admin creates promotion
-await select_role("admin");
-await browser_navigate("https://admin.example.com/promos");
-// ... create promo code "SAVE20"
-
-// User sees and uses promotion
-await select_role("user");
-await browser_navigate("https://shop.example.com");
-// ... apply promo code "SAVE20"
-// ... verify discount applied
-```
-
-### Example 3: Interacting with Iframe Content
-
-```javascript
-// Navigate to page with iframe
-await browser_navigate("https://example.com/checkout");
-
-// Snapshot shows both main frame and iframe content
-// Main frame elements: [ref=e1], [ref=e2], etc.
-// Iframe elements: [ref=f1_e1], [ref=f1_e2], etc.
-
-// Click button inside iframe (note frame-qualified ref)
-await browser_click("f1_e5");
-
-// Generate selector for iframe element
-page
-  .frameLocator('iframe[title="Payment Form"]')
-  .getByRole("button", { name: "Pay Now" })
-  .click();
-```
 
 ---
 

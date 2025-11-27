@@ -38,7 +38,8 @@ test.describe("Page Context in Snapshots", () => {
     // TODO: This test accesses browser internals - needs refactoring to use public API
     // NOTE: pushState doesn't work on data: URLs due to security restrictions
     // Would need to use file:// URL or local test server if re-enabled
-    const testUrl = "data:text/html,<html><head><title>SPA Test</title></head><body><h1>Test</h1></body></html>";
+    const testUrl =
+      "data:text/html,<html><head><title>SPA Test</title></head><body><h1>Test</h1></body></html>";
     await browser.navigate(testUrl);
 
     const initialSnapshot = await browser.snapshot();
@@ -129,7 +130,8 @@ test.describe("Page Context in Snapshots", () => {
   });
 
   test("pageContext should work with structured HTML", async () => {
-    const testUrl = "data:text/html,<html><head><title>Test Page Title</title></head><body><h1>Content</h1></body></html>";
+    const testUrl =
+      "data:text/html,<html><head><title>Test Page Title</title></head><body><h1>Content</h1></body></html>";
     const snapshot = await browser.navigate(testUrl);
 
     expect(snapshot.pageContext).toBeDefined();

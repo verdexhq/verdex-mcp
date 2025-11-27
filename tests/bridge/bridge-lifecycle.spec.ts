@@ -28,8 +28,8 @@ test.describe("Bridge Lifecycle Management", () => {
   });
 
   test("should inject bridge on first navigation", async () => {
-    // First navigation should inject bridge
-    await browser.navigate("data:text/html,<h1>Test Page</h1>");
+    // First navigation should inject bridge (use button since headings aren't interactive)
+    await browser.navigate("data:text/html,<button>Test Page</button>");
 
     // Bridge should be functional
     const snapshot = await browser.snapshot();
@@ -266,8 +266,10 @@ test.describe("Bridge Lifecycle Management", () => {
   });
 
   test("should handle navigation to external sites", async () => {
-    // Navigate to test page
-    await browser.navigate("data:text/html,<h1>External Test Page</h1>");
+    // Navigate to test page (use button since headings aren't interactive)
+    await browser.navigate(
+      "data:text/html,<button>External Test Page</button>"
+    );
     const snapshot1 = await browser.snapshot();
     expect(snapshot1.elementCount).toBeGreaterThan(0);
 
