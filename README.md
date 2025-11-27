@@ -4,12 +4,6 @@
 
 <p align="center"><strong>AI-First Browser Automation for Building Robust Playwright Tests</strong></p>
 
-<p align="center">
-  <a href="#setup-video">📺 Playwright Setup</a> •
-  <a href="#multi-role-video">🎭 Multi-Role Testing</a> •
-  <a href="#selectors-video">🎯 Building Robust Selectors</a>
-</p>
-
 <div align="center">
 
 [![npm version](https://img.shields.io/npm/v/@verdex/mcp.svg)](https://www.npmjs.com/package/@verdex/mcp)
