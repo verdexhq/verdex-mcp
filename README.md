@@ -14,7 +14,7 @@
 </div>
 
 
-Meet Verdex, an experimental Chrome/CDP MCP server that helps AI coding assistants (like Cursor, Claude, etc.) author stable, maintainable Playwright tests. Instead of generating brittle `nth()` selectors, Verdex provides structured DOM exploration tools that guide LLMs to create component-scoped selectors anchored to semantic identifiers.
+Meet Verdex, an experimental MCP server that helps AI coding assistants (like Cursor, Claude, etc.) author stable, maintainable Playwright tests. Instead of generating brittle `nth()` selectors, Verdex provides structured DOM exploration tools that guide LLMs to create component-scoped selectors anchored to semantic identifiers.
 
 **🎯 Problem**: AI-generated Playwright tests often rely on fragile positional selectors (`nth(8)`, deep locator chains) that break when DOM structure changes.
 
