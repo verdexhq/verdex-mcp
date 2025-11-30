@@ -634,7 +634,6 @@ export class MultiContextBrowser {
    * Works with objectIds from any execution context (isolated world, main world, etc.)
    * because DOM methods operate at the document level, not the execution context level.
    *
-   * This is the same approach Playwright uses in ElementHandle.contentFrame().
    */
   private async resolveFrameFromRef(
     context: RoleContext,

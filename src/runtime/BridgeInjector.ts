@@ -327,7 +327,6 @@ export class BridgeInjector {
    * This is LAZY - only injects when first called, not on frame attach.
    * Uses ManualPromise to wait for executionContextCreated event.
    *
-   * Playwright equivalent: FrameExecutionContext.injectedScript()
    * No polling, no retries - event-driven and idempotent.
    */
   async ensureFrameState(

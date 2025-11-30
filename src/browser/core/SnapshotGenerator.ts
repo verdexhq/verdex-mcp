@@ -1,6 +1,6 @@
 /**
  * Generates accessibility tree snapshots from DOM elements
- * Based on Playwright's implementation following W3C ARIA specifications
+ * Following W3C ARIA specifications
  */
 import { AriaUtils } from "../utils/AriaUtils.js";
 import type {
@@ -66,7 +66,7 @@ export class SnapshotGenerator {
         element: document.body,
       };
 
-      // Phase 2: Optimize generic roles (Playwright's approach)
+      // Phase 2: Optimize generic roles
       this.normalizeGenericRoles(rootNode);
 
       // Phase 3: Render to text
@@ -418,7 +418,7 @@ export class SnapshotGenerator {
   }
 
   /**
-   * Normalize generic roles using Playwright's approach
+   * Normalize generic roles
    * Removes unnecessary generic containers that don't add semantic value
    */
   private normalizeGenericRoles(node: AriaNode): (AriaNode | string)[] {
