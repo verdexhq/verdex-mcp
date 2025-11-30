@@ -47,7 +47,7 @@ This survives reordering, refactoring, and DOM changes.
 
 ### Step 1: Open the Demo Page
 
-The demo page is located at: `tests/demo-page.html`
+The demo page is located at: `demo/worst-case/demo-page.html`
 
 ### Step 2: Start Verdex MCP
 
@@ -67,7 +67,7 @@ The demo page is located at: `tests/demo-page.html`
 **Copy-paste this prompt to your AI assistant:**
 
 ```
-Navigate to file:/verdex-mcp/tests/demo-page.html
+Navigate to file:/verdex-mcp/demo/worst-case/demo-page.html
 ```
 
 > 💡 **Note**: Update the path above to match your actual workspace location
@@ -275,10 +275,14 @@ Cheap tools (~1-2k tokens) enable rapid exploration and better results.
 See the full working Playwright tests generated with Verdex:
 
 ```bash
-npx playwright test tests/demo-quickstart.spec.ts
+# Install Playwright if you haven't already
+npm install -D @playwright/test
+
+# Run the demo tests
+npm run test:demo
 ```
 
-Check out [`tests/demo-quickstart.spec.ts`](demo/demo-quickstart.spec.ts) to see 10+ examples of stable selectors generated using Verdex exploration.
+Check out [`demo/demo-quickstart.spec.ts`](demo/demo-quickstart.spec.ts) to see 10+ examples of stable selectors generated using Verdex exploration.
 
 ### Try It on Your Own Application
 

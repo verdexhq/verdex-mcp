@@ -18,7 +18,6 @@ _playwright/
 
 # Testing
 playwright-report/
-playwright.config.ts
 
 # Environment variables
 .env
